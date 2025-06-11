@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json.openmrs.org/routes.schema.json",
+  "backendDependencies": {
+    "fhir2": ">=1.2",
+    "webservices.rest": "^2.2.0"
+  },
+  "extensions": [
+    {
+      "name": "allergy-tile",
+      "component": "allergyTile",
+      "slot": "patient-details-header-slot",
+      "online": false,
+      "offline": false,
+      "order": 3
+    },
+    {
+      "name": "allergies-details-widget",
+      "component": "allergiesDetailedSummary",
+      "slot": "patient-chart-allergies-dashboard-slot",
+      "online": false,
+      "offline": false
+    },
+   
+    {
+      "name": "allergy-delete-confirmation-dialog",
+      "component": "allergyDeleteConfirmationDialog"
+    }
+  ],
+  "workspaces": [
+    {
+      "name": "patient-allergy-form-workspace",
+      "title": "recordNewAllergy",
+      "component": "allergyFormWorkspace",
+      "type": "form"
+    }
+  ]
+}
