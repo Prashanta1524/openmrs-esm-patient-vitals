@@ -13,7 +13,7 @@ import {
   parseDate,
   useConfig,
   useLayoutType,
-} from '@openmrs/esm-framework';
+ useSession } from '@openmrs/esm-framework';
 import type { ConfigObject } from '../config-schema';
 import type { VitalsTableHeader, VitalsTableRow } from './types';
 import { useLaunchVitalsAndBiometricsForm } from '../utils';
@@ -24,7 +24,7 @@ import PaginatedVitals from './paginated-vitals.component';
 import PrintComponent from './print/print.component';
 import VitalsChart from './vitals-chart.component';
 import styles from './vitals-overview.scss';
-import { useSession } from '@openmrs/esm-framework';
+
 import MultiChartSelector from '../common/stigma-data-aggregate';
 // import AllPatientsDashboard from '../common/conf_dashboard';
 // import AllPatientsDashboard from '../common/conf_dashboard'; // Commented out to hide

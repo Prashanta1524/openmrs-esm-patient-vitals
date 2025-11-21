@@ -91,7 +91,7 @@ import counselorFormJson from '../काउन्सिलर फारम.json'
 import conferenceFormJson from '../कन्फरेन्स फारम.json';
 import { MonthlyBarChart } from './monthly-bar-chart';
 import StgTypeVisualization from './stg_type';
-import { CovidStigmaData } from './types';
+import { type CovidStigmaData } from './types';
 
 // QR Code imports
 import qr1hivawareness from './img/QR1_HIV awareness_NAPN.png';

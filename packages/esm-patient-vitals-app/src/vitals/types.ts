@@ -1,5 +1,5 @@
 import { type PatientVitalsAndBiometrics, type ObservationInterpretation } from '../common';
-import React from 'react';
+import type React from 'react';
 
 export interface VitalsTableRow extends PatientVitalsAndBiometrics {
   id: string;

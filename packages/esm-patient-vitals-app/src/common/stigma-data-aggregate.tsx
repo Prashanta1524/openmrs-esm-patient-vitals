@@ -371,7 +371,7 @@ import {
   Legend,
   Filler,
 } from 'chart.js';
-import { CovidStigmaData } from './types';
+import { type CovidStigmaData } from './types';
 // import zoomPlugin from 'chartjs-plugin-zoom';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
