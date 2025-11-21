@@ -2,7 +2,7 @@ import React, { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'r
 import { useTranslation } from 'react-i18next';
 import { useReactToPrint } from 'react-to-print';
 import { Button, ContentSwitcher, DataTableSkeleton, IconSwitch, InlineLoading } from '@carbon/react';
-import { Analytics, Table } from '@carbon/react/icons';
+import { Analytics, Table, ChartLine } from '@carbon/react/icons';
 import { CardHeader, EmptyState, ErrorState } from '@openmrs/esm-patient-common-lib';
 import {
   AddIcon,
@@ -18,10 +18,16 @@ import type { ConfigObject } from '../config-schema';
 import type { VitalsTableHeader, VitalsTableRow } from './types';
 import { useLaunchVitalsAndBiometricsForm } from '../utils';
 import { useVitalsAndBiometrics, useConceptUnits, withUnit } from '../common';
+import { useCovidStigmaData, mapStigmaDataToVitalsFormat } from '../common/stigma-data.resource';
+// import MultiChartSelector from '../common/stigma-data-aggregate'; // Commented out to hide
 import PaginatedVitals from './paginated-vitals.component';
 import PrintComponent from './print/print.component';
 import VitalsChart from './vitals-chart.component';
 import styles from './vitals-overview.scss';
+import { useSession } from '@openmrs/esm-framework';
+import MultiChartSelector from '../common/stigma-data-aggregate';
+// import AllPatientsDashboard from '../common/conf_dashboard';
+// import AllPatientsDashboard from '../common/conf_dashboard'; // Commented out to hide
 
 interface VitalsOverviewProps {
   patientUuid: string;
@@ -34,8 +40,9 @@ interface VitalsOverviewProps {
 const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, pageSize, urlLabel, pageUrl }) => {
   const { t } = useTranslation();
   const config = useConfig<ConfigObject>();
-  const headerTitle = t('vitals', 'Vitals');
+  const headerTitle = t('vitals', 'Stigma Score');
   const [chartView, setChartView] = useState(false);
+  const [showStigmaChart, setShowStigmaChart] = useState(false);
   const isTablet = useLayoutType() === 'tablet';
   const [isPrinting, setIsPrinting] = useState(false);
   const contentToPrintRef = useRef(null);
@@ -43,8 +50,15 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
 
   const { excludePatientIdentifierCodeTypes } = useConfig();
   const { data: vitals, error, isLoading, isValidating } = useVitalsAndBiometrics(patientUuid);
+  const { data: covidStigmaData, error: stigmaError, isLoading: stigmaLoading } = useCovidStigmaData(patientUuid);
   const { conceptUnits } = useConceptUnits();
   const showPrintButton = config.vitals.showPrintButton && !chartView;
+
+  const { user } = useSession();
+  const userRoles = user?.roles?.map((r) => r.display?.toLowerCase()) || [];
+
+  // Hide Vitals completely for self-registration users
+  if (userRoles.includes('self registration')) return null;
 
   const patientDetails = useMemo(() => {
     const getGender = (gender: string): string => {
@@ -78,24 +92,17 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
 
   const tableHeaders: Array<VitalsTableHeader> = [
     {
-      key: 'dateRender',
-      header: t('dateAndTime', 'Date and time'),
-      isSortable: true,
-      sortFunc: (valueA, valueB) => new Date(valueA.date).getTime() - new Date(valueB.date).getTime(),
-    },
-    {
       key: 'temperatureRender',
-      header: withUnit(t('temperatureAbbreviated', 'Temp'), conceptUnits.get(config.concepts.temperatureUuid) ?? ''),
+      header: 'Type of Stigma\n\n(लान्छनाको प्रकार)',
+      style: { width: '200px', minWidth: '200px' },
       isSortable: true,
       sortFunc: (valueA, valueB) =>
         valueA.temperature && valueB.temperature ? valueA.temperature - valueB.temperature : 0,
     },
     {
       key: 'bloodPressureRender',
-      header: withUnit(
-        t('bloodPressureAbbreviated', 'BP'),
-        conceptUnits.get(config.concepts.systolicBloodPressureUuid) ?? '',
-      ),
+      header: 'Stigma Score\n\n(लान्छनाको अंक)',
+      style: { width: '150px', minWidth: '150px' },
       isSortable: true,
       sortFunc: (valueA, valueB) =>
         valueA.systolic && valueB.systolic && valueA.diastolic && valueB.diastolic
@@ -105,49 +112,58 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
           : 0,
     },
     {
-      key: 'pulseRender',
-      header: withUnit(t('pulse', 'Pulse'), conceptUnits.get(config.concepts.pulseUuid) ?? ''),
+      key: 'spo2Render',
+      header: 'Intersectional\nStigma Score\n\n(अन्तरसम्बन्धित\nलान्छनाको अंक)',
+      style: { width: '140px', maxWidth: '140px' },
       isSortable: true,
-      sortFunc: (valueA, valueB) => (valueA.pulse && valueB.pulse ? valueA.pulse - valueB.pulse : 0),
+      sortFunc: (valueA, valueB) => (valueA.spo2 && valueB.spo2 ? valueA.spo2 - valueB.spo2 : 0),
     },
     {
       key: 'respiratoryRateRender',
-      header: withUnit(
-        t('respiratoryRateAbbreviated', 'R. Rate'),
-        conceptUnits.get(config.concepts.respiratoryRateUuid) ?? '',
-      ),
+      header: 'Dimension Score\n\n(क्षेत्रको अंक)',
+      style: { width: '300px', minWidth: '300px' },
       isSortable: true,
       sortFunc: (valueA, valueB) =>
         valueA.respiratoryRate && valueB.respiratoryRate ? valueA.respiratoryRate - valueB.respiratoryRate : 0,
     },
-    {
-      key: 'spo2Render',
-      header: withUnit(t('spo2', 'SpO2'), conceptUnits.get(config.concepts.oxygenSaturationUuid) ?? ''),
-      isSortable: true,
-      sortFunc: (valueA, valueB) => (valueA.spo2 && valueB.spo2 ? valueA.spo2 - valueB.spo2 : 0),
-    },
   ];
 
-  const tableRows: Array<VitalsTableRow> = useMemo(
-    () =>
-      vitals?.map((vitalSigns) => {
-        return {
-          ...vitalSigns,
-          dateRender: formatDate(parseDate(vitalSigns.date.toString()), { mode: 'wide', time: true }),
-          bloodPressureRender: `${vitalSigns.systolic ?? '--'} / ${vitalSigns.diastolic ?? '--'}`,
-          bloodPressureRenderInterpretation: vitalSigns.bloodPressureRenderInterpretation,
-          pulseRender: vitalSigns.pulse ?? '--',
-          pulseRenderInterpretation: vitalSigns.pulseRenderInterpretation,
-          spo2Render: vitalSigns.spo2 ?? '--',
-          spo2RenderInterpretation: vitalSigns.spo2RenderInterpretation,
-          temperatureRender: vitalSigns.temperature ?? '--',
-          temperatureRenderInterpretation: vitalSigns.temperatureRenderInterpretation,
-          respiratoryRateRender: vitalSigns.respiratoryRate ?? '--',
-          respiratoryRateRenderInterpretation: vitalSigns.respiratoryRateRenderInterpretation,
-        };
-      }),
-    [vitals],
-  );
+  const tableRows: VitalsTableRow[] = useMemo(() => {
+    if (covidStigmaData && covidStigmaData.length > 0) {
+      const allStigmaRows = [
+        ...mapStigmaDataToVitalsFormat(covidStigmaData, 'अपेक्षित लान्छना'),
+        ...mapStigmaDataToVitalsFormat(covidStigmaData, 'व्यावहारिक लान्छना'),
+        ...mapStigmaDataToVitalsFormat(covidStigmaData, 'आत्मलान्छना'),
+      ];
+
+      const sortedRows = allStigmaRows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      return sortedRows.map((row, idx) => ({
+        ...row,
+        id: String(idx),
+        date: row.date ?? '',
+      }));
+    } else if (vitals && vitals.length > 0) {
+      return vitals
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .map((d, idx) => ({
+          id: String(idx),
+          date: d.date ?? '',
+          dateRender: d.date ? new Date(d.date).toLocaleDateString() : '',
+          temperatureRender: d.temperature ?? '',
+          bloodPressureRender: d.bloodPressureRenderInterpretation ?? '',
+          pulseRender: d.pulse ?? '',
+          respiratoryRateRender: d.respiratoryRate ?? '',
+          spo2Render: d.spo2 ?? '',
+          temperatureRenderInterpretation: undefined,
+          bloodPressureRenderInterpretation: undefined,
+          pulseRenderInterpretation: undefined,
+          respiratoryRateRenderInterpretation: undefined,
+          spo2RenderInterpretation: undefined,
+        }));
+    }
+    return [];
+  }, [covidStigmaData, vitals]);
 
   const onBeforeGetContentResolve = useRef(null);
 
@@ -176,15 +192,15 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
   return (
     <>
       {(() => {
-        if (isLoading) {
+        if (isLoading || stigmaLoading) {
           return <DataTableSkeleton role="progressbar" compact={!isTablet} zebra />;
         }
 
-        if (error) {
-          return <ErrorState error={error} headerTitle={headerTitle} />;
+        if (error || stigmaError) {
+          return <ErrorState error={error || stigmaError} headerTitle={headerTitle} />;
         }
 
-        if (vitals?.length) {
+        if (tableRows?.length) {
           return (
             <div className={styles.widgetCard}>
               <CardHeader title={headerTitle}>
@@ -192,43 +208,25 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
                   <span>{isValidating ? <InlineLoading /> : null}</span>
                 </div>
                 <div className={styles.vitalsHeaderActionItems}>
-                  <ContentSwitcher
-                    onChange={(evt: ChangeEvent<HTMLButtonElement> & { name: string }) =>
-                      setChartView(evt.name === 'chartView')
-                    }
-                    size={isTablet ? 'md' : 'sm'}
+                  <Button
+                    kind="ghost"
+                    size="sm"
+                    className={styles.titleChartButton}
+                    onClick={() => setShowStigmaChart(!showStigmaChart)}
+                    iconDescription={t('toggleChart', 'Toggle Stigma Chart')}
+                    renderIcon={(props) => <span className={styles.chartIcon}>📈</span>}
                   >
-                    <IconSwitch name="tableView" text="Table view">
-                      <Table size={16} />
-                    </IconSwitch>
-                    <IconSwitch name="chartView" text="Chart view">
-                      <Analytics size={16} />
-                    </IconSwitch>
-                  </ContentSwitcher>
-                  <>
-                    <span className={styles.divider}>|</span>
-                    {showPrintButton && (
-                      <Button
-                        kind="ghost"
-                        renderIcon={PrinterIcon}
-                        iconDescription="Add vitals"
-                        className={styles.printButton}
-                        onClick={handlePrint}
-                      >
-                        {t('print', 'Print')}
-                      </Button>
-                    )}
-                    <Button
-                      kind="ghost"
-                      renderIcon={AddIcon}
-                      iconDescription="Add vitals"
-                      onClick={launchVitalsBiometricsForm}
-                    >
-                      {t('add', 'Add')}
-                    </Button>
-                  </>
+                    {showStigmaChart ? t('hideChart', 'Hide Chart') : t('showChart', 'Show Chart')}
+                  </Button>
                 </div>
               </CardHeader>
+
+              {showStigmaChart && (
+                <div className={styles.stigmaChartContainer} key={showStigmaChart ? 'chart-open' : 'chart-closed'}>
+                  <MultiChartSelector patientUuid={patientUuid} />
+                </div>
+              )}
+
               {chartView ? (
                 <VitalsChart patientVitals={vitals} conceptUnits={conceptUnits} config={config} />
               ) : (
@@ -244,15 +242,18 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
                   />
                 </div>
               )}
+
+              {/* All patients monthly stigma trend removed */}
             </div>
           );
         }
         return (
-          <EmptyState
-            displayText={t('vitalSigns', 'Vital signs')}
-            headerTitle={headerTitle}
-            launchForm={launchVitalsBiometricsForm}
-          />
+          <div className={styles.widgetCard}>
+            <CardHeader title={headerTitle} children={''} />
+            <div style={{ padding: '1rem', textAlign: 'center', fontSize: '1rem' }}>
+              {t('noStigmaMessage', 'कुनै पनि डेटा फेला परेन।')}
+            </div>
+          </div>
         );
       })()}
     </>

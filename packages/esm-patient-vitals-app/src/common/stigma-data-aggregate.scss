@@ -1,0 +1,19 @@
+.multiChartContainer,
+.chartWrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+:global {
+  .cds--chart-holder,
+  .cds--chart-wrapper,
+  canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+  }
+}

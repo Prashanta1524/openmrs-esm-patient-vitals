@@ -23,12 +23,12 @@
 
   // This is a hack to override the max-width of the overflow menu button
   :global(
-      .cds--chart-holder
-        .cds--cc--toolbar
-        .cds--overflow-menu-options
-        .cds--overflow-menu-options__option
-        .cds--overflow-menu-options__btn
-    ) {
+    .cds--chart-holder
+      .cds--cc--toolbar
+      .cds--overflow-menu-options
+      .cds--overflow-menu-options__option
+      .cds--overflow-menu-options__btn
+  ) {
     max-width: none !important;
   }
 
@@ -67,4 +67,9 @@
     border-left: layout.$spacing-01 solid $ui-03;
     margin-left: 0 !important;
   }
+}
+
+.vitals-value {
+  font-size: 60px; // adjust as needed
+  font-weight: 500;
 }

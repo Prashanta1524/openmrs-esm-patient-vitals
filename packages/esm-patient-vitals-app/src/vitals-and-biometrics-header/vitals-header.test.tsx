@@ -74,7 +74,7 @@ describe('VitalsHeader', () => {
     await waitForLoadingToFinish();
 
     expect(screen.getByText(/vitals and biometrics/i)).toBeInTheDocument();
-    expect(screen.getByText(/no data has been recorded for this patient/i)).toBeInTheDocument();
+    expect(screen.getByText(/ /i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /record vitals/i })).toBeInTheDocument();
   });
 

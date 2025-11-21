@@ -1,9 +1,37 @@
 @use '@carbon/layout';
 @use '@openmrs/esm-styleguide/src/vars' as *;
+@use '@carbon/type' as type;
 
 .widgetCard {
   border: 1px solid $ui-03;
   background-color: $ui-02;
+}
+
+.activitiesText {
+  background-color: #f0f4ff; // Light blue background
+  border: 2px solid #2f80ed; // Dark blue border
+  border-radius: 10px;
+  padding: 1.2rem 1.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  word-wrap: break-word;
+  font-size: 1rem;
+  line-height: 1.6;
+
+  p {
+    margin: 0.3rem 0;
+  }
+
+  strong {
+    display: block;
+    font-weight: 600;
+    margin: 0.5rem 0;
+  }
+
+  li {
+    margin-left: 1.5rem;
+    list-style-type: disc;
+  }
 }
 
 .biometricsHeaderActionItems {
@@ -33,4 +61,57 @@
   display: flex;
   flex: 1 1 0%;
   justify-content: end;
+}
+
+.introBox {
+  background: #f0f6ff;
+  border: 1px solid #2f80ed;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  max-width: 100%;
+}
+
+.introText {
+  @include type.type-style('body-01');
+  color: $ui-05;
+  line-height: 1.6;
+  margin: 0;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.headerItems {
+  display: flex;
+  align-items: baseline;
+  flex-flow: row wrap;
+  gap: layout.$spacing-02 layout.$spacing-04;
+}
+
+.heading {
+  @include type.type-style('heading-compact-02'); /* Carbon Design's compact heading style */
+  color: $ui-05 !important; /* Light text color for contrast */
+  text-align: center; /* Center the text */
+  padding: layout.$spacing-03 layout.$spacing-05; /* Add padding around the text */
+  margin-bottom: layout.$spacing-05; /* Margin below the heading */
+  background-color: #cadbf4; /* Light blue background */
+  border: 2px solid #1e6ed6; /* Darker blue border for contrast */
+  border-radius: 8px; /* Optional rounded corners */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Light shadow for depth */
+  max-width: 100%; /* Prevent overflow */
+  word-wrap: break-word; /* Prevent text overflow */
+  font-weight: bolder;
+  /* Default font size */
+  font-size: 1.2rem; /* Smaller font size for desktop (about 19px) */
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    font-size: 1rem; /* Smaller font size for tablets (about 16px) */
+    padding: layout.$spacing-02 layout.$spacing-04; /* Adjust padding for smaller screens */
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.875rem; /* Font size for mobile (about 14px) */
+    padding: layout.$spacing-02; /* Less padding on small screens */
+  }
 }

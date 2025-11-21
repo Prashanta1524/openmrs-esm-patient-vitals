@@ -142,7 +142,7 @@ test('Add, edit and delete patient vitals', async ({ page, patient }) => {
   });
 
   await test.step('And the vitals table should be empty', async () => {
-    await expect(vitalsPage.page.getByText(/There are no vital signs to display for this patient/i)).toBeVisible();
+    await expect(vitalsPage.page.getByText(/कुनै पनि डेटा फेला परेन।/i)).toBeVisible();
   });
 });
 

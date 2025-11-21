@@ -1,7 +1,85 @@
+// @use '@carbon/layout';
+// @use '@carbon/type';
+// @use '@openmrs/esm-styleguide/src/vars' as *;
+
+// .productiveHeading03 {
+//   @include type.type-style('heading-03');
+// }
+
+// .title {
+//   @extend .productiveHeading03;
+//   margin: 0 layout.$spacing-03 layout.$spacing-03 0;
+// }
+
+// .danger {
+//   color: $danger;
+// }
+
+// .button {
+//   height: layout.$spacing-10;
+//   display: flex;
+//   align-content: flex-start;
+//   align-items: baseline;
+//   min-width: 50%;
+// }
+
+// .tablet {
+//   margin: layout.$spacing-03 0;
+//   padding: layout.$spacing-06 layout.$spacing-05;
+//   background-color: $ui-02;
+// }
+
+// .desktop {
+//   padding: 0;
+// }
+
+// .form {
+//   display: flex;
+//   flex-direction: column;
+//   justify-content: space-between;
+//   height: 100%;
+// }
+
+// :global(.omrs-breakpoint-lt-desktop) .form {
+//   background-color: #ededed;
+// }
+
+// :global(.omrs-breakpoint-gt-tablet) .form {
+//   background-color: $ui-02;
+// }
+
+// .grid {
+//   margin: layout.$spacing-05;
+//   flex: 1;
+// }
+
+// .row {
+//   margin: layout.$spacing-03 0 0;
+//   display: flex;
+//   flex-flow: row wrap;
+//   gap: layout.$spacing-05 layout.$spacing-04;
+// }
+
+// .spacer {
+//   margin-top: layout.$spacing-05;
+// }
+
+// .noteInput {
+//   width: 100%;
+// }
+
+// .errorNotification {
+//   margin: layout.$spacing-03 0;
+// }
+
+// .errorContainer {
+//   margin: layout.$spacing-05;
+// }
 @use '@carbon/layout';
 @use '@carbon/type';
 @use '@openmrs/esm-styleguide/src/vars' as *;
 
+// Typography
 .productiveHeading03 {
   @include type.type-style('heading-03');
 }
@@ -11,10 +89,12 @@
   margin: 0 layout.$spacing-03 layout.$spacing-03 0;
 }
 
+// Colors
 .danger {
   color: $danger;
 }
 
+// Buttons
 .button {
   height: layout.$spacing-10;
   display: flex;
@@ -23,34 +103,54 @@
   min-width: 50%;
 }
 
+// Tablet & Desktop Containers
 .tablet {
   margin: layout.$spacing-03 0;
   padding: layout.$spacing-06 layout.$spacing-05;
   background-color: $ui-02;
+
+  @media screen and (min-width: 672px) {
+    // Carbon tablet breakpoint
+    padding: layout.$spacing-06 layout.$spacing-05;
+  }
 }
 
 .desktop {
   padding: 0;
+
+  @media screen and (min-width: 1056px) {
+    // Carbon desktop breakpoint
+    padding: layout.$spacing-06 layout.$spacing-05;
+  }
 }
 
+// Form Layout
 .form {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
+
+  @media screen and (max-width: 1055px) {
+    // less than desktop
+    background-color: #ededed;
+  }
+
+  @media screen and (min-width: 672px) {
+    // greater than tablet
+    background-color: $ui-02;
+  }
 }
 
-:global(.omrs-breakpoint-lt-desktop) .form {
-  background-color: #ededed;
-}
-
-:global(.omrs-breakpoint-gt-tablet) .form {
-  background-color: $ui-02;
-}
-
+// Grid Layout
 .grid {
   margin: layout.$spacing-05;
   flex: 1;
+
+  @media screen and (max-width: 672px) {
+    // mobile
+    margin: layout.$spacing-03;
+  }
 }
 
 .row {
@@ -58,20 +158,40 @@
   display: flex;
   flex-flow: row wrap;
   gap: layout.$spacing-05 layout.$spacing-04;
+
+  @media screen and (max-width: 672px) {
+    flex-direction: column;
+    gap: layout.$spacing-03;
+  }
 }
 
+// Spacing
 .spacer {
   margin-top: layout.$spacing-05;
+
+  @media screen and (max-width: 672px) {
+    margin-top: layout.$spacing-03;
+  }
 }
 
+// Inputs
 .noteInput {
   width: 100%;
 }
 
+// Error Notifications
 .errorNotification {
   margin: layout.$spacing-03 0;
+
+  @media screen and (max-width: 672px) {
+    margin: layout.$spacing-02 0;
+  }
 }
 
 .errorContainer {
   margin: layout.$spacing-05;
+
+  @media screen and (max-width: 672px) {
+    margin: layout.$spacing-03;
+  }
 }

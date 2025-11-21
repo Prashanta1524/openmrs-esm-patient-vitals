@@ -40,7 +40,13 @@
     "@carbon/charts-react": "^1.23.0",
     "@carbon/react": "^1.76.0",
     "@openmrs/esm-patient-common-lib": "next",
-    "lodash-es": "^4.17.21"
+    "chart.js": "^4.5.0",
+    "chartjs-plugin-zoom": "^2.2.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
+    "jspdf-autotable": "^5.0.2",
+    "lodash-es": "^4.17.21",
+    "react-chartjs-2": "^5.3.0"
   },
   "peerDependencies": {
     "@openmrs/esm-framework": "6.x",
@@ -54,6 +60,8 @@
   },
   "devDependencies": {
     "@openmrs/esm-patient-common-lib": "workspace:*",
-    "webpack": "^5.94.0"
+    "@types/react-chartjs-2": "^2.5.7",
+    "webpack": "5.99.9",
+    "webpack-cli": "5.0.1"
   }
 }

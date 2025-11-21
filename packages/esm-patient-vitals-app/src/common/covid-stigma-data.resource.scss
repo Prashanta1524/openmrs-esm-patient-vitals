@@ -1,0 +1,58 @@
+.activity-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+  margin-bottom: 20px;
+  transition: transform 0.2s ease-in-out;
+
+  &:hover {
+    transform: translateY(-3px);
+  }
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px;
+  }
+}
+
+.card-heading {
+  font-weight: bold;
+  color: #1e3a8a;
+  background-color: #bfdbfe;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  text-align: left;
+  font-size: 1.2rem;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
+}
+
+.card-list {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin-bottom: 12px;
+
+  li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+
+    @media (max-width: 768px) {
+      line-height: 1.4;
+    }
+
+    @media (max-width: 480px) {
+      line-height: 1.3;
+    }
+  }
+}

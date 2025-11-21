@@ -43,3 +43,95 @@
 .printButton {
   margin-left: 1.25rem;
 }
+
+th {
+  white-space: pre-line;
+  text-align: center;
+  max-width: fit-content;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.stigmaChartContainer {
+  margin: 1rem;
+  padding: 1rem;
+  background-color: colors.$white;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: calc(100% - 2rem);
+  transition: all 0.3s ease;
+  overflow: hidden;
+
+  h3 {
+    margin-top: 0;
+    color: colors.$gray-90;
+  }
+}
+
+.stigmaChartButton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.clickableHeader {
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  display: inline-block;
+  white-space: pre-line;
+  text-align: center;
+
+  &:hover {
+    color: colors.$blue-60;
+    text-decoration: underline;
+  }
+
+  &:focus {
+    outline: 2px solid colors.$blue-60;
+    outline-offset: 2px;
+  }
+}
+
+.clickableIcon {
+  margin-left: 4px;
+  opacity: 0.7;
+  font-size: 1rem;
+}
+
+.titleChartButton {
+  padding: 0 0.5rem;
+  min-height: unset;
+  height: auto;
+  font-weight: 600;
+  margin-right: 1rem;
+  font-size: 0.875rem;
+  color: colors.$gray-100;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+
+  &:hover,
+  &:focus {
+    color: colors.$blue-60;
+    text-decoration: underline;
+    background-color: transparent;
+  }
+}
+
+.chartIcon {
+  margin-left: 8px;
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
+
+  .titleChartButton:hover & {
+    transform: scale(1.2);
+  }
+}

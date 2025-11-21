@@ -65,7 +65,7 @@ describe('VitalsOverview', () => {
     await waitForLoadingToFinish();
     await screen.findByRole('heading', { name: /vitals/i });
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
-    expect(screen.getByText(/There are no vital signs to display for this patient/i)).toBeInTheDocument();
+    expect(screen.getByText(/ कुनै पनि डेटा फेला परेन।/i)).toBeInTheDocument();
     expect(screen.getByText(/record vital signs/i)).toBeInTheDocument();
   });
 

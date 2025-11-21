@@ -1,0 +1,187 @@
+{
+  "name": "काउन्सिलर फारम",
+  "pages": [
+    {
+      "label": "काउन्सिलर फारम",
+      "sections": [
+        {
+          "label": "कुराकानीको सुरुवात",
+          "isExpanded": true,
+          "questions": [
+            {
+              "label": "नमस्ते, आफ्नो व्यस्त समय निकालेर यी प्रश्नहरुको जवाफ दिनुभएकोमा धेरै-धेरै धन्यवाद। तपाईले सेयर गर्नुभएको आफ्नो अनुभवले हामीलाई धेरै नै मद्दत पुग्छ। तपाईले दिनुभएको जवाफ अनुसार, तपाईले भोग्नुभएका केही अप्ठ्यारा अनुभवहरूको बारेमा छलफल गरौ है | तपाईको (जस्तै: अपेक्षित लान्छना/ आत्मलान्छना /व्यवहारिक  लान्छना) मा विभिन्न लान्छनाको प्रकार तथा क्षेत्र संग सम्बन्धित अंक    ..... आएको छ।  यो अंकले तपाईले अनुभव गर्नुभएको वा भोग्नु भएको एचआईभि र अरु क्षेत्र (जस्तै:-मानसिक स्वास्थ्य, जातिय, लैङ्गिक तथा यौनिक क्षेत्र) संग सम्बन्धित  (अपेक्षित लान्छना/ आत्मलान्छना /व्यवहारिक  लान्छना) को बारेमा जानकारी दिन्छ| सामान्यतया, यो अंक जति कम भयो, त्यति राम्रो मानिन्छ। अब म तपाईलाई यसबारे केही प्रश्न सोध्छु है।",
+              "id": "counselor_intro_note",
+              "readonly": true,
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "text",
+                "concept": "48a4e5dc-5880-44d9-bca8-6b73ac84f282"
+              }                                                         
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "b7e06e2b-731f-4416-89c3-8ffcd98ae25c",
+                "rows": 4
+              },
+              "id": "plwh_thoughts_score",
+              "label": "१. यी प्रश्नहरूको जवाफ दिँदा तपाईलाई कस्तो महसुस भयो (केही अप्ठ्यारो वा नरमाइलो लाग्यो कि?)"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "4bd3baea-6fd5-4100-9e9f-4828b3824eca",
+                "rows": 4
+              },
+              "id": "less_score",
+              "label": "२. तपाईलाई के लाग्छ, तपाईको अनुभवलाई अझ राम्रो बनाउन वा यो अंकलाई घटाउन के कुराले मद्दत गर्न सक्थ्यो होला? अथवा, के-कस्तो भईदिएको भए तपाईले यस्तो अप्ठ्यारो भोग्नु पर्दैनथ्यो?"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "1b8683db-7f8f-4318-a3e4-e2ca9cedc409",
+                "rows": 4
+              },
+              "id": "reason_more_score",
+              "label": " ३. तपाईको विचारमा, के कारणले गर्दा यो नम्बरहरु अझ बढी भएन? वा त्यस्तो के राम्रो कुरा भयो जसले गर्दा तपाईको अनुभव यो भन्दा बिग्रिन पाएन?"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "radio",
+                "concept": "ff440a38-4c90-4e60-9b12-eb510e53d026",
+                "answers": [
+                  {
+                    "concept": "5f74c3b5-c1d0-4835-9bc2-7098cb711f99",
+                    "label": "भयो",
+                    "value": 1
+                  },
+                  {
+                    "concept": "f643d6d0-27e4-4ec2-be28-fb0a4a8019c9",
+                    "label": "भएन",
+                    "value": 0
+                  }
+                ]
+              },
+              "id": "new_stigma_identified",
+              "label": "४. के तपाईले कुनै नयाँ लान्छना पत्ता लगाउनु भयो?"
+            }
+          ]
+        },
+        {
+          "label": "सहभागीसँगको कुराकानी सकिएपछि भर्ने फारम",
+          "isExpanded": "true",
+          "questions": [
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "checkbox",
+                "concept": "b2dec3f6-1908-4579-b7e7-f16c179642dd",
+                "answers": [
+                  {
+                    "concept": "746e01c0-0e93-4c07-ae02-920f721e5eca",
+                    "label": "१. एचआईभी संक्रमित व्यक्तिहरूको आत्मसक्षमता र आत्मसम्मान बढाउने परामर्श"
+                  },
+                  {
+                    "concept": "ee6ff857-401f-4492-a98c-880a3838ec64",
+                    "label": "२. सपोर्ट ग्रुपको सूची"
+                  },
+                  {
+                    "concept": "5622AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "label": "३. अन्य"
+                  }
+                ]
+              },
+              "id": "activity_recommended",
+              "label": "तपाईले कुन गतिविधीको सुझाव दिनुभयो?"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "text",
+                "concept": "7a696920-09e8-410f-ad16-3ea56747aee3"
+              },
+              "hide": {
+                "hideWhenExpression": "activity_recommended == null || !activity_recommended.includes('5622AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')"
+              },
+              "id": "other_recommend",
+              "label": "यदि अन्य भए , खुलाउनुहोस्"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "checkbox",
+                "concept": "2b359951-a20c-47ff-8379-59541d2619ee",
+                "answers": [
+                  {
+                    "concept": "b080dd57-7296-41b7-b61c-565b80748d72",
+                    "label": "१. एचआईभी सम्बन्धि जनचेतना"
+                  },
+                  {
+                    "concept": "91c8602e-2eb1-478f-801a-7d92ec51378f",
+                    "label": "२. मानसिक स्वास्थ्य (डरको व्यवस्थापन)"
+                  },
+                  {
+                    "concept": "d36a20a7-cc83-41db-ac63-a0e49aca38ae",
+                    "label": "३. लैङ्गिक तथा यौनिक अल्पसङ्ख्यकको लागि जानकारी "
+                  },
+                  {
+                    "concept": "a313888c-30cf-44be-876d-8c14d18cfff3",
+                    "label": "४. उपचार पालना सम्बन्धि जनचेतना"
+                  },
+                  {
+                    "concept": "94bd8732-b00d-445b-a2e9-5c10a54719d9",
+                    "label": "५. ड्रप-इन सेन्टर, स्वतन्त्र पथ, बुटवल, रूपन्देही , msmgnepal@gmail.com, ०७१-५२४८६२ "
+                  },
+                  {
+                    "concept": "084bf2bd-50ca-4c64-8c87-2e89f473e00a",
+                    "label": "६. ड्रप-इन सेन्टर, मुर्ली बगैचा, वीरगञ्ज, पर्सा, parsachemsexdic@gmail.com, ०५१-५२८६०६"
+                  },
+                  {
+                    "concept": "6cfbab4c-8497-4476-93d4-afc665860b5f",
+                    "label": "७. ड्रप-इन सेन्टर, नील सरस्वतीथान, खुरसानिटार, काठमाडौं, cruiseaids@gmail.com, ०१-४४२४०५२"
+                  },
+                  {
+                    "concept": "b31ac3c4-2852-48af-86c0-6d0b492c9197",
+                    "label": "८. एनएपि+एन, बालुवाटार, काठमाडौं, info@napn.org.np, ०१-४५२७४५९"
+                  },
+                  {
+                    "concept": "e386d0c9-3f4b-4e43-b49f-3299820c214a",
+                    "label": "९. एनएफडब्लुएलएचए, नयाँ बानेश्वर, काठमाडौं, nfwlha007@gmail.com, ०१-४५९९३७५"
+                  },
+                  {
+                    "concept": "5622AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "label": "१०. अन्य"
+                  }
+                ]
+              },
+              "id": "resources_shared",
+              "label": "तपाईले कस्तो श्रोतहरु प्रदान गर्नुभयो?"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "text",
+                "concept": "7a696920-09e8-410f-ad16-3ea56747aee3"
+              },
+              "hide": {
+                "hideWhenExpression": "resources_shared == null || !resources_shared.includes('5622AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')"
+              },
+              "id": "other_resource",
+              "label": "यदि अन्य भए , खुलाउनुहोस्"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "processor": "EncounterFormProcessor",
+  "encounterType": "d7151f82-c1f3-4152-a605-2f9ea7414a79",
+  "referencedForms": [],
+  "uuid": "effc3190-3189-4fc2-9a19-ffee5d5ece95",
+  "description": "A form filled out by counselor",
+  "version": "1"
+}

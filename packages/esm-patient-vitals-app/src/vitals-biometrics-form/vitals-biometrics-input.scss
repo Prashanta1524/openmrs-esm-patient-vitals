@@ -3,54 +3,46 @@
 @use '@carbon/colors';
 @use '@openmrs/esm-styleguide/src/vars' as *;
 
+// Typography
 .label01 {
   @include type.type-style('label-01');
 }
-
 .bodyLong01 {
   @include type.type-style('body-01');
 }
-
 .productiveHeading04 {
   @include type.type-style('heading-04');
 }
 
+// Containers
 .container {
-  width: 11.625rem;
+  width: 100%;
+  max-width: 12rem;
   border-bottom: 1px solid $ui-04;
   margin-bottom: layout.$spacing-03;
 }
 
+// Labels
 .label {
   @extend .label01;
   color: $text-02;
   margin-bottom: layout.$spacing-03;
 }
 
+// Inputs
 .numberInput {
   border: none;
   @extend .productiveHeading04;
   text-align: center;
   padding: 0;
   color: $ui-05;
+  width: 100%;
 
-  // TODO: Move to styleguide overrides
   :global(.cds--number input[type='number']) {
     border: none !important;
     text-align: center;
     @include type.type-style('heading-04');
-    font-family:
-      ibm plex sans,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      '.sfnstext-regular',
-      sans-serif;
-    min-width: auto !important;
-  }
-
-  :global(.cds--number--nosteppers input[type='number']) {
-    padding-right: layout.$spacing-05 !important;
+    width: 100%;
   }
 
   ::placeholder {
@@ -58,72 +50,43 @@
   }
 }
 
+// Input Container
 .inputContainer {
   @extend .productiveHeading04;
-  height: 4.875rem;
+  min-height: 4.5rem;
   display: flex;
   justify-content: center;
   flex-direction: column;
   text-align: center;
   color: $text-02;
   background-color: $ui-01;
+  padding: layout.$spacing-03;
 
   &.focused {
     outline: layout.$spacing-01 solid colors.$blue-60;
-
-    input {
-      outline: none !important;
-    }
-
-    input[data-invalid]:not(:focus) {
-      outline: none;
-    }
-
-    svg {
-      display: none;
-    }
   }
-}
 
-:global(.omrs-breakpoint-lt-desktop) .inputContainer {
-  background-color: $ui-02;
-}
-
-.inputContainer {
-  &:global(.red) {
+  &.red {
     background-color: colors.$red-20;
-
-    input {
-      background-color: colors.$red-20;
-    }
   }
-
-  &:global(.green) {
+  &.green {
     background-color: colors.$green-20;
-
-    input {
-      background-color: colors.$green-20;
-    }
   }
-
-  &:global(.yellow) {
+  &.yellow {
     background-color: colors.$yellow-10;
-    input {
-      background-color: colors.$yellow-10;
-    }
+  }
+  &.blue {
+    background-color: colors.$blue-20;
+  }
+
+  @media screen and (max-width: 1055px) {
+    // tablet
+    min-height: 4rem;
+    padding: layout.$spacing-02;
   }
 }
 
-.numberInput {
-  svg {
-    display: none;
-  }
-
-  input[data-invalid]:not(:focus) {
-    outline: none !important;
-  }
-}
-
+// Textarea
 .textarea {
   border: none;
   @extend .bodyLong01;
@@ -131,6 +94,7 @@
 
   textarea {
     border-bottom: none;
+    width: 100%;
 
     &:focus {
       outline: none;
@@ -138,117 +102,75 @@
   }
 }
 
+// Centered flex container
 .centered {
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
+  gap: layout.$spacing-03;
   align-items: center;
   text-align: center;
-  margin: 0;
-  padding: 0;
+
+  @media screen and (max-width: 1055px) {
+    // tablet
+    flex-direction: column;
+    gap: layout.$spacing-02;
+  }
 }
 
+// Unit labels
 .unitName {
   @include type.type-style('body-compact-01');
   color: $text-02;
   margin-top: layout.$spacing-03;
 }
 
+// Validation / Error
 .invalidInputError {
-  max-width: 11rem;
+  width: 100%;
   color: $danger;
   margin-bottom: layout.$spacing-03;
 }
 
-.layer {
-  width: 100%;
-}
-
+// Label container
 .labelContainer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
 }
 
-.invalidInput {
-  outline: layout.$spacing-01 solid $danger;
-
-  &.focused {
-    border: none;
-  }
-}
-
-.invalidInputIcon {
-  svg {
-    color: $danger;
-  }
-}
-
+// Critical Values
 .critical-value {
   background-color: colors.$red-10;
-  .numberInput {
-    svg {
-      display: none;
-    }
 
-    input {
-      background-color: colors.$red-10;
-    }
-
-    input[data-invalid]:not(:focus) {
-      outline: none;
-    }
+  .numberInput input {
+    background-color: colors.$red-10;
   }
 }
 
-.critically-low,
-.critically-high,
-.low,
-.high {
-  &::after {
-    @include type.type-style('heading-compact-01');
-    color: $text-02;
-  }
-}
-
+// Arrows for abnormal values
 .low::after {
   content: ' ↓';
 }
-
 .critically-low::after {
   content: ' ↓↓';
 }
-
 .high::after {
   content: ' ↑';
 }
-
 .critically-high::after {
   content: ' ↑↑';
 }
 
-.inputInTabletView {
-  &.inputWithAbnormalValue {
-    .inputContainer {
-      background-color: colors.$red-20;
-
-      .numberInput {
-        input {
-          background-color: colors.$red-20;
-          outline: none;
-        }
-      }
-    }
-  }
-}
-
+// Readonly
 .readonly {
   cursor: default;
-}
 
-:global(.omrs-breakpoint-lt-desktop) .readonly {
-  background-color: colors.$gray-10;
-}
+  @media screen and (max-width: 1055px) {
+    background-color: colors.$gray-10;
+  }
 
-:global(.omrs-breakpoint-gt-tablet) .readonly {
-  background-color: colors.$white-0;
+  @media screen and (min-width: 1056px) {
+    background-color: colors.$white-0;
+  }
 }

@@ -120,3 +120,42 @@ export interface VitalsResponse {
   total: number;
   type: string;
 }
+
+// add to: packages/esm-patient-vitals-app/src/common/types.ts
+
+export interface CovidStigmaData {
+  id?: string;
+  date?: string; // encounterDatetime ISO string
+  stigmaType?: 'अपेक्षित लान्छना' | 'व्यावहारिक लान्छना' | 'आत्मलान्छना' | string;
+  stigmaScore?: number | string;
+  dimensionType?: string;
+  dimensionScore?: string | number | string[]; // raw string like "एचआईभी :74, मानसिक स्वास्थ्य:67, ..."
+  intersectionalScore?: number | string;
+  encounterUuid?: string;
+
+  // normalized numeric fields used by your existing code
+  as_score?: number;
+  es_score?: number;
+  is_score?: number;
+
+  hiv_domain_as?: number;
+  mh_domain_as?: number;
+  sgm_domain_as?: number;
+  em_domain_as?: number;
+  intersectional_stigma_as?: number;
+
+  hiv_domain_es?: number;
+  mh_domain_es?: number;
+  sgm_domain_es?: number;
+  em_domain_es?: number;
+  intersectional_stigma_es?: number;
+
+  hiv_domain_is?: number;
+  mh_domain_is?: number;
+  sgm_domain_is?: number;
+  em_domain_is?: number;
+  intersectional_stigma_is?: number;
+
+  // allow additional properties safely (optional)
+  [k: string]: any;
+}

@@ -1,0 +1,137 @@
+{
+  "name": "कन्फरेन्स फारम",
+  "pages": [
+    {
+      "label": "कुराकानीको सुरुवात",
+      "sections": [
+        {
+          "label": "कुराकानीको सुरुवात ",
+          "isExpanded": "true",
+          "questions": [
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "text",
+                "concept": "c09c4def-5523-46c4-b851-0b8b30268ee3"
+              },
+              "readonly": true,
+              "id": "prompt_conference",
+              "label": "कृपया कन्फरेन्स फारम खोल्नुहोस् र बैठकको छलफल अनुरुप भर्नुहोस् ।"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "date",
+                "concept": "aeaccd85-9186-43c5-bee1-f64577de21d2"
+              },
+              "id": "num_conference",
+              "label": "१. बैठकको गठन गरेको  मिति",
+              "required": false,
+              "datePickerFormat": "calendar"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "radio",
+                "concept": "7189452b-be65-42aa-ad77-4861f7d07bae",
+                "answers": [
+                  {
+                    "concept": "5f74c3b5-c1d0-4835-9bc2-7098cb711f99",
+                    "label": "गरियो",
+                    "value": 1
+                  },
+                  {
+                    "concept": "f643d6d0-27e4-4ec2-be28-fb0a4a8019c9",
+                    "label": "गरिएन",
+                    "value": 2
+                  }
+                ]
+              },
+              "id": "decide_to_implement",
+              "label": " २. यस बैठकमा, लान्छना सम्बन्धि  कुनै नयाँ गतिविधिहरु कार्यान्वयन गर्नको लागि निर्णय गर्नुभयो?"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "4a3ee8de-fa98-4ee0-89a6-63e83f1a7255",
+                "rows": 5
+              },
+              "hide": {
+                "hideWhenExpression": "(decide_to_implement != 1)"
+              },
+              "id": "decision_yes_specify",
+              "label": "२.१. यदि गर्नुभयो भने, कृपया खुलाउनुहोस्"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "42354488-0ad0-4cc8-8447-8a0fc075ecd3",
+                "rows": 5
+              },
+              "hide": {
+                "hideWhenExpression": "(decide_to_implement != 2)"
+              },
+              "id": "decision_no_specify",
+              "label": "२.२.  यदि गर्नुभएन भने, कृपया कारण खुलाउनुहोस्"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "radio",
+                "concept": "49b60881-a607-408d-89b4-f0c2105c1d96",
+                "answers": [
+                  {
+                    "concept": "5f74c3b5-c1d0-4835-9bc2-7098cb711f99",
+                    "label": "भयो",
+                    "value": 1
+                  },
+                  {
+                    "concept": "f643d6d0-27e4-4ec2-be28-fb0a4a8019c9",
+                    "label": "भएन",
+                    "value": 2
+                  }
+                ]
+              },
+              "id": "implement_activity",
+              "label": "३. अघिल्लो बैठकमा छलफल भएको कुनै गतिविधीहरु, गएको महिनामा प्रयोग गर्नुभयो?"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "bc5aa67e-fe29-4258-9eef-8a619dcba1ec",
+                "rows": 5
+              },
+              "hide": {
+                "hideWhenExpression": "(implement_activity != 1)"
+              },
+              "id": "implement_yes_specify",
+              "label": "३.१. यदि भयो भने, कृपया खुलाउनुहोस्"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "c4e607b0-9e59-4a2d-a901-38a657b1e023",
+                "rows": 5
+              },
+              "hide": {
+                "hideWhenExpression": "(implement_activity != 2)"
+              },
+              "id": "implement_no_specify",
+              "label": "३.२ यदि गर्नुभएन भने, कृपया खुलाउनुहोस्"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "processor": "EncounterFormProcessor",
+  "encounterType": "d7151f82-c1f3-4152-a605-2f9ea7414a79",
+  "referencedForms": [],
+  "uuid": "55b82773-3cd0-4813-a38e-9d0c1ea35e45",
+  "description": "Conference Form",
+  "version": "1"
+}

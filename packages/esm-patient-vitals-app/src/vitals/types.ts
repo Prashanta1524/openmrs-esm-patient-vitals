@@ -1,17 +1,18 @@
 import { type PatientVitalsAndBiometrics, type ObservationInterpretation } from '../common';
+import React from 'react';
 
 export interface VitalsTableRow extends PatientVitalsAndBiometrics {
   id: string;
   dateRender: string;
-  bloodPressureRender: string;
+  bloodPressureRender: string | number | React.ReactNode;
   bloodPressureRenderInterpretation?: ObservationInterpretation;
   pulseRender: string | number;
   pulseRenderInterpretation?: ObservationInterpretation;
-  spo2Render: string | number;
+  spo2Render: string | number | React.ReactNode;
   spo2RenderInterpretation?: ObservationInterpretation;
   temperatureRender: string | number;
   temperatureRenderInterpretation?: ObservationInterpretation;
-  respiratoryRateRender: string | number;
+  respiratoryRateRender: React.ReactNode;
   respiratoryRateRenderInterpretation?: ObservationInterpretation;
 }
 
@@ -23,7 +24,8 @@ export interface VitalsTableHeader {
     | 'pulseRender'
     | 'respiratoryRateRender'
     | 'spo2Render';
-  header: string;
+  header: string | React.ReactNode;
   isSortable?: boolean;
+  style?: React.CSSProperties;
   sortFunc: (valueA: VitalsTableRow, valueB: VitalsTableRow) => number;
 }

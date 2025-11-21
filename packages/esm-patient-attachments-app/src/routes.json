@@ -10,17 +10,6 @@
       "slot": "patient-chart-attachments-dashboard-slot"
     },
     {
-      "name": "attachments-results-summary-dashboard",
-      "component": "attachmentsSummaryResultsDashboard",
-      "slot": "patient-chart-dashboard-slot",
-      "meta": {
-        "slot": "patient-chart-attachments-dashboard-slot",
-        "path": "Attachments"
-      },
-      "online": false,
-      "order": 9
-    },
-    {
       "name": "capture-photo-widget",
       "component": "capturePhotoWidget",
       "slot": "capture-patient-photo-slot"

@@ -1,5 +1,6 @@
 {
     "git-blame.gitWebUrl": "",
     "angular.enable-strict-mode-prompt": false,
-    "typescript.tsdk": "node_modules/typescript/lib"
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "livePreview.defaultPreviewPath": "/packages/esm-patient-vitals-app/src/common/act1.html"
 }

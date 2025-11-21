@@ -1,0 +1,2484 @@
+{
+    "@openmrs/esm-home-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.24.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "route": "home",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "extensions": [
+            {
+                "name": "home-nav-menu",
+                "slot": "home-sidebar-slot",
+                "component": "homeNavMenu",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "home-widget-db-link",
+                "slot": "homepage-dashboard-slot",
+                "component": "homeWidgetDbLink",
+                "meta": {
+                    "name": "home",
+                    "slot": "home-dashboard-slot",
+                    "title": ""
+                },
+                "order": 0,
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "page-header",
+                "slot": "home-dashboard-slot",
+                "component": "homePageHeader"
+            },
+            {
+                "name": "metrics-slot",
+                "slot": "home-dashboard-slot",
+                "component": "metrics",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "home-widget-dashboard",
+                "slot": "home-dashboard-slot",
+                "component": "homeWidgetDashboard",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "version": "5.6.3"
+    },
+    "@openmrs/esm-devtools-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "pages": [
+            {
+                "component": "devtools",
+                "route": true,
+                "online": true,
+                "offline": true
+            }
+        ],
+        "modals": [
+            {
+                "name": "importmap-override-modal",
+                "component": "importmapOverrideModal"
+            }
+        ],
+        "version": "6.3.0"
+    },
+    "@openmrs/esm-bed-management-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.24.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "route": "bed-management"
+            }
+        ],
+        "extensions": [
+            {
+                "component": "adminCardLink",
+                "name": "bed-management-admin-card-link",
+                "slot": "system-admin-page-card-link-slot"
+            },
+            {
+                "component": "adminLeftPanelLink",
+                "name": "bed-administration-left-panel-link",
+                "slot": "bed-management-left-panel-slot"
+            },
+            {
+                "component": "bedTypeLeftPanelLink",
+                "name": "bed-type-left-panel-link",
+                "slot": "bed-management-left-panel-slot"
+            },
+            {
+                "component": "bedTagLeftPanelLink",
+                "name": "bed-tag-left-panel-link",
+                "slot": "bed-management-left-panel-slot"
+            },
+            {
+                "component": "summaryLeftPanelLink",
+                "name": "bed-management-home-dashboard-link",
+                "slot": "bed-management-left-panel-slot",
+                "order": 0
+            }
+        ],
+        "modals": [
+            {
+                "name": "delete-bed-tag-modal",
+                "component": "deleteBedTagModal"
+            },
+            {
+                "name": "delete-bed-type-modal",
+                "component": "deleteBedTypeModal"
+            },
+            {
+                "name": "edit-bed-modal",
+                "component": "editBedModal"
+            },
+            {
+                "name": "edit-bed-tag-modal",
+                "component": "editBedTagModal"
+            },
+            {
+                "name": "edit-bed-type-modal",
+                "component": "editBedTypeModal"
+            },
+            {
+                "name": "new-bed-modal",
+                "component": "newBedModal"
+            },
+            {
+                "name": "new-bed-tag-modal",
+                "component": "newBedTagModal"
+            },
+            {
+                "name": "new-bed-type-modal",
+                "component": "newBedTypeModal"
+            }
+        ],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-help-menu-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "pages": [
+            {
+                "component": "root",
+                "route": true
+            }
+        ],
+        "extensions": [
+            {
+                "name": "release-notes",
+                "slot": "help-menu-slot",
+                "component": "releaseNotes",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "docs",
+                "slot": "help-menu-slot",
+                "component": "docs",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "contact-us",
+                "slot": "help-menu-slot",
+                "component": "contact",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "version": "6.3.0"
+    },
+    "@openmrs/esm-openconceptlab-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "openconceptlab": ">=1.2.0",
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "admin-ocl-card-link",
+                "slot": "system-admin-page-card-link-slot",
+                "component": "adminOclCardLink"
+            }
+        ],
+        "pages": [
+            {
+                "component": "root",
+                "route": "ocl"
+            }
+        ],
+        "version": "4.1.0"
+    },
+    "@openmrs/esm-dispensing-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "pages": [
+            {
+                "component": "dispensing",
+                "route": "dispensing",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "extensions": [
+            {
+                "name": "dispensing-link",
+                "slot": "app-menu-slot",
+                "component": "dispensingLink",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "patient-diagnoses",
+                "component": "patientDiagnoses",
+                "slot": "dispensing-condition-and-diagnoses",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "patient-conditions",
+                "component": "patientConditions",
+                "slot": "dispensing-condition-and-diagnoses",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "dispensing-dashboard",
+                "slot": "dispensing-dashboard-slot",
+                "component": "dispensingDashboard",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "dispensing-dashboard-link",
+                "component": "dispensingDashboardLink",
+                "meta": {
+                    "name": "dispensing",
+                    "slot": "dispensing-dashboard-slot",
+                    "title": "Dispensing"
+                }
+            },
+            {
+                "name": "dispense-action-button",
+                "slot": "prescription-action-button-slot",
+                "component": "dispenseActionButton"
+            },
+            {
+                "name": "pause-action-button",
+                "slot": "prescription-action-button-slot",
+                "component": "pauseActionButton"
+            },
+            {
+                "name": "close-action-button",
+                "slot": "prescription-action-button-slot",
+                "component": "closeActionButton"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "close-dispense-workspace",
+                "component": "closeDispenseWorkspace",
+                "type": "dispense",
+                "title": "Close prescription"
+            },
+            {
+                "name": "pause-dispense-workspace",
+                "component": "pauseDispenseWorkspace",
+                "type": "dispense",
+                "title": "Pause prescription"
+            },
+            {
+                "name": "dispense-workspace",
+                "component": "dispenseWorkspace",
+                "type": "dispense",
+                "title": "Dispense prescription",
+                "width": "wider"
+            }
+        ],
+        "modals": [
+            {
+                "name": "prescription-print-preview-modal",
+                "component": "printPrescriptionPreviewModal"
+            },
+            {
+                "name": "delete-confirm-modal",
+                "component": "deleteConfirmModal"
+            }
+        ],
+        "version": "1.7.0"
+    },
+    "@openmrs/esm-cohort-builder-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0",
+            "reportingrest": "^1.0.0",
+            "reporting": "^1.0.0"
+        },
+        "pages": [
+            {
+                "component": "cohortBuilder",
+                "route": "cohort-builder",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "extensions": [
+            {
+                "name": "system-administration-cohort-builder-card-link",
+                "slot": "system-admin-page-card-link-slot",
+                "component": "cohortBuilderAdminPageCardLink",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "modals": [
+            {
+                "name": "clear-search-history-modal",
+                "component": "clearSearchHistoryModal"
+            },
+            {
+                "name": "clear-item-from-search-history-modal",
+                "component": "clearItemFromSearchHistoryModal"
+            },
+            {
+                "name": "delete-cohort-modal",
+                "component": "deleteCohortModal"
+            },
+            {
+                "name": "delete-query-modal",
+                "component": "deleteQueryModal"
+            },
+            {
+                "name": "save-cohort-modal",
+                "component": "saveCohortModal"
+            },
+            {
+                "name": "save-query-modal",
+                "component": "saveQueryModal"
+            }
+        ],
+        "version": "4.0.3"
+    },
+    "@openmrs/esm-active-visits-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "active-visits-widget",
+                "slot": "homepage-widgets-slot",
+                "component": "activeVisits",
+                "order": 0
+            },
+            {
+                "name": "visit-summary-widget",
+                "slot": "visit-summary-slot",
+                "component": "visitDetail"
+            },
+            {
+                "name": "active-visits-tile",
+                "slot": "home-metrics-tiles-slot",
+                "component": "homeActiveVisitsTile"
+            },
+            {
+                "name": "total-visits-tile",
+                "slot": "home-metrics-tiles-slot",
+                "component": "homeTotalVisitsTile"
+            }
+        ],
+        "pages": [],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-patient-flags-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "edit-flags-side-panel-form",
+                "component": "editPatientFlagsWorkspace",
+                "meta": {
+                    "title": {
+                        "key": "editPatientFlags",
+                        "default": "Edit patient flags"
+                    }
+                },
+                "featureFlag": "patientFlags"
+            },
+            {
+                "name": "patient-flag-tags",
+                "slot": "patient-highlights-bar-slot",
+                "component": "flagTags",
+                "order": 0,
+                "featureFlag": "patientFlags"
+            },
+            {
+                "name": "patient-flags-overview",
+                "slot": "patient-chart-summary-dashboard-slot",
+                "component": "flagsOverview",
+                "order": 0,
+                "featureFlag": "patientFlags",
+                "meta": {
+                    "fullWidth": false
+                }
+            }
+        ],
+        "featureFlags": [
+            {
+                "flagName": "patient-flags",
+                "label": "Patient flags",
+                "description": "Visual components that enable healthcare providers to see relevant patient information with a glance in the Patient chart. Flags are displayed in the Patient Summary, just below the patient banner, and can link users to other areas of the chart to perform relevant actions during a visit."
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-banner-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "visit-tag",
+                "slot": "patient-banner-tags-slot",
+                "component": "visitTag",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "deceased-patient-tag",
+                "slot": "patient-banner-tags-slot",
+                "component": "deceasedPatientTag",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "patient-banner",
+                "slot": "patient-header-slot",
+                "component": "patientBanner",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "print-identifier-sticker-button",
+                "slot": "patient-actions-slot",
+                "component": "printIdentifierStickerActionButton",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "modals": [
+            {
+                "name": "print-identifier-sticker-modal",
+                "component": "printIdentifierStickerModal"
+            }
+        ],
+        "featureFlags": [
+            {
+                "description": "Features to support printing a patient identifier sticker",
+                "flagName": "print-patient-identifier-sticker",
+                "label": "Print patient identifier sticker"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-system-admin-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "system-administration-app-menu-link",
+                "slot": "app-menu-slot",
+                "component": "systemAdminAppMenuLink"
+            },
+            {
+                "name": "system-admin-page-link",
+                "slot": "system-admin-page-card-link-slot",
+                "component": "legacySystemAdminPageCardLink",
+                "order": 0
+            }
+        ],
+        "pages": [
+            {
+                "component": "root",
+                "route": "system-administration"
+            }
+        ],
+        "version": "4.1.0"
+    },
+    "@openmrs/esm-patient-lists-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "patient-lists-action-menu",
+                "component": "patientListsActionMenu",
+                "slot": "action-menu-patient-chart-items-slot"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "patient-lists",
+                "title": "patientListsWorkspaceTitle",
+                "component": "patientListsWorkspace",
+                "type": "patient-lists",
+                "canHide": false,
+                "width": "wider"
+            },
+            {
+                "name": "patient-list-details",
+                "title": "patientListDetailWorkspaceTitle",
+                "component": "patientListDetailsWorkspace",
+                "type": "patient-lists",
+                "canHide": false,
+                "width": "wider"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-login-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": ">=2.24.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "route": "login",
+                "online": true,
+                "offline": true
+            },
+            {
+                "component": "root",
+                "route": "logout",
+                "online": true,
+                "offline": true
+            },
+            {
+                "component": "root",
+                "route": "change-password",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "extensions": [
+            {
+                "name": "location-picker",
+                "slot": "location-picker",
+                "component": "locationPicker",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "logout-button",
+                "slot": "user-panel-bottom-slot",
+                "component": "logoutButton",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "password-changer",
+                "slot": "user-panel-slot",
+                "component": "changePasswordLink",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "location-changer",
+                "slot": "top-nav-info-slot",
+                "component": "changeLocationLink",
+                "online": true,
+                "offline": true,
+                "order": 1
+            }
+        ],
+        "modals": [
+            {
+                "name": "change-password-modal",
+                "component": "changePasswordModal"
+            }
+        ],
+        "version": "6.3.0"
+    },
+    "@openmrs/esm-reports-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.24.0",
+            "reportingrest": ">=1.15.0",
+            "reporting": ">=1.27.0"
+        },
+        "extensions": [
+            {
+                "name": "admin-report-link",
+                "slot": "system-admin-page-card-link-slot",
+                "component": "reportsLink"
+            },
+            {
+                "name": "run-report",
+                "component": "runReport"
+            }
+        ],
+        "pages": [
+            {
+                "component": "root",
+                "route": "reports"
+            },
+            {
+                "component": "overview",
+                "route": "overview"
+            },
+            {
+                "component": "scheduled-overview",
+                "route": "scheduled-overview"
+            }
+        ],
+        "modals": [
+            {
+                "name": "cancel-report-modal",
+                "component": "cancelReportModal"
+            }
+        ],
+        "version": "4.1.0"
+    },
+    "@openmrs/esm-form-engine-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "react-form-engine-widget",
+                "component": "formRenderer",
+                "slot": "form-widget-slot"
+            },
+            {
+                "name": "rfe-form-collapse-toggle",
+                "component": "formCollapseToggle",
+                "slot": "workspace-header-patient-chart-slot"
+            }
+        ],
+        "modals": [
+            {
+                "name": "form-engine-delete-question-confirm-modal",
+                "component": "deleteQuestionModal"
+            }
+        ],
+        "pages": [],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-list-management-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "patient-lists-dashboard-link",
+                "component": "patientListDashboardLink",
+                "slot": "homepage-dashboard-slot",
+                "meta": {
+                    "name": "patient-lists",
+                    "slot": "patient-lists-dashboard-slot",
+                    "title": "Patient lists"
+                }
+            },
+            {
+                "component": "root",
+                "name": "patient-lists-dashboard",
+                "slot": "patient-lists-dashboard-slot"
+            },
+            {
+                "name": "list-details-table",
+                "component": "listDetailsTable"
+            },
+            {
+                "name": "add-patient-to-patient-list-button",
+                "slot": "patient-actions-slot",
+                "component": "addPatientToPatientListMenuItem"
+            }
+        ],
+        "modals": [
+            {
+                "name": "add-patient-to-patient-list-modal",
+                "component": "addPatientToListModal"
+            }
+        ],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-patient-allergies-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "allergy-tile",
+                "component": "allergyTile",
+                "slot": "patient-details-header-slot",
+                "online": true,
+                "offline": true,
+                "order": 3
+            },
+            {
+                "name": "allergies-details-widget",
+                "component": "allergiesDetailedSummary",
+                "slot": "patient-chart-allergies-dashboard-slot",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "allergies-summary-dashboard",
+                "component": "allergiesDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "online": true,
+                "offline": true,
+                "order": 6,
+                "meta": {
+                    "slot": "patient-chart-allergies-dashboard-slot",
+                    "path": "Allergies"
+                }
+            },
+            {
+                "name": "allergy-delete-confirmation-dialog",
+                "component": "allergyDeleteConfirmationDialog"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "patient-allergy-form-workspace",
+                "title": "recordNewAllergy",
+                "component": "allergyFormWorkspace",
+                "type": "form"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-laboratory-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.24.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "route": "laboratory"
+            }
+        ],
+        "extensions": [
+            {
+                "name": "laboratory-dashboard",
+                "slot": "laboratory-dashboard-slot",
+                "component": "root"
+            },
+            {
+                "name": "laboratory-dashboard-link",
+                "slot": "homepage-dashboard-slot",
+                "component": "laboratoryDashboardLink",
+                "meta": {
+                    "name": "laboratory",
+                    "slot": "laboratory-dashboard-slot",
+                    "title": "Laboratory"
+                }
+            },
+            {
+                "name": "pickup-lab-request-modal",
+                "component": "pickupLabRequestModal"
+            },
+            {
+                "name": "reject-lab-request-modal",
+                "component": "rejectLabRequestModal"
+            },
+            {
+                "name": "all-lab-requests-table",
+                "slot": "lab-panels-slot",
+                "component": "allLabRequestsTable",
+                "meta": {
+                    "name": "inprogressPanel",
+                    "title": "Tests ordered"
+                }
+            },
+            {
+                "name": "inprogress-lab-requests-table",
+                "slot": "lab-panels-slot",
+                "component": "inprogressLabRequestsTable",
+                "meta": {
+                    "name": "inprogressPanel",
+                    "title": "In progress"
+                }
+            },
+            {
+                "name": "completed-lab-requests-table",
+                "slot": "lab-panels-slot",
+                "component": "completedLabRequestsTable",
+                "meta": {
+                    "name": "completedPanel",
+                    "title": "Completed"
+                }
+            },
+            {
+                "name": "tests-ordered-tile-component",
+                "slot": "lab-tiles-slot",
+                "component": "testOrderedTile",
+                "meta": {
+                    "name": "testsOrderedTileSlot",
+                    "title": "Ordered tests"
+                }
+            },
+            {
+                "name": "worklist-tile-component",
+                "slot": "lab-tiles-slot",
+                "component": "worklistTile",
+                "meta": {
+                    "name": "worklisTileSlot",
+                    "title": "Worklist"
+                }
+            },
+            {
+                "name": "completed-tile-component",
+                "slot": "lab-tiles-slot",
+                "component": "completedTile",
+                "meta": {
+                    "name": "referredPanleSlot",
+                    "title": "Referred tests"
+                }
+            },
+            {
+                "name": "declined-tile-component",
+                "slot": "lab-panels-slot",
+                "component": "declinedLabRequestsTable",
+                "meta": {
+                    "name": "declinedPanel",
+                    "title": "Declined tests"
+                }
+            },
+            {
+                "name": "pick-lab-request-action",
+                "component": "pickupLabRequestAction",
+                "slot": "tests-ordered-actions-slot"
+            },
+            {
+                "name": "reject-lab-request-tests-ordered-action",
+                "component": "rejectLabRequestAction",
+                "slot": "rejected-ordered-actions-slot"
+            },
+            {
+                "name": "edit-lab-request-tests-ordered-action",
+                "component": "editLabRequestAction",
+                "slot": "completed-ordered-actions-slot"
+            },
+            {
+                "name": "reject-lab-request-worklist-action",
+                "component": "rejectLabRequestAction",
+                "slot": "inprogress-tests-actions-slot"
+            },
+            {
+                "name": "add-lab-request-results-action",
+                "component": "addLabRequestResultsAction",
+                "slot": "inprogress-tests-actions-slot"
+            }
+        ],
+        "version": "1.1.0"
+    },
+    "@openmrs/esm-generic-patient-widgets-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2"
+        },
+        "extensions": [
+            {
+                "name": "obs-by-encounter-widget",
+                "component": "switchableObs",
+                "online": true,
+                "offline": true,
+                "meta": {
+                    "fullWidth": false
+                }
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-forms-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "offline-tools-dashboard-forms-card",
+                "component": "offlineFormOverviewCard",
+                "slot": "offline-tools-dashboard-cards",
+                "offline": true,
+                "online": true,
+                "order": 1
+            },
+            {
+                "name": "offline-tools-page-forms-link",
+                "component": "offlineFormsNavLink",
+                "slot": "offline-tools-page-slot",
+                "offline": true,
+                "online": true,
+                "meta": {
+                    "name": "forms",
+                    "slot": "offline-tools-page-forms-slot"
+                }
+            },
+            {
+                "name": "offline-tools-page-forms",
+                "component": "offlineForms",
+                "slot": "offline-tools-page-forms-slot",
+                "offline": true,
+                "online": true
+            },
+            {
+                "name": "clinical-form-action-menu",
+                "component": "clinicalFormActionMenu",
+                "slot": "action-menu-patient-chart-items-slot",
+                "offline": true,
+                "online": true,
+                "order": 2
+            },
+            {
+                "name": "clinical-forms-workspaceExtension",
+                "component": "clinicalFormsWorkspaceExtension",
+                "slot": "ward-patient-clinical-forms-workspace-slot"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "patient-form-entry-workspace",
+                "title": "clinicalForm",
+                "component": "patientFormEntryWorkspace",
+                "type": "clinical-form",
+                "canMaximize": true,
+                "canHide": true,
+                "width": "extra-wide"
+            },
+            {
+                "name": "ward-patient-form-entry-workspace",
+                "title": "clinicalForm",
+                "component": "patientFormEntryWorkspace",
+                "type": "ward-patient-clinical-form",
+                "canMaximize": true,
+                "canHide": false,
+                "width": "wider"
+            },
+            {
+                "name": "patient-html-form-entry-workspace",
+                "title": "clinicalForm",
+                "component": "patientHtmlFormEntryWorkspace",
+                "type": "clinical-form",
+                "canMaximize": true,
+                "canHide": false,
+                "width": "extra-wide"
+            },
+            {
+                "name": "ward-patient-html-form-entry-workspace",
+                "title": "clinicalForm",
+                "component": "patientHtmlFormEntryWorkspace",
+                "type": "ward-patient-clinical-form",
+                "canMaximize": true,
+                "canHide": false,
+                "width": "extra-wide"
+            },
+            {
+                "name": "clinical-forms-workspace",
+                "title": "clinicalForms",
+                "component": "clinicalFormsWorkspace",
+                "type": "clinical-forms",
+                "width": "wider"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-search-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "route": "search"
+            }
+        ],
+        "extensions": [
+            {
+                "name": "patient-search-icon",
+                "component": "patientSearchIcon",
+                "slot": "top-nav-actions-slot",
+                "order": 10
+            },
+            {
+                "name": "patient-search-button",
+                "component": "patientSearchButton",
+                "slot": "patient-search-button-slot",
+                "offline": true
+            },
+            {
+                "name": "patient-search-bar",
+                "component": "patientSearchBar",
+                "slot": "patient-search-bar-slot",
+                "offline": true
+            }
+        ],
+        "workspaces": [
+            {
+                "component": "patientSearchWorkspace",
+                "groups": [
+                    "ward-patient-admission-requests"
+                ],
+                "name": "patient-search-workspace",
+                "title": "searchPatient",
+                "type": "patient-search-workspace",
+                "width": "narrow"
+            }
+        ],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-patient-programs-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "programs-overview-widget",
+                "component": "programsOverview",
+                "meta": {
+                    "fullWidth": false
+                },
+                "order": 6
+            },
+            {
+                "name": "programs-details-widget",
+                "slot": "patient-chart-programs-dashboard-slot",
+                "component": "programsDetailedSummary",
+                "order": 6
+            },
+            {
+                "name": "programs-summary-dashboard",
+                "slot": "patient-chart-dashboard-slot",
+                "component": "programsDashboardLink",
+                "meta": {
+                    "slot": "patient-chart-programs-dashboard-slot",
+                    "path": "Programs"
+                },
+                "order": 10
+            }
+        ],
+        "pages": [],
+        "workspaces": [
+            {
+                "name": "programs-form-workspace",
+                "title": "programEnrollmentWorkspaceTitle",
+                "component": "programsFormWorkspace"
+            }
+        ],
+        "modals": [
+            {
+                "name": "program-delete-confirmation-modal",
+                "component": "deleteProgramConfirmationModal"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-conditions-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "conditions-overview-widget",
+                "slot": "patient-chart-summary-dashboard-slot",
+                "component": "conditionsOverview",
+                "order": 3,
+                "meta": {
+                    "fullWidth": false
+                }
+            },
+            {
+                "name": "conditions-details-widget",
+                "slot": "patient-chart-conditions-dashboard-slot",
+                "component": "conditionsDetailedSummary",
+                "meta": {
+                    "fullWidth": false
+                }
+            },
+            {
+                "name": "conditions-summary-dashboard",
+                "component": "conditionsDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "order": 7,
+                "meta": {
+                    "slot": "patient-chart-conditions-dashboard-slot",
+                    "path": "Conditions"
+                }
+            },
+            {
+                "name": "conditions-widget",
+                "component": "conditionsWidget"
+            },
+            {
+                "name": "condition-delete-confirmation-dialog",
+                "component": "conditionDeleteConfirmationDialog"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "conditions-form-workspace",
+                "title": "recordCondition",
+                "component": "conditionsFormWorkspace"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-attachments-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "attachments-overview-widget",
+                "component": "attachmentsOverview",
+                "slot": "patient-chart-attachments-dashboard-slot"
+            },
+            {
+                "name": "attachments-results-summary-dashboard",
+                "component": "attachmentsSummaryResultsDashboard",
+                "slot": "patient-chart-dashboard-slot",
+                "meta": {
+                    "slot": "patient-chart-attachments-dashboard-slot",
+                    "path": "Attachments"
+                },
+                "order": 9
+            },
+            {
+                "name": "capture-photo-widget",
+                "component": "capturePhotoWidget",
+                "slot": "capture-patient-photo-slot"
+            }
+        ],
+        "modals": [
+            {
+                "name": "capture-photo-modal",
+                "component": "capturePhotoModal"
+            },
+            {
+                "name": "delete-attachment-modal",
+                "component": "deleteAttachmentModal"
+            }
+        ],
+        "pages": [],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-implementer-tools-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "pages": [
+            {
+                "component": "implementerTools",
+                "route": true
+            },
+            {
+                "component": "globalImplementerTools",
+                "route": true
+            }
+        ],
+        "extensions": [
+            {
+                "name": "implementer-tools-button",
+                "slot": "top-nav-actions-slot",
+                "component": "implementerToolsButton",
+                "order": 20
+            }
+        ],
+        "version": "6.3.0"
+    },
+    "@openmrs/esm-primary-navigation-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": ">=2.2.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "routeRegex": "^(?!(?:login|change-password)/?)",
+                "online": true,
+                "offline": true,
+                "order": 0
+            },
+            {
+                "component": "redirect",
+                "routeRegex": "^$",
+                "online": true,
+                "offline": true,
+                "order": 0
+            }
+        ],
+        "extensions": [
+            {
+                "name": "default-user-panel",
+                "slot": "user-panel-slot",
+                "component": "userPanel",
+                "online": true,
+                "offline": true,
+                "order": 0
+            },
+            {
+                "name": "change-language",
+                "slot": "user-panel-slot",
+                "component": "changeLanguageLink",
+                "online": true,
+                "offline": true,
+                "order": 1
+            },
+            {
+                "name": "offline-banner",
+                "slot": "user-panel-slot",
+                "component": "offlineBanner",
+                "online": false,
+                "offline": true,
+                "order": 1
+            },
+            {
+                "name": "link",
+                "component": "linkComponent",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "nav-group",
+                "component": "navGroup",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "user-menu-button",
+                "component": "userMenuButton",
+                "online": true,
+                "offline": true,
+                "slot": "top-nav-actions-slot",
+                "order": 40
+            },
+            {
+                "name": "app-menu-button",
+                "component": "appMenuButton",
+                "online": true,
+                "offline": true,
+                "slot": "top-nav-app-menu-slot"
+            }
+        ],
+        "modals": [
+            {
+                "name": "change-language-modal",
+                "component": "changeLanguageModal"
+            }
+        ],
+        "version": "6.3.0"
+    },
+    "@openmrs/esm-patient-immunizations-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "immunization-overview-widget",
+                "component": "immunizationsOverview",
+                "order": 8
+            },
+            {
+                "name": "immunization-details-widget",
+                "component": "immunizationsDetailedSummary",
+                "slot": "patient-chart-immunizations-dashboard-slot"
+            },
+            {
+                "name": "immunization-summary-dashboard",
+                "component": "immunizationsDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "meta": {
+                    "slot": "patient-chart-immunizations-dashboard-slot",
+                    "path": "Immunizations"
+                },
+                "order": 8
+            }
+        ],
+        "pages": [],
+        "workspaces": [
+            {
+                "name": "immunization-form-workspace",
+                "title": "immunizationWorkspaceTitle",
+                "component": "immunizationFormWorkspace"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-notes-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "notes-overview-widget",
+                "component": "notesOverview",
+                "meta": {
+                    "fullWidth": false
+                },
+                "order": 5
+            },
+            {
+                "name": "visit-note-nav-button",
+                "component": "visitNotesActionButton",
+                "slot": "action-menu-patient-chart-items-slot",
+                "order": 1
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "visit-notes-form-workspace",
+                "title": "visitNoteWorkspaceTitle",
+                "component": "visitNotesFormWorkspace",
+                "type": "visit-note",
+                "canHide": true
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-appointments-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "home-appointments",
+                "slot": "homepage-widgets-slot",
+                "component": "homeAppointments",
+                "order": 1
+            },
+            {
+                "name": "clinical-appointments-dashboard-link",
+                "slot": "homepage-dashboard-slot",
+                "component": "appointmentsDashboardLink",
+                "meta": {
+                    "name": "appointments",
+                    "slot": "clinical-appointments-dashboard-slot",
+                    "title": "Appointments"
+                }
+            },
+            {
+                "component": "root",
+                "name": "clinical-appointments-dashboard",
+                "slot": "clinical-appointments-dashboard-slot"
+            },
+            {
+                "name": "appointments-calendar-dashboard-link",
+                "slot": "calendar-dashboard-slot",
+                "component": "appointmentsCalendarDashboardLink"
+            },
+            {
+                "name": "todays-appointments-dashboard",
+                "slot": "todays-appointment-slot",
+                "component": "homeAppointments"
+            },
+            {
+                "name": "expected-appointments-panel",
+                "slot": "scheduled-appointments-panels-slot",
+                "component": "appointmentsList"
+            },
+            {
+                "name": "checked-in-appointments-panel",
+                "slot": "scheduled-appointments-panels-slot",
+                "component": "appointmentsList"
+            },
+            {
+                "name": "completed-appointments-panel",
+                "slot": "scheduled-appointments-panels-slot",
+                "component": "appointmentsList"
+            },
+            {
+                "name": "missed-appointments-panel",
+                "slot": "scheduled-appointments-panels-slot",
+                "component": "appointmentsList"
+            },
+            {
+                "name": "cancelled-appointments-panel",
+                "slot": "scheduled-appointments-panels-slot",
+                "component": "appointmentsList"
+            },
+            {
+                "name": "early-appointments-panel",
+                "component": "earlyAppointments"
+            },
+            {
+                "name": "patient-appointments-summary-dashboard",
+                "component": "patientAppointmentsSummaryDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "order": 11,
+                "meta": {
+                    "columns": 1,
+                    "columnSpan": 1,
+                    "hideDashboardTitle": true,
+                    "path": "Appointments",
+                    "slot": "patient-chart-appointments-dashboard-slot",
+                    "title": "Appointments"
+                }
+            },
+            {
+                "name": "appointments-details-widget",
+                "component": "patientAppointmentsDetailedSummary",
+                "slot": "patient-chart-appointments-dashboard-slot",
+                "meta": {
+                    "columnSpan": 1
+                }
+            },
+            {
+                "name": "patient-upcoming-appointment-widget",
+                "component": "patientUpcomingAppointmentsWidget",
+                "slot": "visit-form-top-slot"
+            },
+            {
+                "name": "search-patient",
+                "component": "searchPatient"
+            },
+            {
+                "name": "home-appointments-tile",
+                "slot": "home-metrics-tiles-slot",
+                "component": "homeAppointmentsTile"
+            }
+        ],
+        "modals": [
+            {
+                "name": "end-appointment-modal",
+                "component": "endAppointmentModal"
+            },
+            {
+                "name": "cancel-appointment-modal",
+                "component": "cancelAppointmentModal"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "appointments-form-workspace",
+                "component": "appointmentsFormWorkspace",
+                "title": "createNewAppointment",
+                "type": "form"
+            }
+        ],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-patient-registration-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.24.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "route": "patient-registration",
+                "online": true,
+                "offline": true
+            },
+            {
+                "component": "editPatient",
+                "routeRegex": "patient\\/([a-zA-Z0-9\\-]+)\\/edit",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "extensions": [
+            {
+                "component": "addPatientLink",
+                "name": "add-patient-action",
+                "slot": "top-nav-actions-slot",
+                "online": true,
+                "offline": true,
+                "order": 30
+            },
+            {
+                "component": "patientPhotoExtension",
+                "name": "patient-photo-widget",
+                "slot": "patient-photo-slot",
+                "online": true,
+                "offline": true
+            },
+            {
+                "component": "editPatientDetailsButton",
+                "name": "edit-patient-details-button",
+                "slot": "patient-actions-slot",
+                "online": true,
+                "offline": true
+            },
+            {
+                "component": "editPatientDetailsButton",
+                "name": "edit-patient-details-button",
+                "slot": "patient-search-actions-slot",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "modals": [
+            {
+                "name": "cancel-patient-edit-modal",
+                "component": "cancelPatientEditModal"
+            },
+            {
+                "name": "delete-identifier-confirmation-modal",
+                "component": "deleteIdentifierConfirmationModal"
+            }
+        ],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-fast-data-entry-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "routeRegex": "forms",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "extensions": [
+            {
+                "name": "forms-app-link",
+                "slot": "app-menu-slot",
+                "component": "formsAppMenuLink",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "version": "1.3.0"
+    },
+    "@openmrs/esm-patient-medications-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "medications-details-widget",
+                "component": "medicationsSummary",
+                "slot": "patient-chart-medications-dashboard-slot",
+                "meta": {
+                    "fullWidth": false
+                }
+            },
+            {
+                "name": "active-medications-widget",
+                "component": "activeMedications",
+                "slot": "patient-chart-summary-dashboard-slot",
+                "meta": {
+                    "fullWidth": false
+                },
+                "order": 4
+            },
+            {
+                "name": "medications-summary-dashboard",
+                "component": "medicationsDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "order": 3,
+                "meta": {
+                    "slot": "patient-chart-medications-dashboard-slot",
+                    "path": "Medications"
+                }
+            },
+            {
+                "name": "drug-order-panel",
+                "component": "drugOrderPanel",
+                "slot": "order-basket-slot",
+                "order": 1
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "add-drug-order",
+                "title": "addDrugOrderWorkspaceTitle",
+                "component": "addDrugOrderWorkspace",
+                "type": "order"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-ward-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0",
+            "emrapi": "^2.0.0 || 2.0.0-SNAPSHOT"
+        },
+        "optionalBackendDependencies": {
+            "bedmanagement": {
+                "version": "^6.0.0 || 6.0.0-SNAPSHOT",
+                "feature": {
+                    "flagName": "bedmanagement-module",
+                    "label": "Ward App Patient Service",
+                    "description": "This module, if installed, provides services for managing patients admitted to the ward."
+                }
+            }
+        },
+        "extensions": [
+            {
+                "name": "ward-dashboard-link",
+                "component": "wardDashboardLink",
+                "slot": "homepage-dashboard-slot",
+                "meta": {
+                    "name": "ward",
+                    "slot": "ward-dashboard-slot",
+                    "title": "Wards"
+                }
+            },
+            {
+                "component": "root",
+                "name": "ward-dashboard",
+                "slot": "ward-dashboard-slot"
+            },
+            {
+                "component": "wardPatientActionButtonExtension",
+                "name": "ward-patient-action-button",
+                "slot": "action-menu-ward-patient-items-slot"
+            },
+            {
+                "component": "wardPatientNotesActionButtonExtension",
+                "name": "ward-inpatient-notes-form-action-button",
+                "slot": "action-menu-ward-patient-items-slot"
+            },
+            {
+                "component": "coloredObsTagCardRowExtension",
+                "name": "colored-obs-tags-card-row",
+                "slot": "ward-patient-card-slot"
+            },
+            {
+                "name": "transfer-swap-patient-siderail-button",
+                "slot": "action-menu-ward-patient-items-slot",
+                "component": "patientTransferAndSwapWorkspaceSiderailIcon"
+            },
+            {
+                "name": "patient-discharge-siderail-button",
+                "slot": "action-menu-ward-patient-items-slot",
+                "component": "patientDischargeWorkspaceSideRailIcon"
+            },
+            {
+                "name": "clinical-forms-workspace-siderail-button",
+                "component": "clinicalFormWorkspaceSideRailIcon",
+                "slot": "action-menu-ward-patient-items-slot"
+            },
+            {
+                "name": "admission-requests-workspace-siderail-button",
+                "component": "admissionRequestsWorkspaceSideRailIcon",
+                "slot": "action-menu-ward-patient-admission-requests-items-slot"
+            },
+            {
+                "name": "create-admission-request-workspace-siderail-button",
+                "component": "createAdmissionEncounterWorkspaceSideRailIcon",
+                "slot": "action-menu-ward-patient-admission-requests-items-slot"
+            },
+            {
+                "component": "defaultWardView",
+                "name": "default-ward",
+                "slot": "default-ward"
+            },
+            {
+                "component": "maternalWardView",
+                "name": "maternal-ward",
+                "slot": "maternal-ward"
+            },
+            {
+                "component": "wardPatientWorkspaceBanner",
+                "name": "ward-patient-workspace-banner",
+                "slot": "ward-workspace-patient-banner-slot"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "admission-requests-workspace",
+                "component": "admissionRequestWorkspace",
+                "title": "admissionRequests",
+                "type": "pending-admission-requests",
+                "width": "wider"
+            },
+            {
+                "name": "create-admission-encounter-workspace",
+                "component": "createAdmissionEncounterWorkspace",
+                "title": "admitPatient",
+                "type": "patient-search-workspace",
+                "width": "wider"
+            },
+            {
+                "name": "ward-patient-notes-workspace",
+                "component": "wardPatientNotesWorkspace",
+                "type": "ward-patient-notes",
+                "title": "inpatientNotesWorkspaceTitle"
+            },
+            {
+                "name": "admit-patient-form-workspace",
+                "component": "admitPatientFormWorkspace",
+                "title": "admissionRequests",
+                "type": "admission-requests"
+            },
+            {
+                "name": "ward-patient-workspace",
+                "component": "wardPatientWorkspace",
+                "type": "ward",
+                "title": "Ward patient",
+                "width": "extra-wide"
+            },
+            {
+                "name": "patient-transfer-swap-workspace",
+                "component": "patientTransferAndSwapWorkspace",
+                "title": "transfers",
+                "type": "transfer-swap-bed-form"
+            },
+            {
+                "name": "patient-transfer-request-workspace",
+                "component": "patientTransferRequestWorkspace",
+                "title": "transferRequest",
+                "type": "transfer-request-form"
+            },
+            {
+                "name": "patient-discharge-workspace",
+                "component": "patientDischargeWorkspace",
+                "title": "discharge",
+                "type": "ward-patient-discharge"
+            },
+            {
+                "name": "ward-patient-clinical-forms-workspace",
+                "component": "patientClinicalFormsWorkspace",
+                "title": "clinicalForms",
+                "type": "ward-patient-clinical-forms",
+                "width": "wider"
+            },
+            {
+                "name": "cancel-admission-request-workspace",
+                "component": "cancelAdmissionRequestWorkspace",
+                "title": "cancelAdmissionRequest",
+                "type": "cancel-admission-request"
+            }
+        ],
+        "workspaceGroups": [
+            {
+                "name": "ward-patient",
+                "members": [
+                    "ward-patient-workspace",
+                    "ward-patient-notes-workspace",
+                    "patient-transfer-swap-workspace",
+                    "patient-discharge-workspace",
+                    "ward-patient-clinical-forms-workspace",
+                    "add-drug-order",
+                    "order-basket",
+                    "add-lab-order"
+                ]
+            },
+            {
+                "name": "ward-patient-admission-requests",
+                "members": [
+                    "admission-requests-workspace",
+                    "create-admission-encounter-workspace"
+                ]
+            }
+        ],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-patient-chart-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "optionalBackendDependencies": {
+            "emrapi": {
+                "version": "^2.0.0",
+                "feature": {
+                    "flagName": "emrapi-module",
+                    "label": "EMR API Module",
+                    "description": "This module, if installed, provides core EMR business logic."
+                }
+            }
+        },
+        "extensions": [
+            {
+                "name": "charts-summary-dashboard",
+                "component": "patientSummaryDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "order": 0,
+                "meta": {
+                    "slot": "patient-chart-summary-dashboard-slot",
+                    "path": "Patient Summary"
+                },
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "encounter-list",
+                "component": "encounterListTableTabs",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "start-visit-button",
+                "component": "startVisitActionButton",
+                "slot": "patient-actions-slot",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "clinical-views-summary",
+                "component": "clinicalViewsSummary",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "stop-visit-button",
+                "component": "stopVisitActionButton",
+                "slot": "patient-actions-slot",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "mark-alive-button",
+                "slot": "patient-actions-slot",
+                "component": "markPatientAliveActionButton",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "stop-visit-button-patient-search",
+                "slot": "patient-search-actions-slot",
+                "component": "stopVisitPatientSearchActionButton",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "delete-visit-button",
+                "slot": "patient-actions-slot",
+                "component": "deleteVisitActionMenuButton",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "delete-visit-button",
+                "slot": "patient-search-actions-slot",
+                "component": "deleteVisitActionMenuButton",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "mark-patient-deceased-button",
+                "slot": "patient-actions-slot",
+                "component": "markPatientDeceasedActionButton",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "encounters-summary-dashboard",
+                "slot": "patient-chart-dashboard-slot",
+                "component": "encountersSummaryDashboardLink",
+                "meta": {
+                    "slot": "patient-chart-encounters-dashboard-slot",
+                    "path": "Visits",
+                    "layoutMode": "anchored"
+                },
+                "order": 5,
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "past-visits-detail-overview",
+                "slot": "patient-chart-encounters-dashboard-slot",
+                "component": "pastVisitsDetailOverview",
+                "order": 1,
+                "meta": {
+                    "title": "Visits",
+                    "view": "visits"
+                },
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "patient-details-tile",
+                "slot": "visit-form-header-slot",
+                "component": "patientDetailsTile",
+                "order": 1,
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "nav-group",
+                "component": "genericNavGroup",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "dashboard",
+                "component": "genericDashboard",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "start-visit-button-patient-search",
+                "slot": "start-visit-button-slot",
+                "component": "startVisitPatientSearchActionButton",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "visit-attribute-tags",
+                "slot": "patient-banner-tags-slot",
+                "component": "visitAttributeTags",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "current-visit-summary",
+                "component": "currentVisitSummary",
+                "online": true,
+                "offline": true,
+                "meta": {
+                    "fullWidth": true
+                }
+            },
+            {
+                "name": "edit-visit-action-button",
+                "slot": "visit-detail-overview-actions",
+                "component": "editVisitDetailsActionButton",
+                "online": true,
+                "offline": true,
+                "order": 0
+            },
+            {
+                "name": "delete-visit-action-button",
+                "slot": "visit-detail-overview-actions",
+                "component": "deleteVisitActionButton",
+                "online": true,
+                "offline": true,
+                "order": 1
+            },
+            {
+                "name": "active-visit-action-button",
+                "slot": "active-visit-actions",
+                "component": "activeVisitActionsComponent",
+                "online": true,
+                "offline": true,
+                "order": 1
+            },
+            {
+                "name": "visit-context-header",
+                "slot": "visit-context-header-slot",
+                "component": "visitContextHeader"
+            }
+        ],
+        "featureFlags": [
+            {
+                "description": "Features to enter data for past visits. Includes the 'Edit Past Visit' button in the start visit dialog, and the 'Add Past Visit' button in the patient header",
+                "flagName": "rde",
+                "label": "Retrospective Data Entry"
+            }
+        ],
+        "modals": [
+            {
+                "name": "delete-encounter-modal",
+                "component": "deleteEncounterModal"
+            },
+            {
+                "name": "delete-visit-dialog",
+                "component": "deleteVisitModal"
+            },
+            {
+                "name": "end-visit-dialog",
+                "component": "endVisitModal"
+            },
+            {
+                "name": "mark-patient-alive-modal",
+                "component": "markPatientAliveModal"
+            },
+            {
+                "name": "modify-visit-date-dialog",
+                "component": "modifyVisitDateModal"
+            },
+            {
+                "name": "start-visit-dialog",
+                "component": "startVisitModal"
+            },
+            {
+                "name": "visit-context-switcher",
+                "component": "visitContextSwitcherModal"
+            }
+        ],
+        "pages": [
+            {
+                "component": "root",
+                "routeRegex": "^patient/.+/chart",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "mark-patient-deceased-workspace-form",
+                "component": "markPatientDeceasedForm",
+                "title": "Mark patient deceased",
+                "type": "form"
+            },
+            {
+                "name": "start-visit-workspace-form",
+                "component": "startVisitWorkspace",
+                "title": "startVisitWorkspaceTitle",
+                "type": "start-visit"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-service-queues-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0",
+            "queue": "^2.4.0-0"
+        },
+        "extensions": [
+            {
+                "name": "outpatient-side-nav-ext",
+                "component": "outpatientSideNav",
+                "slot": "outpatient-sidebar-slot",
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "service-queues-dashboard-link",
+                "component": "serviceQueuesDashboardLink",
+                "slot": "homepage-dashboard-slot",
+                "meta": {
+                    "name": "service-queues",
+                    "slot": "service-queues-dashboard-slot",
+                    "title": "Service queues"
+                },
+                "online": true,
+                "offline": true
+            },
+            {
+                "name": "queue-table-by-status-menu-dashboard-link",
+                "component": "queueTableByStatusMenu",
+                "meta": {
+                    "name": "service-queues",
+                    "slot": "service-queues-dashboard-slot",
+                    "title": "Service queues"
+                },
+                "online": true,
+                "offline": true
+            },
+            {
+                "component": "root",
+                "name": "service-queues-dashboard",
+                "slot": "service-queues-dashboard-slot"
+            },
+            {
+                "name": "remove-queue-entry",
+                "component": "removeQueueEntry"
+            },
+            {
+                "name": "clear-all-queue-entries",
+                "component": "clearAllQueueEntries"
+            },
+            {
+                "name": "previous-visit-summary-widget",
+                "component": "pastVisitSummary",
+                "slot": "previous-visit-summary-slot"
+            },
+            {
+                "name": "active-visits-row-actions",
+                "component": "activeVisitsRowActions",
+                "slot": "queue-table-serve-patient-slot"
+            },
+            {
+                "name": "visit-form-queue-fields",
+                "component": "visitFormQueueFields",
+                "slot": "visit-form-bottom-slot"
+            },
+            {
+                "name": "queue-patient-info-queue-entry-status",
+                "component": "patientBannerQueueEntryStatus",
+                "slot": "patient-banner-tags-slot"
+            }
+        ],
+        "modals": [
+            {
+                "name": "add-provider-to-room-modal",
+                "component": "addProviderToRoomModal"
+            },
+            {
+                "name": "edit-queue-entry-modal",
+                "component": "editQueueEntryModal"
+            },
+            {
+                "name": "edit-queue-entry-status-modal",
+                "component": "editQueueEntryStatusModal"
+            },
+            {
+                "name": "end-queue-entry-modal",
+                "component": "endQueueEntryModal"
+            },
+            {
+                "name": "transition-patient-to-latest-queue-modal",
+                "component": "transitionPatientToLatestQueue"
+            },
+            {
+                "name": "transition-queue-entry-modal",
+                "component": "transitionQueueEntryModal"
+            },
+            {
+                "name": "transition-queue-entry-status-modal",
+                "component": "transitionQueueEntryStatusModal"
+            },
+            {
+                "name": "undo-transition-queue-entry-modal",
+                "component": "undoTransitionQueueEntryModal"
+            },
+            {
+                "name": "void-queue-entry-modal",
+                "component": "voidQueueEntryModal"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "service-queues-service-form",
+                "title": "addNewQueueService",
+                "component": "addNewQueueServiceWorkspace",
+                "type": "service-queues"
+            },
+            {
+                "name": "service-queues-room-workspace",
+                "title": "addNewQueueServiceRoom",
+                "component": "addNewQueueServiceRoomWorkspace",
+                "type": "service-queues"
+            },
+            {
+                "name": "service-queues-linelist-filter",
+                "title": "filter",
+                "component": "queueLinelistFilterWorkspace",
+                "type": "service-queues"
+            },
+            {
+                "name": "create-queue-entry-workspace",
+                "title": "addPatientToQueue",
+                "component": "createQueueEntryWorkspace",
+                "type": "service-queues",
+                "width": "wider"
+            }
+        ],
+        "version": "8.5.0"
+    },
+    "@openmrs/esm-patient-orders-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "webservices.rest": "^2.2.0"
+        },
+        "optionalBackendDependencies": {
+            "fhirproxy": "^1.0.0-SNAPSHOT",
+            "stockmanagement": "^1.4.0 || ^2.0.0",
+            "billing": "^1.2.0-SNAPSHOT"
+        },
+        "extensions": [
+            {
+                "name": "order-price-details",
+                "component": "orderPriceDetailsExtension",
+                "slot": "order-item-additional-info-slot",
+                "order": 0
+            },
+            {
+                "name": "order-stock-details",
+                "component": "orderStockDetailsExtension",
+                "slot": "order-item-additional-info-slot",
+                "order": 1
+            },
+            {
+                "name": "order-basket-action-menu",
+                "component": "orderBasketActionMenu",
+                "slots": [
+                    "action-menu-patient-chart-items-slot",
+                    "action-menu-ward-patient-items-slot"
+                ]
+            },
+            {
+                "name": "lab-result",
+                "component": "labResult",
+                "slot": "completed-lab-order-results-slot",
+                "meta": {
+                    "fullWidth": false
+                }
+            },
+            {
+                "name": "patient-orders-summary-dashboard",
+                "component": "ordersDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "meta": {
+                    "slot": "patient-chart-orders-dashboard-slot",
+                    "path": "Orders",
+                    "hideDashboardTitle": true
+                },
+                "order": 4
+            },
+            {
+                "name": "patient-orders-dashboard",
+                "component": "ordersDashboard",
+                "slot": "patient-chart-orders-dashboard-slot",
+                "meta": {
+                    "fullWidth": false
+                }
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "order-basket",
+                "title": "orderBasketWorkspaceTitle",
+                "component": "orderBasketWorkspace",
+                "type": "order",
+                "canHide": true
+            },
+            {
+                "name": "patient-orders-form-workspace",
+                "title": "orderCancellation",
+                "component": "patientOrdersFormWorkspace",
+                "type": "order",
+                "canHide": false
+            },
+            {
+                "name": "test-results-form-workspace",
+                "title": "enterTestResults",
+                "component": "testResultsFormWorkspace",
+                "type": "lab-results",
+                "canHide": false
+            },
+            {
+                "name": "orderable-concept-workspace",
+                "title": "searchOrderables",
+                "component": "orderableConceptSearch",
+                "type": "order"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-tests-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "test-results-summary-dashboard",
+                "component": "testResultsDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "meta": {
+                    "slot": "patient-chart-test-results-dashboard-slot",
+                    "path": "Results",
+                    "hideDashboardTitle": true,
+                    "layoutMode": "anchored"
+                },
+                "order": 4
+            },
+            {
+                "name": "test-results-filtered-overview",
+                "slot": "test-results-filtered-overview-slot",
+                "component": "externalOverview"
+            },
+            {
+                "name": "results-viewer",
+                "slots": [
+                    "patient-chart-results-viewer-slot",
+                    "patient-chart-test-results-dashboard-slot"
+                ],
+                "component": "resultsViewer"
+            },
+            {
+                "name": "lab-order-panel",
+                "component": "labOrderPanel",
+                "slot": "order-basket-slot",
+                "order": 2
+            }
+        ],
+        "modals": [
+            {
+                "name": "timeline-results-modal",
+                "component": "timelineResultsModal"
+            },
+            {
+                "name": "print-modal",
+                "component": "printModal"
+            }
+        ],
+        "workspaces": [
+            {
+                "name": "add-lab-order",
+                "type": "order",
+                "component": "addLabOrderWorkspace",
+                "title": "addLabOrderWorkspaceTitle"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-patient-vitals-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "extensions": [
+            {
+                "name": "vitals-overview-widget",
+                "component": "vitalsSummary",
+                "slot": "patient-chart-summary-dashboard-slot",
+                "meta": {
+                    "fullWidth": true
+                },
+                "order": 1
+            },
+            {
+                "name": "vitals-details-widget",
+                "component": "vitalsMain",
+                "slot": "patient-chart-vitals-biometrics-dashboard-slot",
+                "meta": {
+                    "title": "Vitals",
+                    "view": "vitals",
+                    "fullWidth": true
+                },
+                "order": 1
+            },
+            {
+                "name": "patient-vitals-info",
+                "component": "vitalsHeader",
+                "slot": "patient-info-slot"
+            },
+            {
+                "name": "biometrics-overview-widget",
+                "component": "biometricsOverview",
+                "slot": "patient-chart-summary-dashboard-slot",
+                "meta": {
+                    "fullWidth": true
+                },
+                "order": 2
+            },
+            {
+                "name": "biometrics-details-widget",
+                "component": "biometricsDetailedSummary",
+                "slot": "patient-chart-vitals-biometrics-dashboard-slot",
+                "meta": {
+                    "view": "biometrics",
+                    "title": "Biometrics",
+                    "fullWidth": true
+                }
+            },
+            {
+                "name": "results-summary-dashboard",
+                "component": "vitalsAndBiometricsDashboardLink",
+                "slot": "patient-chart-dashboard-slot",
+                "order": 2,
+                "meta": {
+                    "slot": "patient-chart-vitals-biometrics-dashboard-slot",
+                    "path": "Vitals & Biometrics"
+                }
+            },
+            {
+                "name": "weight-tile",
+                "component": "weightTile",
+                "slot": "visit-form-header-slot",
+                "order": 2
+            }
+        ],
+        "pages": [],
+        "workspaces": [
+            {
+                "name": "patient-vitals-biometrics-form-workspace",
+                "title": "recordVitalsAndBiometrics",
+                "component": "vitalsBiometricsFormWorkspace"
+            }
+        ],
+        "modals": [
+            {
+                "name": "vitals-biometrics-delete-confirmation-modal",
+                "component": "vitalsAndBiometricsDeleteConfirmationModal"
+            }
+        ],
+        "version": "10.2.0"
+    },
+    "@openmrs/esm-form-builder-app": {
+        "$schema": "https://json.openmrs.org/routes.schema.json",
+        "backendDependencies": {
+            "fhir2": ">=1.2",
+            "webservices.rest": "^2.2.0"
+        },
+        "pages": [
+            {
+                "component": "root",
+                "route": "form-builder",
+                "online": true,
+                "offline": true,
+                "order": 1
+            }
+        ],
+        "extensions": [
+            {
+                "name": "system-administration-form-builder-card-link",
+                "slot": "system-admin-page-card-link-slot",
+                "component": "systemAdministrationFormBuilderCardLink",
+                "online": true,
+                "offline": true
+            }
+        ],
+        "modals": [
+            {
+                "name": "new-form-modal",
+                "component": "newFormModal"
+            },
+            {
+                "name": "new-page-modal",
+                "component": "newPageModal"
+            },
+            {
+                "name": "delete-page-modal",
+                "component": "deletePageModal"
+            },
+            {
+                "name": "new-section-modal",
+                "component": "newSectionModal"
+            },
+            {
+                "name": "delete-section-modal",
+                "component": "deleteSectionModal"
+            },
+            {
+                "name": "question-modal",
+                "component": "questionModal"
+            },
+            {
+                "name": "delete-question-modal",
+                "component": "deleteQuestionModal"
+            },
+            {
+                "name": "edit-question-modal",
+                "component": "editQuestionModal"
+            },
+            {
+                "name": "restore-draft-schema-modal",
+                "component": "restoreDraftSchemaModal"
+            },
+            {
+                "name": "unpublish-form-modal",
+                "component": "unpublishFormModal"
+            },
+            {
+                "name": "delete-form-modal",
+                "component": "deleteFormModal"
+            }
+        ],
+        "version": "3.1.0"
+    }
+}

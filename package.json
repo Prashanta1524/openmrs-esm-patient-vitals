@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "openmrs develop --sources packages/esm-patient-chart-app packages/esm-patient-allergies-app packages/esm-patient-conditions-app packages/esm-patient-vitals-app packages/esm-patient-medications-app packages/esm-patient-immunizations-app packages/esm-patient-orders-app packages/esm-patient-attachments-app packages/esm-patient-tests-app packages/esm-patient-programs-app",
+    "start": "openmrs develop --sources packages/esm-patient-vitals",
     "ci:publish": "yarn workspaces foreach --all --topological --exclude @openmrs/esm-patient-chart npm publish --access public --tag latest",
     "ci:prepublish": "yarn workspaces foreach --all --topological --exclude @openmrs/esm-patient-chart npm publish --access public --tag next",
     "ci:bump-form-engine-lib": "yarn up @openmrs/esm-form-engine-lib@latest",
@@ -55,6 +55,7 @@
     "eslint-plugin-playwright": "^0.16.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-testing-library": "^6.2.2",
+    "html-loader": "^5.1.0",
     "husky": "^8.0.3",
     "i18next": "^21.10.0",
     "i18next-parser": "^6.6.0",
@@ -84,7 +85,8 @@
   },
   "resolutions": {
     "sass": "^1.54.3",
-    "open": "^8.4.0"
+    "open": "^8.4.0",
+    "webpack": "5.88.2"
   },
   "packageManager": "yarn@4.9.1"
 }

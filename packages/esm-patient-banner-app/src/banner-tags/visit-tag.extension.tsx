@@ -4,6 +4,7 @@ import { Tag, Toggletip, ToggletipButton, ToggletipContent } from '@carbon/react
 import { type Visit, formatDatetime, parseDate } from '@openmrs/esm-framework';
 import { useVisitOrOfflineVisit } from '@openmrs/esm-patient-common-lib';
 import styles from './visit-tag.scss';
+import './visit-tag.scss';
 
 interface VisitTagProps {
   patientUuid: string;

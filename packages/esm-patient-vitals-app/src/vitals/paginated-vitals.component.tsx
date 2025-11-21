@@ -125,7 +125,9 @@ const PaginatedVitals: React.FC<PaginatedVitalsProps> = ({
 
                       return (
                         <StyledTableCell key={`styled-cell-${cell.id}`} interpretation={interpretation}>
-                          {cell.value?.content ?? cell.value}
+                          {typeof cell.value === 'string' && cell.value.includes('\n')
+                            ? cell.value.split('\n').map((line, idx) => <div key={idx}>{line}</div>)
+                            : (cell.value?.content ?? cell.value)}
                         </StyledTableCell>
                       );
                     })}

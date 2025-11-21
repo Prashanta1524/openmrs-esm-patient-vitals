@@ -1,14 +1,7 @@
-import {
-  defineConfigSchema,
-  defineExtensionConfigSchema,
-  getAsyncLifecycle,
-  getSyncLifecycle,
-} from '@openmrs/esm-framework';
-import * as PatientCommonLib from '@openmrs/esm-patient-common-lib';
+import { defineConfigSchema, getAsyncLifecycle, getSyncLifecycle, useSession } from '@openmrs/esm-framework';
+import * as Framework from '@openmrs/esm-framework';
 import { createDashboardLink } from '@openmrs/esm-patient-common-lib';
 import { esmPatientChartSchema } from './config-schema';
-import genericDashboardComponent, { genericDashboardConfigSchema } from './side-nav/generic-dashboard.component';
-import genericNavGroupComponent, { genericNavGroupConfigSchema } from './side-nav/generic-nav-group.component';
 import { moduleName } from './constants';
 import { setupCacheableRoutes, setupOfflineVisitsSync } from './offline';
 import { summaryDashboardMeta, encountersDashboardMeta } from './dashboard.meta';
@@ -24,9 +17,8 @@ import startVisitActionButtonOnPatientSearch from './visit/start-visit-button.co
 import stopVisitActionButtonComponent from './actions-buttons/stop-visit.component';
 import visitAttributeTagsComponent from './patient-banner-tags/visit-attribute-tags.component';
 
-// This allows @openmrs/esm-patient-common-lib to be accessed by modules that are not
-// using webpack. This is used for ngx-formentry.
-window['_openmrs_esm_patient_common_lib'] = PatientCommonLib;
+// Expose framework for legacy modules (like ngx-formentry)
+window['_openmrs_esm_framework'] = Framework;
 
 export const importTranslation = require.context('../translations', false, /.json$/, 'lazy');
 
@@ -35,24 +27,32 @@ export function startupApp() {
   setupCacheableRoutes();
 
   defineConfigSchema(moduleName, esmPatientChartSchema);
-  defineExtensionConfigSchema('nav-group', genericNavGroupConfigSchema);
-  defineExtensionConfigSchema('dashboard', genericDashboardConfigSchema);
 }
 
-export const root = getSyncLifecycle(patientChartPageComponent, { featureName: 'patient-chart', moduleName });
+// ✅ Restrict ONLY for "self registration" and "include_hcw"
+function useIsRestrictedUser() {
+  const { user } = useSession();
+  const roles = user?.roles?.map((r) => r.display?.toLowerCase()) || [];
 
-export const patientSummaryDashboardLink =
-  // t('Patient Summary', 'Patient Summary')
-  getSyncLifecycle(
-    createDashboardLink({
-      ...summaryDashboardMeta,
-      moduleName,
-    }),
-    {
-      featureName: 'summary-dashboard',
-      moduleName,
-    },
-  );
+  // If user has either restricted role → restrict
+  return roles.includes('self registration') || roles.includes('include_hcw');
+}
+
+export const root = getSyncLifecycle(patientChartPageComponent, {
+  featureName: 'patient-chart',
+  moduleName,
+});
+
+export const patientSummaryDashboardLink = getSyncLifecycle(
+  createDashboardLink({
+    ...summaryDashboardMeta,
+    moduleName: '',
+  }),
+  {
+    featureName: 'summary-dashboard',
+    moduleName,
+  },
+);
 
 export const markPatientAliveActionButton = getSyncLifecycle(markPatientAliveActionButtonComponent, {
   featureName: 'patient-actions-slot',
@@ -94,20 +94,31 @@ export const clinicalViewsSummary = getAsyncLifecycle(
   { featureName: 'clinical-views-summary', moduleName },
 );
 
-export const encountersSummaryDashboardLink =
-  // t('Visits', 'Visits')
-  getSyncLifecycle(
-    createDashboardLink({
-      ...encountersDashboardMeta,
-      moduleName,
-    }),
-    { featureName: 'encounter', moduleName },
-  );
+// ✅ Visits dashboard link with restriction
+export const encountersSummaryDashboardLink = getSyncLifecycle(
+  (props: { basePath: string }) => {
+    const restricted = useIsRestrictedUser();
+    if (restricted) return null;
 
-export const currentVisitSummary = getSyncLifecycle(currentVisitSummaryComponent, {
-  featureName: 'current-visit-summary',
-  moduleName,
-});
+    const DashboardLink = createDashboardLink({
+      ...encountersDashboardMeta,
+      moduleName: '',
+    });
+
+    return DashboardLink(props);
+  },
+  { featureName: 'encounter', moduleName },
+);
+
+// ✅ Current visit summary with restriction
+export const currentVisitSummary = getSyncLifecycle(
+  (props: { basePath: string; patientUuid: string }) => {
+    const restricted = useIsRestrictedUser();
+    if (restricted) return null;
+    return currentVisitSummaryComponent({ patientUuid: props.patientUuid });
+  },
+  { featureName: 'current-visit-summary', moduleName },
+);
 
 export const pastVisitsDetailOverview = getSyncLifecycle(pastVisitsOverviewComponent, {
   featureName: 'visits-detail-slot',
@@ -124,23 +135,11 @@ export const visitAttributeTags = getSyncLifecycle(visitAttributeTagsComponent, 
   moduleName,
 });
 
-export const genericNavGroup = getSyncLifecycle(genericNavGroupComponent, {
-  featureName: 'Nav group',
-  moduleName,
-});
-
-export const genericDashboard = getSyncLifecycle(genericDashboardComponent, {
-  featureName: 'Dashboard',
-  moduleName,
-});
-
-// t('startVisitWorkspaceTitle', 'Start a visit')
 export const startVisitWorkspace = getAsyncLifecycle(() => import('./visit/visit-form/visit-form.workspace'), {
   featureName: 'start-visit-form',
   moduleName,
 });
 
-// t('markPatientDeceased', 'Mark patient deceased')
 export const markPatientDeceasedForm = getAsyncLifecycle(
   () => import('./mark-patient-deceased/mark-patient-deceased-form.workspace'),
   {
