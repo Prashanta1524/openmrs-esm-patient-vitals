@@ -73,7 +73,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { fhirBaseUrl, openmrsFetch, showSnackbar } from '@openmrs/esm-framework';
+import { fhirBaseUrl, openmrsFetch, showSnackbar, useSession } from '@openmrs/esm-framework';
 import { Chart } from 'react-chartjs-2';
 import 'chart.js/auto'; // ensures chart.js works
 // import { StigmaOverviewChart } from './stigma-type-dimensions';
@@ -1614,9 +1614,12 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
 
 // Sites Data Visualization Component
 function SitesDataVisualization({ patients }: { patients: any[] }) {
+  const session = useSession();
+  const defaultLocationUuid = session?.sessionLocation?.uuid;
+  const defaultLocationName = session?.sessionLocation?.display;
+
   const [sitesData, setSitesData] = React.useState<Record<string, any[]>>({});
   const [loading, setLoading] = React.useState(false);
-  const [selectedSite, setSelectedSite] = React.useState<string>('');
 
   // Create concept-to-label mapping from conference form JSON
   const conceptLabelMap = React.useMemo(() => {
@@ -1645,38 +1648,17 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
     return map;
   }, []);
 
-  // Filter patients to get only those with alphabetic ART IDs (sites)
-  const sitePatients = React.useMemo(() => {
-    if (!patients) return [];
-
-    const detectedSites = patients.filter((patient) => {
-      if (!patient.identifier || !Array.isArray(patient.identifier)) return false;
-
-      return patient.identifier.some((id: any) => {
-        if (!id.value) return false;
-        const trimmed = id.value.trim();
-        return trimmed.length > 0 && /^[A-Za-z]+$/.test(trimmed);
-      });
+  // Console log for debugging
+  React.useEffect(() => {
+    console.log('🏥 Sites Visualization - Using default location:', {
+      uuid: defaultLocationUuid,
+      name: defaultLocationName,
     });
-
-    // Map to {id, name} format
-    return detectedSites.map((patient) => {
-      const alphaId = patient.identifier.find((id: any) => {
-        if (!id.value) return false;
-        const trimmed = id.value.trim();
-        return trimmed.length > 0 && /^[A-Za-z]+$/.test(trimmed);
-      });
-
-      return {
-        id: patient.uuid || patient.id,
-        name: alphaId?.value.trim() || 'Unknown Site',
-      };
-    });
-  }, [patients]);
+  }, [defaultLocationUuid, defaultLocationName]);
 
   React.useEffect(() => {
     const fetchSitesData = async () => {
-      if (!selectedSite) return;
+      if (!defaultLocationUuid) return;
 
       try {
         setLoading(true);
@@ -1690,7 +1672,7 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
             return;
           }
 
-          const url = `${fhirBaseUrl}/Observation?subject=${selectedSite}&_count=100`;
+          const url = `${fhirBaseUrl}/Observation?subject=${defaultLocationUuid}&_count=100`;
           const { data } = await openmrsFetch(url);
           const observations = data?.entry?.map((e: any) => e.resource) || [];
 
@@ -1713,7 +1695,7 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
             const submission = {
               id: encounter.encounterId,
               date: encounter.date,
-              siteId: selectedSite,
+              siteId: defaultLocationUuid,
               data: {},
             };
 
@@ -1731,9 +1713,9 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
             }
           });
 
-          sitesFormData[selectedSite] = formData;
+          sitesFormData[defaultLocationUuid] = formData;
         } catch (siteError) {
-          sitesFormData[selectedSite] = [];
+          sitesFormData[defaultLocationUuid] = [];
         }
 
         setSitesData(sitesFormData);
@@ -1745,10 +1727,10 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
     };
 
     fetchSitesData();
-  }, [selectedSite]);
+  }, [defaultLocationUuid]);
 
-  const siteSubmissions = sitesData[selectedSite] || [];
-  const selectedSiteName = sitePatients.find((s) => s.id === selectedSite)?.name || 'Unknown Site';
+  const siteSubmissions = sitesData[defaultLocationUuid] || [];
+  const selectedSiteName = defaultLocationName || 'Current Site';
 
   return (
     <div
@@ -1762,50 +1744,18 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
         width: '100%',
       }}
     >
-      {/* Site Selection Dropdown */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#1e3a8a' }}>
-          Select Site:
-        </label>
-        <select
-          value={selectedSite}
-          onChange={(e) => setSelectedSite(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            backgroundColor: '#fff',
-            fontSize: '1rem',
-          }}
-        >
-          <option value="">-- Select a Site --</option>
-          {sitePatients.map((site) => (
-            <option key={site.id} value={site.id}>
-              {site.name}
-            </option>
-          ))}
-        </select>
-        {sitePatients.length === 0 && (
-          <p style={{ color: '#ff7875', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-            ⚠️ No sites found. Please create patients with alphabetic ART IDs.
-          </p>
-        )}
-      </div>
-
-      {!selectedSite && (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
-          <p>Select a site from the dropdown</p>
+      {/* Displaying data for logged-in user's default location */}
+      {!defaultLocationUuid ? (
+        <div style={{ textAlign: 'center', padding: '2rem', color: '#ff7875' }}>
+          <p>⚠️ No default location found. Please ensure you are logged in with a valid session location.</p>
         </div>
-      )}
-
-      {selectedSite && (
+      ) : (
         <>
           <div
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}
           >
             <h3 style={{ margin: '0', color: '#1e3a8a', fontSize: '1.2rem', fontWeight: 'bold' }}>
-              {selectedSiteName} - Data Overview
+              {selectedSiteName} -
             </h3>
             <span style={{ fontSize: '0.9rem', color: '#666' }}>
               {loading ? 'Loading...' : `${siteSubmissions.length} submissions`}
@@ -1844,21 +1794,16 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
 
       {/* Summary Stats */}
       <div style={{ marginTop: '2rem', padding: '1rem', background: '#f0f8ff', borderRadius: '6px' }}>
-        {/* <h4 style={{ margin: '0 0 0.5rem 0', color: '#1e3a8a' }}>Summary</h4> */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>{siteSubmissions.length}</div>
-            <div style={{ fontSize: '0.9rem', color: '#666' }}>{selectedSiteName}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>{sitePatients.length}</div>
-            <div style={{ fontSize: '0.9rem', color: '#666' }}>Total Sites Available</div>
+            <div style={{ fontSize: '0.9rem', color: '#666' }}>Total Submissions at {selectedSiteName}</div>
           </div>
         </div>
       </div>
 
       {/* Table View of Form Data */}
-      {selectedSite && siteSubmissions.length > 0 && (
+      {defaultLocationUuid && siteSubmissions.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
           <h4 style={{ margin: '0 0 1rem 0', color: '#1e3a8a' }}> </h4>
           <div style={{ overflowX: 'auto' }}>
@@ -1994,6 +1939,10 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
 
 // Form Filling Interface Component for Left Side
 function FormFillingInterface({ formUuid, patients }: { formUuid: string; patients: any[] }): JSX.Element {
+  const session = useSession();
+  const sessionLocationUuid = session?.sessionLocation?.uuid || '';
+  const sessionLocationName = session?.sessionLocation?.display || 'Unknown Location';
+
   const [selectedPatient, setSelectedPatient] = React.useState<string>('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [formSchema, setFormSchema] = React.useState<any>(null);
@@ -2035,43 +1984,13 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
     return true;
   };
 
-  // Auto-detect sites based on ART IDs with ONLY ALPHABETIC characters
-  const allowedPatients = React.useMemo(() => {
-    if (!patients) return [];
-
-    // console.log('🔍 Starting auto-detection of sites based on alphabetic ART IDs...');
-
-    // Extract patients with alphabetic-only ART IDs
-    const detectedSitePatients = patients.filter((patient) => {
-      // Extract ART IDs from patient identifiers
-      const artIds: string[] = [];
-
-      if (patient.identifier && Array.isArray(patient.identifier)) {
-        patient.identifier.forEach((id: any) => {
-          if (id.value) {
-            artIds.push(id.value);
-          }
-        });
-      }
-
-      // Check if any ART ID contains ONLY alphabetic characters (A-Z, a-z)
-      const hasAlphabeticArtId = artIds.some((artId) => {
-        const trimmed = artId.trim();
-        // Check if string contains only letters (uppercase or lowercase)
-        return trimmed.length > 0 && /^[A-Za-z]+$/.test(trimmed);
-      });
-
-      if (hasAlphabeticArtId) {
-        const alphabeticArtId = artIds.find((artId) => /^[A-Za-z]+$/.test(artId.trim()));
-        // console.log(`✅ Site detected: ${alphabeticArtId} (Patient UUID: ${patient.uuid})`);
-      }
-
-      return hasAlphabeticArtId;
-    });
-
-    // console.log(`🎯 Auto-detected ${detectedSitePatients.length} site patients based on alphabetic ART IDs`);
-    return detectedSitePatients;
-  }, [patients]);
+  // Auto-set location from session (no dropdown needed)
+  React.useEffect(() => {
+    if (sessionLocationUuid) {
+      console.log('🏥 Auto-setting location from session:', sessionLocationName, sessionLocationUuid);
+      setSelectedPatient(sessionLocationUuid);
+    }
+  }, [sessionLocationUuid, sessionLocationName]);
 
   // Load form schema from OpenMRS
   // form containing the form's metadata and resources which include form name creator dates and array of resources related to form.
@@ -2191,13 +2110,15 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
 
         // console.log('🏥 Creating simple encounter object for patient:', selectedPatient);
 
-        // Create a simple encounter object without API call
+        // Use first patient as dummy patient, selectedPatient is now location UUID
+        const dummyPatientUuid = patients && patients.length > 0 ? patients[0].uuid || patients[0].id : 'dummy-patient';
+
         const simpleEncounter = {
           uuid: `temp-encounter-${selectedPatient}-${Date.now()}`,
-          patient: { uuid: selectedPatient },
+          patient: { uuid: dummyPatientUuid },
           encounterType: { uuid: 'dd528487-82a5-4082-9c72-ed246bd49591' },
           form: { uuid: formUuid },
-          location: { uuid: '8d6c993e-c2cc-11de-8d13-0010c6dffd0f' },
+          location: { uuid: selectedPatient },
           encounterDatetime: new Date().toISOString(),
           voided: false,
         };
@@ -2212,10 +2133,10 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
           const encounterDatetime = new Date(now.getTime() - 60000).toISOString(); // 1 minute ago
 
           const encounterPayload = {
-            patient: selectedPatient,
+            patient: dummyPatientUuid,
             encounterType: 'dd528487-82a5-4082-9c72-ed246bd49591',
             form: formUuid,
-            location: '8d6c993e-c2cc-11de-8d13-0010c6dffd0f',
+            location: selectedPatient,
             encounterDatetime: encounterDatetime,
           };
 
@@ -2250,10 +2171,12 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
         // console.error('❌ Error in setupEncounter:', error);
         //
         // Always create a fallback encounter object
+        const fallbackPatientUuid =
+          patients && patients.length > 0 ? patients[0].uuid || patients[0].id : 'fallback-patient';
         setEncounter({
           uuid: `fallback-encounter-${selectedPatient}-${Date.now()}`,
-          patient: { uuid: selectedPatient },
-          location: { uuid: '8d6c993e-c2cc-11de-8d13-0010c6dffd0f' },
+          patient: { uuid: fallbackPatientUuid },
+          location: { uuid: selectedPatient },
         });
       } finally {
         setIsLoading(false);
@@ -2274,9 +2197,9 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
 
     if (!selectedPatient) {
       showSnackbar({
-        title: 'साइट चयन गर्नुहोस् / Select Site',
+        title: 'स्थान चयन गर्नुहोस् / Select Location',
         kind: 'warning',
-        subtitle: 'कृपया पहिले साइट छान्नुहोस्। Please select a site.',
+        subtitle: 'कृपया पहिले स्थान छान्नुहोस्। Please select a location.',
       });
       return;
     }
@@ -2318,10 +2241,10 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
 
           const obsPayload = {
             concept: conceptUuid,
-            person: selectedPatient,
+            person: encounter.patient.uuid,
             value: processedValue,
             obsDatetime: new Date().toISOString(),
-            location: '8d6c993e-c2cc-11de-8d13-0010c6dffd0f',
+            location: selectedPatient,
             encounter: encounter.uuid,
           };
 
@@ -2388,59 +2311,26 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
         Conference Form{' '}
       </h4>
 
-      {/* Patient Selection (Filtered) */}
+      {/* Location Display (Auto-set from Session) */}
       <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Select Sites:</label>
-        <select
-          value={selectedPatient}
-          onChange={(e) => setSelectedPatient(e.target.value)}
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#666' }}>
+          स्थान / Location:
+        </label>
+        <div
           style={{
-            width: '100%',
-            padding: '0.5rem',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            backgroundColor: '#fff',
+            padding: '0.5rem 0',
+            fontWeight: '500',
+            color: '#888',
+            fontSize: '0.95rem',
           }}
-          disabled={!allowedPatients || allowedPatients.length === 0}
         >
-          <option value="">{allowedPatients && allowedPatients.length > 0 ? 'Sites' : '-- No allowed found --'}</option>
-          {allowedPatients?.map((patient) => {
-            // First, try to get the alphabetic ART ID
-            let alphabeticArtId = null;
-
-            if (patient.identifier && Array.isArray(patient.identifier)) {
-              const alphaId = patient.identifier.find((id: any) => {
-                if (!id.value) return false;
-                const trimmed = id.value.trim();
-                return trimmed.length > 0 && /^[A-Za-z]+$/.test(trimmed);
-              });
-
-              if (alphaId && alphaId.value) {
-                alphabeticArtId = alphaId.value.trim();
-              }
-            }
-
-            // Use alphabetic ART ID as the display name, or fallback to patient name
-            let displayName = alphabeticArtId || 'Unknown Site';
-
-            const patientId = patient.uuid || patient.id;
-
-            return (
-              <option key={patientId} value={patientId}>
-                {displayName}
-              </option>
-            );
-          })}
-        </select>
-        {allowedPatients && allowedPatients.length === 0 && (
+          {sessionLocationName || 'Location not found'}
+        </div>
+        {!sessionLocationUuid && (
           <p style={{ color: '#ff7875', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-            No allowed patients found. Check patient IDs in configuration.
+            ⚠️ No session location found. Please ensure you are logged in.
           </p>
         )}
-        {/* <p style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-          � Showing patients:{' '}
-          {PATIENT_CONFIG.allowedPatients.map((p) => `${p.description} (${p.patientId.substring(0, 8)}...)`).join(', ')}
-        </p> */}
       </div>
 
       {/* Form Interface */}
