@@ -622,13 +622,13 @@ export default function AllPatientsDashboard() {
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center' }}>
               {/* <h4>📝 Form Filling Interface</h4> */}
-              <p style={{ color: '#666' }}>Loading patients...</p>
+              <p style={{ color: '#666' }}>Loading ...</p>
               <div style={{ marginTop: '1rem', padding: '1rem', background: '#f0f0f0', borderRadius: '4px' }}>
                 {/* <p>
                   <strong>Form UUID:</strong> 55b82773-3cd0-4813-a38e-9d0c1ea35e45
                 </p> */}
                 <p>
-                  <strong>Status:</strong> Waiting for patient data
+                  <strong>Status:</strong> Waiting
                 </p>
               </div>
             </div>
@@ -659,7 +659,7 @@ export default function AllPatientsDashboard() {
           </div>
 
           {/* All visualizations now contained within the right column */}
-          {isLoading && <p>Loading patient data...</p>}
+          {isLoading && <p>Loading data...</p>}
           {error && <p style={{ color: 'red' }}>Error loading patients: {String(error)}</p>}
           {!isLoading && !patients?.length && <p>No patients found</p>}
 
@@ -1292,7 +1292,7 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        {loading && <p>Loading answers...</p>}
+        {loading && <p>Loading...</p>}
         {!loading && selectedPatientUuid && (
           <div style={{ display: 'grid', gap: '1rem' }}>
             <div>
@@ -1620,6 +1620,7 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
 
   const [sitesData, setSitesData] = React.useState<Record<string, any[]>>({});
   const [loading, setLoading] = React.useState(false);
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0);
 
   // Create concept-to-label mapping from conference form JSON
   const conceptLabelMap = React.useMemo(() => {
@@ -1672,24 +1673,73 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
             return;
           }
 
-          const url = `${fhirBaseUrl}/Observation?subject=${defaultLocationUuid}&_count=100`;
-          const { data } = await openmrsFetch(url);
-          const observations = data?.entry?.map((e: any) => e.resource) || [];
+          // Get encounter-location mappings from localStorage
+          console.log('🔍 Fetching encounters for location:', defaultLocationName, defaultLocationUuid);
+
+          const storageKey = 'conferenceFormEncounters';
+          const encounterMappings = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          console.log('💾 Found encounter mappings in localStorage:', encounterMappings.length);
+
+          // Filter encounters for this location
+          const locationEncounters = encounterMappings.filter(
+            (mapping: any) => mapping.locationUuid === defaultLocationUuid,
+          );
+          console.log('📍 Encounters for this location:', locationEncounters.length);
+
+          if (locationEncounters.length === 0) {
+            console.log('⚠️ No encounters found for this location');
+            setSitesData({});
+            setLoading(false);
+            return;
+          }
+
+          // Fetch observations for each encounter
+          const encounters: any[] = [];
+          for (const mapping of locationEncounters) {
+            try {
+              const encounterUrl = `/ws/rest/v1/encounter/${mapping.encounterUuid}?v=custom:(uuid,encounterDatetime,location:(uuid,display),obs)`;
+              const encounterResponse = await openmrsFetch(encounterUrl);
+              encounters.push(encounterResponse.data);
+            } catch (e) {
+              console.log('⚠️ Failed to fetch encounter:', mapping.encounterUuid, e);
+            }
+          }
+          console.log('📊 Successfully fetched encounters:', encounters.length);
+
+          // Extract all observations from encounters
+          const observations: any[] = [];
+          encounters.forEach((enc: any) => {
+            if (enc.obs && Array.isArray(enc.obs)) {
+              enc.obs.forEach((obs: any) => {
+                observations.push({
+                  ...obs,
+                  encounter: { uuid: enc.uuid },
+                  location: enc.location,
+                  obsDatetime: obs.obsDatetime || enc.encounterDatetime,
+                });
+              });
+            }
+          });
+
+          console.log('📊 Total observations from encounters:', observations.length);
 
           const formData: any[] = [];
           const groupedByEncounter: Record<string, any> = {};
 
+          // Process REST API observations (different format from FHIR)
           observations.forEach((obs: any) => {
-            const encounterId = obs.encounter?.reference || obs.encounter?.uuid || 'unknown';
+            const encounterId = obs.encounter?.uuid || 'unknown';
             if (!groupedByEncounter[encounterId]) {
               groupedByEncounter[encounterId] = {
                 encounterId,
-                date: obs.effectiveDateTime || obs.issued || new Date().toISOString(),
+                date: obs.obsDatetime || new Date().toISOString(),
                 observations: [],
               };
             }
             groupedByEncounter[encounterId].observations.push(obs);
           });
+
+          console.log('👥 Grouped by encounter:', Object.keys(groupedByEncounter).length, 'encounters');
 
           Object.values(groupedByEncounter).forEach((encounter: any) => {
             const submission = {
@@ -1700,11 +1750,18 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
             };
 
             encounter.observations.forEach((obs: any) => {
-              const conceptId = obs.code?.coding?.[0]?.code || obs.code?.text || 'unknown-concept';
-              const value =
-                obs.valueString || obs.valueCodeableConcept?.text || obs.valueQuantity?.value || obs.valueBoolean;
-              if (value !== undefined && value !== null) {
-                submission.data[conceptId] = value;
+              // REST API format: obs.concept.uuid, obs.value (can be string, number, or coded concept)
+              const conceptId = obs.concept?.uuid || 'unknown-concept';
+              const conceptLabel = conceptLabelMap[conceptId] || obs.concept?.display || conceptId;
+
+              let value = obs.value;
+              // Handle coded values
+              if (obs.value?.display) {
+                value = obs.value.display;
+              }
+
+              if (value !== undefined && value !== null && value !== '') {
+                submission.data[conceptLabel] = value;
               }
             });
 
@@ -1712,6 +1769,8 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
               formData.push(submission);
             }
           });
+
+          console.log('📋 Total form submissions:', formData.length);
 
           sitesFormData[defaultLocationUuid] = formData;
         } catch (siteError) {
@@ -1727,7 +1786,7 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
     };
 
     fetchSitesData();
-  }, [defaultLocationUuid]);
+  }, [defaultLocationUuid, refreshTrigger]);
 
   const siteSubmissions = sitesData[defaultLocationUuid] || [];
   const selectedSiteName = defaultLocationName || 'Current Site';
@@ -1757,9 +1816,30 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
             <h3 style={{ margin: '0', color: '#1e3a8a', fontSize: '1.2rem', fontWeight: 'bold' }}>
               {selectedSiteName} -
             </h3>
-            <span style={{ fontSize: '0.9rem', color: '#666' }}>
-              {loading ? 'Loading...' : `${siteSubmissions.length} submissions`}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span style={{ fontSize: '0.9rem', color: '#666' }}>
+                {loading ? 'Loading...' : `${siteSubmissions.length} submissions`}
+              </span>
+              <button
+                onClick={() => setRefreshTrigger((prev) => prev + 1)}
+                disabled={loading}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: loading ? '#ccc' : '#0f62fe',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -1878,21 +1958,25 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
                     </td>
                     <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
                       <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        {(() => {
+                          console.log('DEBUG submission.data:', submission.data);
+                          return null;
+                        })()}
                         {Object.keys(submission.data).length > 0 ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {Object.entries(submission.data)
                               .filter(([key, value]: [string, any]) => {
-                                // Filter out numeric values from radio buttons (1, 2, etc.)
-                                // Only show text fields (textarea answers)
-                                if (typeof value === 'number') return false;
-                                if (typeof value === 'string' && value.trim().length === 0) return false;
-                                return true;
+                                // Hide date field and main radio questions
+                                const hideKeys = [
+                                  '१. बैठकको गठन गरेको  मिति',
+                                  '२. यस बैठकमा, लान्छना सम्बन्धि  कुनै नयाँ गतिविधिहरु कार्यान्वयन गर्नको लागि निर्णय गर्नुभयो?',
+                                  '३. अघिल्लो बैठकमा छलफल भएको कुनै गतिविधीहरु, गएको महिनामा प्रयोग गर्नुभयो?',
+                                ];
+                                return !hideKeys.includes(key.trim());
                               })
                               .map(([key, value]: [string, any]) => {
-                                // Get human-readable label from concept map
-                                const fieldLabel = conceptLabelMap[key] || key;
-                                const displayValue = conceptLabelMap[value] || value;
-
+                                const fieldLabel = key;
+                                const displayValue = value;
                                 return (
                                   <div
                                     key={key}
@@ -2189,11 +2273,13 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // console.log('🚀 Form submission started:', {
-    //   selectedPatient: selectedPatient ? 'YES' : 'NO',
-    //   encounter: encounter ? `YES (${encounter.uuid})` : 'NO',
-    //   formDataKeys: Object.keys(formData).length,
-    // });
+    console.log('🚀 Form submission started:', {
+      selectedPatient: selectedPatient ? 'YES' : 'NO',
+      selectedPatientUUID: selectedPatient,
+      encounter: encounter ? `YES (${encounter.uuid})` : 'NO',
+      formDataKeys: Object.keys(formData).length,
+      sessionLocation: session?.sessionLocation?.display,
+    });
 
     if (!selectedPatient) {
       showSnackbar({
@@ -2221,7 +2307,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
       let successCount = 0;
       let errorCount = 0;
 
-      // console.log('🚀 Starting individual observation submission...');
+      console.log('🚀 Starting individual observation submission...');
 
       // Create observations from form data (matching clinical form format)
       for (const [conceptUuid, value] of Object.entries(formData)) {
@@ -2236,7 +2322,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
           ) {
             // Radio button values must be pure numbers, not concept UUIDs
             processedValue = value === 'हो' || value === 'Yes' ? 1 : 2;
-            // console.log(`🔄 Radio ${conceptUuid}: "${value}" → ${processedValue} (NumberFormatException fixed!)`);
+            console.log(`🔄 Radio ${conceptUuid}: "${value}" → ${processedValue} (NumberFormatException fixed!)`);
           }
 
           const obsPayload = {
@@ -2249,10 +2335,13 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
           };
 
           try {
-            // console.log(`🔄 Submitting concept ${conceptUuid}:`, {
-            //   value: processedValue,
-            //   originalValue: value,
-            // });
+            console.log(`🔄 Submitting concept ${conceptUuid}:`, {
+              value: processedValue,
+              originalValue: value,
+              person: encounter.patient.uuid,
+              location: selectedPatient,
+              encounter: encounter.uuid,
+            });
 
             const obsResponse = await fetch('/openmrs/ws/rest/v1/obs', {
               method: 'POST',
@@ -2262,19 +2351,41 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
 
             if (obsResponse.ok) {
               successCount++;
-              // console.log(`✅ SUCCESS: ${conceptUuid}`);
+              const savedObs = await obsResponse.json();
+              console.log(`✅ SUCCESS: ${conceptUuid}`, { uuid: savedObs.uuid, location: obsPayload.location });
             } else {
               errorCount++;
               const errorText = await obsResponse.text();
-              // console.log(`❌ FAILED: ${conceptUuid}`, {
-              //   status: obsResponse.status,
-              //   error: errorText,
-              // });
+              console.log(`❌ FAILED: ${conceptUuid}`, {
+                status: obsResponse.status,
+                error: errorText,
+              });
             }
           } catch (error) {
             errorCount++;
-            // console.log(`❌ ERROR: ${conceptUuid}`, error.message);
+            console.log(`❌ ERROR: ${conceptUuid}`, error.message);
           }
+        }
+      }
+
+      // Store encounter-location mapping in localStorage for Sites visualization
+      if (errorCount === 0 && encounter?.uuid && selectedPatient) {
+        try {
+          const storageKey = 'conferenceFormEncounters';
+          const existingData = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          existingData.push({
+            encounterUuid: encounter.uuid,
+            locationUuid: selectedPatient,
+            locationName: session?.sessionLocation?.display || 'Unknown',
+            submittedAt: new Date().toISOString(),
+          });
+          localStorage.setItem(storageKey, JSON.stringify(existingData));
+          console.log('💾 Stored encounter-location mapping:', {
+            encounter: encounter.uuid,
+            location: selectedPatient,
+          });
+        } catch (e) {
+          console.log('⚠️ Failed to store encounter mapping:', e);
         }
       }
 
