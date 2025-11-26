@@ -1,3 +1,145 @@
+// Enacted Dimension Visualization Component
+function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
+  const dimensionKeys = ['hiv_domain_es', 'mh_domain_es', 'sgm_domain_es', 'em_domain_es'];
+  const chartLabels = ['HIV Domain (ES)', 'Mental Health Domain (ES)', 'SGM Domain (ES)', 'EM Domain (ES)'];
+  const dimensionScores: Record<string, number[]> = {
+    hiv_domain_es: [],
+    mh_domain_es: [],
+    sgm_domain_es: [],
+    em_domain_es: [],
+  };
+  // Updated mapping to match actual code.text values found in debug logs
+  const codeToDimensionKey: Record<string, string> = {
+    // HIV Domain
+    'HIV Impact Rating': 'hiv_domain_es',
+    'HIV domain total score- Enacted stigma': 'hiv_domain_es',
+    'HIV domain total score-Enacted stigma': 'hiv_domain_es',
+    // Mental Health Domain
+    'Mental Health Impact Rating': 'mh_domain_es',
+    'Mental health domain score- Enacted stigma': 'mh_domain_es',
+    'Mental health domain total score - Enacted stigma': 'mh_domain_es',
+    'Mental health domain total score-Enacted stigma': 'mh_domain_es',
+    // SGM Domain
+    'Sexual and Gender Minorities Impact Rating': 'sgm_domain_es',
+    'Sexual and Gender Minorities domain total score-Enacted stigma': 'sgm_domain_es',
+    'Sexual and Gender Minorities domain score-Enacted stigma': 'sgm_domain_es',
+    'Sexual and Gender Minorities  domain score- Enacted stigma': 'sgm_domain_es',
+    // EM Domain
+    'Ethnic Minorities Impact Rating': 'em_domain_es',
+    'Ethnic Minorities domain score-Enacted stigma': 'em_domain_es',
+    'Ethnic Minorities domain total score-Enacted stigma': 'em_domain_es',
+    'Ethnic Minorities domain score- Enacted stigma score': 'em_domain_es',
+  };
+  patients.forEach((observations) => {
+    if (!Array.isArray(observations)) return;
+    observations.forEach((obs: any) => {
+      const codeText = obs.code?.text?.trim() || '';
+      let key = codeToDimensionKey[codeText];
+      if (!key) {
+        // Fallback: fuzzy match using includes
+        for (const mapText in codeToDimensionKey) {
+          if (codeText.includes(mapText)) {
+            key = codeToDimensionKey[mapText];
+            console.log('ENACTED FUZZY MATCH:', codeText, '->', mapText, '->', key);
+            break;
+          }
+        }
+      }
+      if (!key) {
+        console.log('ENACTED SKIPPED:', codeText);
+        return;
+      }
+      const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
+      if (typeof rawValue === 'number' && !isNaN(rawValue)) {
+        dimensionScores[key].push(rawValue);
+        console.log('ENACTED MATCH', key, rawValue);
+      } else {
+        console.log('ENACTED VALUE SKIPPED:', codeText, rawValue);
+      }
+    });
+  });
+
+  const maxDimensions: Record<string, number> = {};
+  dimensionKeys.forEach((key) => {
+    maxDimensions[key] = dimensionScores[key].length > 0 ? Math.max(...dimensionScores[key]) : 0;
+  });
+  const chartData = dimensionKeys.map((key) => maxDimensions[key]);
+  return (
+    <div
+      style={{
+        backgroundColor: '#fff',
+        padding: '1.5rem',
+        borderRadius: '12px',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+        width: '100%',
+      }}
+    >
+      <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Enacted Dimension Analysis</h3>
+      <div style={{ marginBottom: '2rem' }}>
+        <strong>Max Enacted Dimension Scores:</strong>
+        <ul>
+          {dimensionKeys.map((key, idx) => (
+            <li key={key}>
+              {chartLabels[idx]}: <span style={{ color: '#dc2626', fontWeight: 'bold' }}>{maxDimensions[key]}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <Chart
+        type="bar"
+        data={{
+          labels: chartLabels,
+          datasets: [
+            {
+              label: 'Max Score',
+              data: chartData,
+              backgroundColor: [
+                'rgba(220, 38, 38, 0.7)',
+                'rgba(251, 191, 36, 0.7)',
+                'rgba(34, 197, 94, 0.7)',
+                'rgba(139, 92, 246, 0.7)',
+              ],
+              borderColor: [
+                'rgba(220, 38, 38, 1)',
+                'rgba(251, 191, 36, 1)',
+                'rgba(34, 197, 94, 1)',
+                'rgba(139, 92, 246, 1)',
+              ],
+              borderWidth: 2,
+            },
+          ],
+        }}
+        options={{
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (context: any) {
+                  return `Max Score: ${context.parsed.y}`;
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Max Score',
+                font: { size: 14, weight: 600 },
+              },
+              ticks: { font: { size: 12 } },
+            },
+            x: {
+              ticks: { font: { size: 12 } },
+            },
+          },
+        }}
+      />
+    </div>
+  );
+}
 // import MultiChartSelector from './stigma-data-aggregate';
 // // New function for ART ID visualization
 // function ArtIdVisualization({ patients }: { patients: any[] }) {
@@ -1199,16 +1341,16 @@ export default function AllPatientsDashboard() {
                       o एआरटीमा भइरहेका जानेर वा अनजानमा भएका लान्छनापूर्ण अभ्यासहरूको/व्यवहारहरू के–के छन् भनेर पहिचान
                       गरेर सूची बनाउनुहोस्।
                     </p>
-                    <p style={{ margin: '0.5rem 0' }}>o लान्छनारहित सेवा दिन सहयोग हुने कार्यसूची तयार गर्नुहोस्।</p>
+                    <p style={{ margin: '0.5rem 0' }}>o लान्छनारहित सेवा दिन सहयोग हुने कार्यसूची तयार गर्नुहोस्。</p>
                     <p style={{ margin: '0.5rem 0' }}>
-                      o एआरटीका कर्मचारीहरूलाई नियमित रूपमा संवेदनशीलता सम्बन्धी तालिम प्रदान गर्नुहोस्।
+                      o एआरटीका कर्मचारीहरूलाई नियमित रूपमा संवेदनशीलता सम्बन्धी तालिम प्रदान गर्नुहोस्。
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
-                      o प्रतीक्षा गर्ने ठाउँहरूमा लान्छना कम गर्न सहयोग हुने पोस्टर र सन्देशहरू टाँस्नुहोस्।
+                      o प्रतीक्षा गर्ने ठाउँहरूमा लान्छना कम गर्न सहयोग हुने पोस्टर र सन्देशहरू टाँस्नुहोस्。
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
                       o सबै कर्मचारीहरु, रिसेप्सन र प्रशासनसहित, लाई आदरपूर्वक र बिना भेदभाव सेवा प्रदान कसरी गर्ने
-                      समन्धित तालिम दिनुहोस्।
+                      समन्धित तालिम दिनुहोस्。
                     </p>
                   </div>
                 </div>
@@ -1331,13 +1473,13 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
 
   React.useEffect(() => {
     if (!patients || patients.length === 0) {
-      console.log('❌ No patients data available for Intersectional Stigma Analysis');
+      // console.log('❌ No patients data available for Intersectional Stigma Analysis');
       setLoading(false);
       return;
     }
 
-    console.log('📊 Starting Intersectional Stigma Analysis...');
-    console.log('Total patients to analyze:', patients.length);
+    // console.log('📊 Starting Int...');
+    // console.log('Total patients to analyze:', patients.length);
 
     // Calculate highest for each intersectional stigma type
     const calculateExtremes = () => {
@@ -1438,9 +1580,9 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
         });
       });
 
-      console.log('✅ Analysis Complete!');
-      console.log('Processed patients with stigma data:', processedPatients);
-      console.log('Total stigma observations:', totalObservations);
+      // console.log('✅ Analysis Complete!');
+      // console.log('Processed patients with stigma data:', processedPatients);
+      // console.log('Total stigma observations:', totalObservations);
       console.log('Results:', {
         'Anticipated Stigma (AS)': {
           highest: stigmaTypes.stigma_as.highestScore,
@@ -1496,7 +1638,7 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
         width: '100%',
       }}
     >
-      <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Intersectional Stigma Analysis</h3>
+      <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Intersectional</h3>
 
       {/* Bar Chart Visualization - Full Width */}
       <Chart
@@ -1585,6 +1727,90 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
 
 // Dimension Visualization Component
 function DimensionVisualization({ patients }: { patients: any[] }) {
+  // Support anticipated and internalized dimensions
+  // Separate keys and labels for anticipated and internalized
+  const anticipatedKeys = ['hiv_domain_as', 'mh_domain_as', 'sgm_domain_as', 'em_domain_as'];
+  const anticipatedLabels = ['HIV Domain (AS)', 'Mental Health Domain (AS)', 'SGM Domain (AS)', 'EM Domain (AS)'];
+  const internalizedKeys = ['hiv_domain_is', 'mh_domain_is', 'sgm_domain_is', 'em_domain_is'];
+  const internalizedLabels = ['HIV Domain (IS)', 'Mental Health Domain (IS)', 'SGM Domain (IS)', 'EM Domain (IS)'];
+  const dimensionScores: Record<string, number[]> = {
+    hiv_domain_as: [],
+    mh_domain_as: [],
+    sgm_domain_as: [],
+    em_domain_as: [],
+    hiv_domain_is: [],
+    mh_domain_is: [],
+    sgm_domain_is: [],
+    em_domain_is: [],
+  };
+  const codeToDimensionKey: Record<string, string> = {
+    // Anticipated
+    'Anticipated stigma score': 'sgm_domain_as',
+    'HIV stigma score': 'hiv_domain_as',
+    'Mental health stigma score': 'mh_domain_as',
+    'Experience of marginalization score': 'em_domain_as',
+    'HIV domain total score- Anticipated stigma': 'hiv_domain_as',
+    'Mental health domain score- Anticipated stigma': 'mh_domain_as',
+    'Sexual and Gender Minorities  domain score- Anticipated stigma': 'sgm_domain_as',
+    'Ethnic Minorities domain score- Anticipated stigma score': 'em_domain_as',
+    // Internalized
+    'Internalized stigma score': 'sgm_domain_is',
+    'HIV domain total score- Internalized stigma': 'hiv_domain_is',
+    'Mental health domain score- Internalized stigma': 'mh_domain_is',
+    'Sexual and Gender Minorities  domain score- Internalized stigma': 'sgm_domain_is',
+    'Ethnic Minorities domain score- Internalized stigma score': 'em_domain_is',
+    // Add any other variations from logs here
+  };
+  patients.forEach((observations) => {
+    if (!Array.isArray(observations)) return;
+    observations.forEach((obs: any) => {
+      const codeText = obs.code?.text;
+      let key = codeToDimensionKey[codeText];
+      if (!key) {
+        // Fuzzy match for internalized
+        for (const mapText in codeToDimensionKey) {
+          if (
+            codeText &&
+            mapText.toLowerCase().replace(/\s+/g, '').includes('internalized') &&
+            codeText.toLowerCase().replace(/\s+/g, '').includes('internalized') &&
+            mapText.toLowerCase().replace(/\s+/g, '') === codeText.toLowerCase().replace(/\s+/g, '')
+          ) {
+            key = codeToDimensionKey[mapText];
+            console.log('[FUZZY MATCH INTERNALIZED]', codeText, '->', key);
+            break;
+          }
+        }
+        if (!key) {
+          // Try partial fuzzy match
+          for (const mapText in codeToDimensionKey) {
+            if (
+              codeText &&
+              mapText.toLowerCase().replace(/\s+/g, '').includes('internalized') &&
+              codeText.toLowerCase().replace(/\s+/g, '').includes('internalized')
+            ) {
+              key = codeToDimensionKey[mapText];
+              console.log('[PARTIAL FUZZY INTERNALIZED]', codeText, '->', key);
+              break;
+            }
+          }
+        }
+      }
+      if (!key) return;
+      const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
+      if (typeof rawValue === 'number' && !isNaN(rawValue)) {
+        dimensionScores[key].push(rawValue);
+        console.log('[MATCH]', key, rawValue, 'from', codeText);
+      } else {
+        console.log('[SKIP]', key, rawValue, 'from', codeText);
+      }
+    });
+  });
+
+  const maxDimensions: Record<string, number> = {};
+  [...anticipatedKeys, ...internalizedKeys].forEach((key) => {
+    maxDimensions[key] = dimensionScores[key].length > 0 ? Math.max(...dimensionScores[key]) : 0;
+  });
+  const [tab, setTab] = React.useState<'anticipated' | 'enacted' | 'internalized'>('anticipated');
   return (
     <div
       style={{
@@ -1595,19 +1821,193 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
         width: '100%',
       }}
     >
-      <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Dimension Analysis</h3>
-      <div
-        style={{
-          padding: '4rem',
-          backgroundColor: '#c8c8c8ff',
-          borderRadius: '8px',
-          textAlign: 'center',
-          color: '#fff',
-          fontSize: '1.2rem',
-        }}
-      >
-        ...
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+        <button
+          onClick={() => setTab('anticipated')}
+          style={{
+            padding: '0.5rem 1.2rem',
+            borderRadius: 6,
+            border: tab === 'anticipated' ? '2px solid #2563eb' : '1px solid #ccc',
+            background: tab === 'anticipated' ? '#e0f2fe' : '#fff',
+            color: tab === 'anticipated' ? '#2563eb' : '#333',
+            fontWeight: tab === 'anticipated' ? 600 : 400,
+            cursor: 'pointer',
+            fontSize: '1rem',
+            transition: 'all 0.2s',
+          }}
+        >
+          Anticipated
+        </button>
+        <button
+          onClick={() => setTab('enacted')}
+          style={{
+            padding: '0.5rem 1.2rem',
+            borderRadius: 6,
+            border: tab === 'enacted' ? '2px solid #dc2626' : '1px solid #ccc',
+            background: tab === 'enacted' ? '#fee2e2' : '#fff',
+            color: tab === 'enacted' ? '#dc2626' : '#333',
+            fontWeight: tab === 'enacted' ? 600 : 400,
+            cursor: 'pointer',
+            fontSize: '1rem',
+            transition: 'all 0.2s',
+          }}
+        >
+          Enacted
+        </button>
+        <button
+          onClick={() => setTab('internalized')}
+          style={{
+            padding: '0.5rem 1.2rem',
+            borderRadius: 6,
+            border: tab === 'internalized' ? '2px solid #a21caf' : '1px solid #ccc',
+            background: tab === 'internalized' ? '#f3e8ff' : '#fff',
+            color: tab === 'internalized' ? '#a21caf' : '#333',
+            fontWeight: tab === 'internalized' ? 600 : 400,
+            cursor: 'pointer',
+            fontSize: '1rem',
+            transition: 'all 0.2s',
+          }}
+        >
+          Internalized
+        </button>
       </div>
+      {tab === 'anticipated' && (
+        <>
+          <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Dimension (Anticipated)</h3>
+          <div style={{ marginBottom: '2rem' }}>
+            <strong>Max Dimension Scores:</strong>
+            <ul>
+              {anticipatedKeys.map((key, idx) => (
+                <li key={key}>
+                  {anticipatedLabels[idx]}:{' '}
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>{maxDimensions[key]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Chart
+            type="bar"
+            data={{
+              labels: anticipatedLabels,
+              datasets: [
+                {
+                  label: 'Max Score',
+                  data: anticipatedKeys.map((key) => maxDimensions[key]),
+                  backgroundColor: [
+                    'rgba(56, 189, 248, 0.7)',
+                    'rgba(34, 197, 94, 0.7)',
+                    'rgba(139, 92, 246, 0.7)',
+                    'rgba(251, 191, 36, 0.7)',
+                  ],
+                  borderColor: [
+                    'rgba(56, 189, 248, 1)',
+                    'rgba(34, 197, 94, 1)',
+                    'rgba(139, 92, 246, 1)',
+                    'rgba(251, 191, 36, 1)',
+                  ],
+                  borderWidth: 2,
+                },
+              ],
+            }}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: function (context: any) {
+                      return `Max Score: ${context.parsed.y}`;
+                    },
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Max Score',
+                    font: { size: 14, weight: 600 },
+                  },
+                  ticks: { font: { size: 12 } },
+                },
+                x: {
+                  ticks: { font: { size: 12 } },
+                },
+              },
+            }}
+          />
+        </>
+      )}
+      {tab === 'enacted' && <EnactedDimensionVisualization patients={patients} />}
+      {tab === 'internalized' && (
+        <>
+          <h3 style={{ margin: '0 0 1.5rem 0', color: '#a21caf', fontSize: '1.3rem' }}>Dimension (Internalized)</h3>
+          <div style={{ marginBottom: '2rem' }}>
+            <strong>Max Dimension Scores:</strong>
+            <ul>
+              {internalizedKeys.map((key, idx) => (
+                <li key={key}>
+                  {internalizedLabels[idx]}:{' '}
+                  <span style={{ color: '#a21caf', fontWeight: 'bold' }}>{maxDimensions[key]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Chart
+            type="bar"
+            data={{
+              labels: internalizedLabels,
+              datasets: [
+                {
+                  label: 'Max Score',
+                  data: internalizedKeys.map((key) => maxDimensions[key]),
+                  backgroundColor: [
+                    'rgba(168, 85, 247, 0.7)',
+                    'rgba(236, 72, 153, 0.7)',
+                    'rgba(59, 130, 246, 0.7)',
+                    'rgba(251, 191, 36, 0.7)',
+                  ],
+                  borderColor: [
+                    'rgba(168, 85, 247, 1)',
+                    'rgba(236, 72, 153, 1)',
+                    'rgba(59, 130, 246, 1)',
+                    'rgba(251, 191, 36, 1)',
+                  ],
+                  borderWidth: 2,
+                },
+              ],
+            }}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: function (context: any) {
+                      return `Max Score: ${context.parsed.y}`;
+                    },
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Max Score',
+                    font: { size: 14, weight: 600 },
+                  },
+                  ticks: { font: { size: 12 } },
+                },
+                x: {
+                  ticks: { font: { size: 12 } },
+                },
+              },
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -1660,131 +2060,76 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
   React.useEffect(() => {
     const fetchSitesData = async () => {
       if (!defaultLocationUuid) return;
-
+      setLoading(true);
       try {
-        setLoading(true);
+        // Fetch all encounters for the current location and encounter type
+        // Replace with your encounterType UUID
+        const encounterTypeUuid = 'YOUR_ENCOUNTER_TYPE_UUID';
+        const encounterUrl = `/ws/rest/v1/encounter?location=${defaultLocationUuid}&encounterType=${encounterTypeUuid}&v=custom:(uuid,encounterDatetime,location:(uuid,display),obs)&limit=1000`;
+        const encounterResponse = await openmrsFetch(encounterUrl);
+        const encounters = encounterResponse.data?.results || [];
+        console.log('📊 Fetched encounters from backend:', encounters.length);
 
-        const sitesFormData: Record<string, any[]> = {};
-
-        // Fetch data only for the selected site
-        try {
-          if (typeof fhirBaseUrl === 'undefined') {
-            setLoading(false);
-            return;
-          }
-
-          // Get encounter-location mappings from localStorage
-          console.log('🔍 Fetching encounters for location:', defaultLocationName, defaultLocationUuid);
-
-          const storageKey = 'conferenceFormEncounters';
-          const encounterMappings = JSON.parse(localStorage.getItem(storageKey) || '[]');
-          console.log('💾 Found encounter mappings in localStorage:', encounterMappings.length);
-
-          // Filter encounters for this location
-          const locationEncounters = encounterMappings.filter(
-            (mapping: any) => mapping.locationUuid === defaultLocationUuid,
-          );
-          console.log('📍 Encounters for this location:', locationEncounters.length);
-
-          if (locationEncounters.length === 0) {
-            console.log('⚠️ No encounters found for this location');
-            setSitesData({});
-            setLoading(false);
-            return;
-          }
-
-          // Fetch observations for each encounter
-          const encounters: any[] = [];
-          for (const mapping of locationEncounters) {
-            try {
-              const encounterUrl = `/ws/rest/v1/encounter/${mapping.encounterUuid}?v=custom:(uuid,encounterDatetime,location:(uuid,display),obs)`;
-              const encounterResponse = await openmrsFetch(encounterUrl);
-              encounters.push(encounterResponse.data);
-            } catch (e) {
-              console.log('⚠️ Failed to fetch encounter:', mapping.encounterUuid, e);
-            }
-          }
-          console.log('📊 Successfully fetched encounters:', encounters.length);
-
-          // Extract all observations from encounters
-          const observations: any[] = [];
-          encounters.forEach((enc: any) => {
-            if (enc.obs && Array.isArray(enc.obs)) {
-              enc.obs.forEach((obs: any) => {
-                observations.push({
-                  ...obs,
-                  encounter: { uuid: enc.uuid },
-                  location: enc.location,
-                  obsDatetime: obs.obsDatetime || enc.encounterDatetime,
-                });
+        // Extract all observations from encounters
+        const observations: any[] = [];
+        encounters.forEach((enc: any) => {
+          if (enc.obs && Array.isArray(enc.obs)) {
+            enc.obs.forEach((obs: any) => {
+              observations.push({
+                ...obs,
+                encounter: { uuid: enc.uuid },
+                location: enc.location,
+                obsDatetime: obs.obsDatetime || enc.encounterDatetime,
               });
-            }
-          });
-
-          console.log('📊 Total observations from encounters:', observations.length);
-
-          const formData: any[] = [];
-          const groupedByEncounter: Record<string, any> = {};
-
-          // Process REST API observations (different format from FHIR)
-          observations.forEach((obs: any) => {
-            const encounterId = obs.encounter?.uuid || 'unknown';
-            if (!groupedByEncounter[encounterId]) {
-              groupedByEncounter[encounterId] = {
-                encounterId,
-                date: obs.obsDatetime || new Date().toISOString(),
-                observations: [],
-              };
-            }
-            groupedByEncounter[encounterId].observations.push(obs);
-          });
-
-          console.log('👥 Grouped by encounter:', Object.keys(groupedByEncounter).length, 'encounters');
-
-          Object.values(groupedByEncounter).forEach((encounter: any) => {
-            const submission = {
-              id: encounter.encounterId,
-              date: encounter.date,
-              siteId: defaultLocationUuid,
-              data: {},
-            };
-
-            encounter.observations.forEach((obs: any) => {
-              // REST API format: obs.concept.uuid, obs.value (can be string, number, or coded concept)
-              const conceptId = obs.concept?.uuid || 'unknown-concept';
-              const conceptLabel = conceptLabelMap[conceptId] || obs.concept?.display || conceptId;
-
-              let value = obs.value;
-              // Handle coded values
-              if (obs.value?.display) {
-                value = obs.value.display;
-              }
-
-              if (value !== undefined && value !== null && value !== '') {
-                submission.data[conceptLabel] = value;
-              }
             });
+          }
+        });
+        console.log('📊 Total observations from encounters:', observations.length);
 
-            if (Object.keys(submission.data).length > 0) {
-              formData.push(submission);
+        // Group observations by encounter
+        const formData: any[] = [];
+        const groupedByEncounter: Record<string, any> = {};
+        observations.forEach((obs: any) => {
+          const encounterId = obs.encounter?.uuid || 'unknown';
+          if (!groupedByEncounter[encounterId]) {
+            groupedByEncounter[encounterId] = {
+              encounterId,
+              date: obs.obsDatetime || new Date().toISOString(),
+              observations: [],
+            };
+          }
+          groupedByEncounter[encounterId].observations.push(obs);
+        });
+        Object.values(groupedByEncounter).forEach((encounter: any) => {
+          const submission = {
+            id: encounter.encounterId,
+            date: encounter.date,
+            siteId: defaultLocationUuid,
+            data: {},
+          };
+          encounter.observations.forEach((obs: any) => {
+            const conceptId = obs.concept?.uuid || 'unknown-concept';
+            const conceptLabel = conceptLabelMap[conceptId] || obs.concept?.display || conceptId;
+            let value = obs.value;
+            if (obs.value?.display) {
+              value = obs.value.display;
+            }
+            if (value !== undefined && value !== null && value !== '') {
+              submission.data[conceptLabel] = value;
             }
           });
-
-          console.log('📋 Total form submissions:', formData.length);
-
-          sitesFormData[defaultLocationUuid] = formData;
-        } catch (siteError) {
-          sitesFormData[defaultLocationUuid] = [];
-        }
-
-        setSitesData(sitesFormData);
+          if (Object.keys(submission.data).length > 0) {
+            formData.push(submission);
+          }
+        });
+        console.log('📋 Total form submissions:', formData.length);
+        setSitesData({ [defaultLocationUuid]: formData });
       } catch (error) {
-        // console.error('Error fetching sites data:', error);
+        setSitesData({ [defaultLocationUuid]: [] });
       } finally {
         setLoading(false);
       }
     };
-
     fetchSitesData();
   }, [defaultLocationUuid, refreshTrigger]);
 
@@ -2275,7 +2620,6 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
 
     console.log('🚀 Form submission started:', {
       selectedPatient: selectedPatient ? 'YES' : 'NO',
-      selectedPatientUUID: selectedPatient,
       encounter: encounter ? `YES (${encounter.uuid})` : 'NO',
       formDataKeys: Object.keys(formData).length,
       sessionLocation: session?.sessionLocation?.display,
