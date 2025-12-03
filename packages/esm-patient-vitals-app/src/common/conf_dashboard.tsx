@@ -1,3 +1,6 @@
+// Utility: Get or create a location patient for the current session location
+// Remove any top-level hook calls. All hooks must be inside a function component.
+// ...existing code...
 // Enacted Dimension Visualization Component
 function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
   const dimensionKeys = ['hiv_domain_es', 'mh_domain_es', 'sgm_domain_es', 'em_domain_es'];
@@ -40,21 +43,22 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
         for (const mapText in codeToDimensionKey) {
           if (codeText.includes(mapText)) {
             key = codeToDimensionKey[mapText];
-            console.log('ENACTED FUZZY MATCH:', codeText, '->', mapText, '->', key);
+            // console.log('ENACTED FUZZY MAT
+            // CH:', codeText, '->', mapText, '->', key);
             break;
           }
         }
       }
       if (!key) {
-        console.log('ENACTED SKIPPED:', codeText);
+        // console.log('ENACTED SKIPPED:', codeText);
         return;
       }
       const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
       if (typeof rawValue === 'number' && !isNaN(rawValue)) {
         dimensionScores[key].push(rawValue);
-        console.log('ENACTED MATCH', key, rawValue);
+        // console.log('ENACTED MATCH', key, rawValue);
       } else {
-        console.log('ENACTED VALUE SKIPPED:', codeText, rawValue);
+        // console.log('ENACTED VALUE SKIPPED:', codeText, rawValue);
       }
     });
   });
@@ -75,7 +79,7 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
       }}
     >
       <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Enacted Dimension Analysis</h3>
-      <div style={{ marginBottom: '2rem' }}>
+      {/* <div style={{ marginBottom: '2rem' }}>
         <strong>Max Enacted Dimension Scores:</strong>
         <ul>
           {dimensionKeys.map((key, idx) => (
@@ -84,7 +88,7 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
             </li>
           ))}
         </ul>
-      </div>
+      </div> */}
       <Chart
         type="bar"
         data={{
@@ -378,41 +382,41 @@ const ClickableTextWithQR: React.FC<ClickableTextWithQRProps> = ({ text, image, 
 // ============================================================================
 // Configuration for allowed patients in the form interface
 // To add new patients, simply add their patient ID to this array
-export const PATIENT_CONFIG = {
-  // Patient UUIDs - representing sites in the system
-  allowedPatients: [
-    {
-      patientId: '04756e92-8e41-4d15-aae6-6431c5065829',
-      description: 'Kathmandu Site',
-    },
-    {
-      patientId: '019061e6-7306-4e6d-bacf-05edf852a922',
-      description: 'Bhaktapur Site',
-    },
-    // 🚀 TO ADD MORE SITES:
-    // Uncomment and modify the examples below, then add more as needed:
-    //
-    // {
-    //   patientId: 'your-new-site-patient-id-here',
-    //   description: 'Site Name'
-    // },
-    // {
-    //   patientId: 'another-site-patient-id-here',
-    //   description: 'Another Site'
-    // },
-  ],
+// export const PATIENT_CONFIG = {
+// Patient UUIDs - representing sites in the system
+// allowedPatients: [
+//   {
+//     patientId: '04756e92-8e41-4d15-aae6-6431c5065829',
+//     description: 'Kathmandu Site',
+//   },
+//   {
+//     patientId: '019061e6-7306-4e6d-bacf-05edf852a922',
+//     description: 'Bhaktapur Site',
+//   },
+// 🚀 TO ADD MORE SITES:
+// Uncomment and modify the examples below, then add more as needed:
+//
+// {
+//   patientId: 'your-new-site-patient-id-here',
+//   description: 'Site Name'
+// },
+// {
+//   patientId: 'another-site-patient-id-here',
+//   description: 'Another Site'
+// },
+// ],
 
-  // Extract just the patient IDs for easy filtering
-  get patientIdList() {
-    return this.allowedPatients.map((p) => p.patientId);
-  },
+// Extract just the patient IDs for easy filtering
+// get patientIdList() {
+//   return this.allowedPatients.map((p) => p.patientId);
+// },
 
-  // Get description for a site
-  getDescription(patientId: string) {
-    const patient = this.allowedPatients.find((p) => p.patientId === patientId);
-    return patient?.description || 'Unknown site';
-  },
-};
+// Get description for a site
+// getDescription(patientId: string) {
+//   const patient = this.allowedPatients.find((p) => p.patientId === patientId);
+//   return patient?.description || 'Unknown site';
+// },
+// };
 
 // 💡 USAGE NOTES:
 // • These are LOCATION UUIDs, not patient UUIDs
@@ -446,7 +450,7 @@ async function fetchAllPatients() {
 
   // Method 2: Try REST API (v1/patient)
   try {
-    const restUrl = '/ws/rest/v1/patient?v=full&limit=100';
+    const restUrl = '/ws/rest/v1/patient?limit=100';
     const { data } = await openmrsFetch(restUrl);
 
     if (data?.results) {
@@ -475,16 +479,25 @@ export function checkCutoff(
   return returnBoolean ? true : 'equal';
 }
 
-// ---------------- Fetch Counselling/Stigma Data for a patient ----------------
-async function fetchPatientStigmaData(patientId: string) {
+// ---------------- Fetch Counselling/Stigma Data for a patient (with location filter) ----------------
+async function fetchPatientStigmaData(patientId: string, locationUuid?: string) {
   try {
     const url = `${fhirBaseUrl}/Observation?subject=${patientId}&_count=100`;
     const { data } = await openmrsFetch(url);
     if (!data?.entry) return [];
-    return data.entry.map((e: any) => e.resource);
+
+    let observations = data.entry.map((e: any) => e.resource);
+
+    if (locationUuid) {
+      observations = observations.filter((obs: any) => {
+        const obsLocation = obs.location?.reference?.split('/')?.pop() || obs.location?.uuid || obs.location?.id;
+        return obsLocation === locationUuid;
+      });
+    }
+
+    return observations;
   } catch (error) {
-    // console.error(`Error fetc
-    //   hing stigma data for patient ${patientId}:`, error);
+    // console.error(`Error fetching stigma data for patient ${patientId}:`, error);
     return [];
   }
 }
@@ -503,6 +516,10 @@ export function isBelowCutoff(value: number | undefined | null, cutoff: number):
 
 // ---------------- Main Dashboard ----------------
 export default function AllPatientsDashboard() {
+  const session = useSession();
+  const currentLocationUuid = session?.sessionLocation?.uuid;
+  const currentLocationName = session?.sessionLocation?.display;
+
   const { data, isLoading, error } = useAllPatients();
   const patients = data?.patients || [];
   const [allPatientsData, setAllPatientsData] = useState<any[]>([]);
@@ -514,9 +531,15 @@ export default function AllPatientsDashboard() {
     'summary' | 'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Sites' | 'Intersectional' | 'Dimension'
   >('summary');
 
+  // Add refreshTrigger state for SitesDataVisualization
+  const [sitesRefreshTrigger, setSitesRefreshTrigger] = React.useState(0);
+  const handleSitesRefresh = () => setSitesRefreshTrigger((prev) => prev + 1);
+
   useEffect(() => {
     if (!patients?.length) return;
-    Promise.all(patients.map((p) => fetchPatientStigmaData(p.id))).then((results) => {
+
+    // Fetch patient data with location filter
+    Promise.all(patients.map((p) => fetchPatientStigmaData(p.id, currentLocationUuid))).then((results) => {
       setAllPatientsData(results);
       // Find all years present in the data
       const yearsSet = new Set<string>();
@@ -535,7 +558,7 @@ export default function AllPatientsDashboard() {
       // Default to latest year
       if (yearsArr.length > 0) setSelectedYear(yearsArr[yearsArr.length - 1]);
     });
-  }, [patients]);
+  }, [patients, currentLocationUuid]);
 
   // Debug: Log allPatientsData and extracted stigma types when user selects the Stigma Type viz
   useEffect(() => {
@@ -746,6 +769,27 @@ export default function AllPatientsDashboard() {
         backgroundColor: '#f0f8ff',
       }}
     >
+      {/* Location Indicator */}
+      <div
+        style={{
+          backgroundColor: '#fff',
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          border: '1px solid #e0e0e0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        {/* <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1rem', fontWeight: '600', color: '#333' }}>📍 Current Location:</span>
+          <span style={{ fontSize: '1rem', color: '#1890ff', fontWeight: '500' }}>
+            {currentLocationName || 'Unknown Location'}
+          </span>
+        </div>
+        <span style={{ fontSize: '0.85rem', color: '#888', fontStyle: 'italic' }}></span> */}
+      </div>
       {/* Two-column layout: Left space + Right visualization */}
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem', minHeight: '400px' }}>
         {/* Left side - Form Filling Interface */}
@@ -760,7 +804,11 @@ export default function AllPatientsDashboard() {
           }}
         >
           {patients && patients.length > 0 ? (
-            <FormFillingInterface formUuid="55b82773-3cd0-4813-a38e-9d0c1ea35e45" patients={patients} />
+            <FormFillingInterface
+              formUuid="55b82773-3cd0-4813-a38e-9d0c1ea35e45"
+              patients={patients}
+              onSubmitSuccess={handleSitesRefresh}
+            />
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center' }}>
               {/* <h4>📝 Form Filling Interface</h4> */}
@@ -1007,7 +1055,13 @@ export default function AllPatientsDashboard() {
             </div>
           )}
 
-          {vizType === 'Sites' && <SitesDataVisualization patients={patients} />}
+          {vizType === 'Sites' && (
+            <SitesDataVisualization
+              patients={patients}
+              refreshTrigger={sitesRefreshTrigger}
+              onRefresh={handleSitesRefresh}
+            />
+          )}
           {vizType === 'Intersectional' && <IntersectionalStigmaVisualization patients={allPatientsData} />}
           {vizType === 'Dimension' && <DimensionVisualization patients={allPatientsData} />}
           {/* Optional: Stigma Overview Chart */}
@@ -1519,7 +1573,7 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
           if (typeof score !== 'number' || isNaN(score)) return;
           if (!stigmaType.includes('intersectional')) return;
 
-          console.log(`📋 Found intersectional: ${stigmaTypeRaw} = ${score} (Patient ${patientIndex})`);
+          // console.log(`📋 Found intersectional: ${stigmaTypeRaw} = ${score} (Patient ${patientIndex})`);
 
           // Check Anticipated Intersectional Stigma
           if (stigmaType.includes('anticipated')) {
@@ -1528,15 +1582,23 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
               stigmaTypes.stigma_as.highestScore = score;
               // Get ART ID from patient identifier
               const patient = allPatients[patientIndex];
-              const artId = patient?.identifier?.find((id: any) => id.value)?.value || `Patient ${patientIndex}`;
+              // Find ART ID, not OpenMRS ID
+              const artIdObj = patient?.identifier?.find(
+                (id: any) =>
+                  (id.identifierType?.display === 'ART ID' ||
+                    id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f') &&
+                  id.value,
+              );
+              const artId = artIdObj?.value || `ART ID ${patientIndex}`;
+              const identifierType = artIdObj?.identifierType?.display || 'ART ID';
               stigmaTypes.stigma_as.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
-              console.log(
-                `🔴 New HIGHEST AS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
-              );
+              // console.log(
+              //   `🔴 New HIGHEST AS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
+              // );
             } else {
-              console.log(
-                `⚪ AS: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
-              );
+              // console.log(
+              //   `⚪ AS: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
+              // );
             }
           }
 
@@ -1547,15 +1609,22 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
               stigmaTypes.stigma_es.highestScore = score;
               // Get ART ID from patient identifier
               const patient = allPatients[patientIndex];
-              const artId = patient?.identifier?.find((id: any) => id.value)?.value || `Patient ${patientIndex}`;
+              const artIdObj = patient?.identifier?.find(
+                (id: any) =>
+                  (id.identifierType?.display === 'ART ID' ||
+                    id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f') &&
+                  id.value,
+              );
+              const artId = artIdObj?.value || `ART ID ${patientIndex}`;
+              const identifierType = artIdObj?.identifierType?.display || 'ART ID';
               stigmaTypes.stigma_es.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
-              console.log(
-                `🔴 New HIGHEST ES: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
-              );
+              // console.log(
+              //   `🔴 New HIGHEST ES: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
+              // );
             } else {
-              console.log(
-                `⚪ ES: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
-              );
+              // console.log(
+              //   `⚪ ES: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
+              // );
             }
           }
 
@@ -1566,15 +1635,22 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
               stigmaTypes.stigma_is.highestScore = score;
               // Get ART ID from patient identifier
               const patient = allPatients[patientIndex];
-              const artId = patient?.identifier?.find((id: any) => id.value)?.value || `Patient ${patientIndex}`;
+              const artIdObj = patient?.identifier?.find(
+                (id: any) =>
+                  (id.identifierType?.display === 'ART ID' ||
+                    id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f') &&
+                  id.value,
+              );
+              const artId = artIdObj?.value || `Patient ${patientIndex}`;
+              const identifierType = artIdObj?.identifierType?.display || 'ART ID';
               stigmaTypes.stigma_is.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
-              console.log(
-                `🔴 New HIGHEST IS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
-              );
+              // console.log(
+              //   `🔴 New HIGHEST IS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
+              // );
             } else {
-              console.log(
-                `⚪ IS: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
-              );
+              // console.log(
+              //   `⚪ IS: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
+              // );
             }
           }
         });
@@ -1583,17 +1659,17 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
       // console.log('✅ Analysis Complete!');
       // console.log('Processed patients with stigma data:', processedPatients);
       // console.log('Total stigma observations:', totalObservations);
-      console.log('Results:', {
-        'Anticipated Stigma (AS)': {
-          highest: stigmaTypes.stigma_as.highestScore,
-        },
-        'Enacted Stigma (ES)': {
-          highest: stigmaTypes.stigma_es.highestScore,
-        },
-        'Internalized Stigma (IS)': {
-          highest: stigmaTypes.stigma_is.highestScore,
-        },
-      });
+      // console.log('Results:', {
+      //   'Anticipated Stigma (AS)': {
+      //     highest: stigmaTypes.stigma_as.highestScore,
+      //   },
+      //   'Enacted Stigma (ES)': {
+      //     highest: stigmaTypes.stigma_es.highestScore,
+      //   },
+      //   'Internalized Stigma (IS)': {
+      //     highest: stigmaTypes.stigma_is.highestScore,
+      //   },
+      // });
 
       setIntersectionalData({
         stigma_as: { highest: stigmaTypes.stigma_as.highest },
@@ -1776,7 +1852,7 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
             mapText.toLowerCase().replace(/\s+/g, '') === codeText.toLowerCase().replace(/\s+/g, '')
           ) {
             key = codeToDimensionKey[mapText];
-            console.log('[FUZZY MATCH INTERNALIZED]', codeText, '->', key);
+            // console.log('[FUZZY MATCH INTERNALIZED]', codeText, '->', key);
             break;
           }
         }
@@ -1789,7 +1865,7 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
               codeText.toLowerCase().replace(/\s+/g, '').includes('internalized')
             ) {
               key = codeToDimensionKey[mapText];
-              console.log('[PARTIAL FUZZY INTERNALIZED]', codeText, '->', key);
+              // console.log('[PARTIAL FUZZY INTERNALIZED]', codeText, '->', key);
               break;
             }
           }
@@ -1799,9 +1875,9 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
       const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
       if (typeof rawValue === 'number' && !isNaN(rawValue)) {
         dimensionScores[key].push(rawValue);
-        console.log('[MATCH]', key, rawValue, 'from', codeText);
+        // console.log('[MATCH]', key, rawValue, 'from', codeText);
       } else {
-        console.log('[SKIP]', key, rawValue, 'from', codeText);
+        // console.log('[SKIP]', key, rawValue, 'from', codeText);
       }
     });
   });
@@ -1874,7 +1950,7 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
       {tab === 'anticipated' && (
         <>
           <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Dimension (Anticipated)</h3>
-          <div style={{ marginBottom: '2rem' }}>
+          {/* <div style={{ marginBottom: '2rem' }}>
             <strong>Max Dimension Scores:</strong>
             <ul>
               {anticipatedKeys.map((key, idx) => (
@@ -1884,7 +1960,7 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
                 </li>
               ))}
             </ul>
-          </div>
+          </div> */}
           <Chart
             type="bar"
             data={{
@@ -1943,7 +2019,7 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
       {tab === 'internalized' && (
         <>
           <h3 style={{ margin: '0 0 1.5rem 0', color: '#a21caf', fontSize: '1.3rem' }}>Dimension (Internalized)</h3>
-          <div style={{ marginBottom: '2rem' }}>
+          {/* <div style={{ marginBottom: '2rem' }}>
             <strong>Max Dimension Scores:</strong>
             <ul>
               {internalizedKeys.map((key, idx) => (
@@ -1953,7 +2029,7 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
                 </li>
               ))}
             </ul>
-          </div>
+          </div> */}
           <Chart
             type="bar"
             data={{
@@ -2013,14 +2089,53 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
 }
 
 // Sites Data Visualization Component
-function SitesDataVisualization({ patients }: { patients: any[] }) {
+function SitesDataVisualization({
+  patients,
+  refreshTrigger = 0,
+  onRefresh,
+}: {
+  patients: any[];
+  refreshTrigger?: number;
+  onRefresh?: () => void;
+}) {
   const session = useSession();
+  React.useEffect(() => {
+    console.log('🏥 Current session data:', session);
+  }, [session]);
+
   const defaultLocationUuid = session?.sessionLocation?.uuid;
   const defaultLocationName = session?.sessionLocation?.display;
 
+  // Find the patient with identifier value "location" (shared across all sites)
+  // Location-based filtering happens via obs.location.uuid, not via separate patients
+  const locationPatient = React.useMemo(() => {
+    if (!patients || patients.length === 0) return null;
+
+    // Find patient whose identifier value is "location"
+    const patient = patients.find((p) => {
+      return p.identifier?.some((id: any) => id.value?.trim().toLowerCase() === 'location');
+    });
+
+    console.log('🔍 All patients count:', patients.length);
+    console.log('🔍 Found location patient:', patient ? 'YES' : 'NO', patient);
+
+    return patient;
+  }, [patients]);
+
+  const patientUuid = locationPatient?.uuid || locationPatient?.id || null;
+
+  React.useEffect(() => {
+    console.log('🔍 Selected patient for location:', {
+      locationName: defaultLocationName,
+      locationUuid: defaultLocationUuid,
+      patientUuid: patientUuid,
+      patientDisplay: locationPatient?.display || locationPatient?.person?.display,
+      hasIdentifiers: !!locationPatient?.identifier,
+    });
+  }, [locationPatient, patientUuid, defaultLocationName, defaultLocationUuid]);
+
   const [sitesData, setSitesData] = React.useState<Record<string, any[]>>({});
   const [loading, setLoading] = React.useState(false);
-  const [refreshTrigger, setRefreshTrigger] = React.useState(0);
 
   // Create concept-to-label mapping from conference form JSON
   const conceptLabelMap = React.useMemo(() => {
@@ -2059,82 +2174,157 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
 
   React.useEffect(() => {
     const fetchSitesData = async () => {
-      if (!defaultLocationUuid) return;
+      // Use patientUuid for API request
+      if (!patientUuid) {
+        console.log('🚫 No patientUuid found, skipping fetch.');
+        return;
+      }
       setLoading(true);
       try {
-        // Fetch all encounters for the current location and encounter type
-        // Replace with your encounterType UUID
-        const encounterTypeUuid = 'YOUR_ENCOUNTER_TYPE_UUID';
-        const encounterUrl = `/ws/rest/v1/encounter?location=${defaultLocationUuid}&encounterType=${encounterTypeUuid}&v=custom:(uuid,encounterDatetime,location:(uuid,display),obs)&limit=1000`;
-        const encounterResponse = await openmrsFetch(encounterUrl);
-        const encounters = encounterResponse.data?.results || [];
-        console.log('📊 Fetched encounters from backend:', encounters.length);
+        // Fetch ALL obs directly for this patient (includes existing + new data)
+        // This matches how FormFillingInterface submits data: directly as obs
+        let allObs: any[] = [];
+        let startIndex = 0;
+        const limit = 100;
 
-        // Extract all observations from encounters
-        const observations: any[] = [];
-        encounters.forEach((enc: any) => {
-          if (enc.obs && Array.isArray(enc.obs)) {
-            enc.obs.forEach((obs: any) => {
-              observations.push({
-                ...obs,
-                encounter: { uuid: enc.uuid },
-                location: enc.location,
-                obsDatetime: obs.obsDatetime || enc.encounterDatetime,
+        // Fetch all obs with pagination
+        while (true) {
+          const obsUrl = `/ws/rest/v1/obs?patient=${patientUuid}&v=full&limit=${limit}&startIndex=${startIndex}`;
+          console.log('🔍 Fetching obs - Patient UUID:', patientUuid, 'startIndex:', startIndex);
+
+          const obsResp = await openmrsFetch(obsUrl);
+          const batch = obsResp.data?.results || [];
+          allObs = allObs.concat(batch);
+
+          if (batch.length < limit) break; // No more data
+          startIndex += limit;
+        }
+
+        console.log('📊 Total obs fetched for location patient:', allObs.length);
+        console.log('📊 Current location UUID for filtering:', defaultLocationUuid);
+        console.log('📊 Current location name:', defaultLocationName);
+
+        // Debug: Log first few obs locations
+        if (allObs.length > 0) {
+          console.log(
+            '📊 Sample obs locations:',
+            allObs.slice(0, 3).map((obs) => ({
+              concept: obs.concept?.display,
+              location: obs.location?.uuid,
+              locationName: obs.location?.display,
+            })),
+          );
+        }
+
+        // Get all conference form concept UUIDs to filter relevant obs
+        const conferenceConceptUuids = new Set<string>();
+        if (conferenceFormJson?.pages) {
+          conferenceFormJson.pages.forEach((page: any) => {
+            page.sections?.forEach((section: any) => {
+              section.questions?.forEach((question: any) => {
+                const concept = question.questionOptions?.concept;
+                if (concept) conferenceConceptUuids.add(concept);
               });
             });
-          }
-        });
-        console.log('📊 Total observations from encounters:', observations.length);
+          });
+        }
 
-        // Group observations by encounter
-        const formData: any[] = [];
-        const groupedByEncounter: Record<string, any> = {};
-        observations.forEach((obs: any) => {
-          const encounterId = obs.encounter?.uuid || 'unknown';
-          if (!groupedByEncounter[encounterId]) {
-            groupedByEncounter[encounterId] = {
-              encounterId,
-              date: obs.obsDatetime || new Date().toISOString(),
-              observations: [],
-            };
+        // Filter to only conference form related obs AND current location
+        // This ensures Site A only sees Site A data, Site B only sees Site B data
+        const conferenceObs =
+          conferenceConceptUuids.size > 0
+            ? allObs.filter((obs) => {
+                const matchesConcept = conferenceConceptUuids.has(obs.concept?.uuid);
+                const matchesLocation = obs.location?.uuid === defaultLocationUuid;
+
+                // Debug logging for location mismatch
+                if (matchesConcept && !matchesLocation) {
+                  console.log('⚠️ Obs filtered out - wrong location:', {
+                    concept: obs.concept?.display,
+                    obsLocation: obs.location?.uuid,
+                    obsLocationName: obs.location?.display,
+                    expectedLocation: defaultLocationUuid,
+                    expectedLocationName: defaultLocationName,
+                  });
+                }
+
+                return matchesConcept && matchesLocation;
+              })
+            : allObs.filter((obs) => obs.location?.uuid === defaultLocationUuid);
+
+        console.log('✅ Conference form obs for current location (' + defaultLocationName + '):', conferenceObs.length);
+
+        // Group obs by timestamp (precise to hour) to handle multiple submissions per day
+        const submissionsByTimestamp: Record<string, any[]> = {};
+        conferenceObs.forEach((obs: any) => {
+          // Group by date + hour to separate different form submissions
+          const timestamp = obs.obsDatetime ? new Date(obs.obsDatetime).toISOString().substring(0, 13) : 'unknown';
+          if (!submissionsByTimestamp[timestamp]) {
+            submissionsByTimestamp[timestamp] = [];
           }
-          groupedByEncounter[encounterId].observations.push(obs);
+          submissionsByTimestamp[timestamp].push(obs);
         });
-        Object.values(groupedByEncounter).forEach((encounter: any) => {
-          const submission = {
-            id: encounter.encounterId,
-            date: encounter.date,
-            siteId: defaultLocationUuid,
-            data: {},
-          };
-          encounter.observations.forEach((obs: any) => {
+
+        // Map submissions to table format
+        const formData: any[] = Object.entries(submissionsByTimestamp).map(([timestamp, obsGroup]) => {
+          const data: Record<string, any> = {};
+          obsGroup.forEach((obs: any) => {
             const conceptId = obs.concept?.uuid || 'unknown-concept';
             const conceptLabel = conceptLabelMap[conceptId] || obs.concept?.display || conceptId;
             let value = obs.value;
+
+            // Handle coded/display values
             if (obs.value?.display) {
               value = obs.value.display;
             }
+            // Special handling for numeric radio button values from conference form
+            else if (typeof obs.value === 'number') {
+              // Convert numeric values back to readable labels for these specific radio concepts
+              if (conceptId === '7189452b-be65-42aa-ad77-4861f7d07bae') {
+                // Question 2: "यस बैठकमा, लान्छना सम्बन्धि  कुनै नयाँ गतिविधिहरु कार्यान्वयन गर्नको लागि निर्णय गर्नुभयो?"
+                value = obs.value === 1 ? 'गरियो (Yes)' : obs.value === 2 ? 'गरिएन (No)' : obs.value.toString();
+              } else if (conceptId === '49b60881-a607-408d-89b4-f0c2105c1d96') {
+                // Question 3: "अघिल्लो बैठकमा छलफल भएको कुनै गतिविधीहरु, गएको महिनामा प्रयोग गर्नुभयो?"
+                value = obs.value === 1 ? 'भयो (Yes)' : obs.value === 2 ? 'भएन (No)' : obs.value.toString();
+              } else {
+                value = obs.value.toString();
+              }
+            } else if (typeof obs.value === 'string') {
+              value = obs.value;
+            }
+
             if (value !== undefined && value !== null && value !== '') {
-              submission.data[conceptLabel] = value;
+              data[conceptLabel] = value;
             }
           });
-          if (Object.keys(submission.data).length > 0) {
-            formData.push(submission);
-          }
+          return {
+            id: `submission-${timestamp}`,
+            date: obsGroup[0]?.obsDatetime || new Date().toISOString(),
+            siteId: defaultLocationUuid,
+            data,
+          };
         });
-        console.log('📋 Total form submissions:', formData.length);
+
+        // Sort by date (newest first)
+        formData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        console.log('📊 Processed submissions:', formData.length);
         setSitesData({ [defaultLocationUuid]: formData });
       } catch (error) {
+        console.error('❌ Error fetching sites data:', error);
         setSitesData({ [defaultLocationUuid]: [] });
       } finally {
         setLoading(false);
       }
     };
     fetchSitesData();
-  }, [defaultLocationUuid, refreshTrigger]);
+  }, [defaultLocationUuid, refreshTrigger, patientUuid, conceptLabelMap]);
 
   const siteSubmissions = sitesData[defaultLocationUuid] || [];
   const selectedSiteName = defaultLocationName || 'Current Site';
+  if (siteSubmissions.length === 0) {
+    return <div>No submissions found for {selectedSiteName}</div>;
+  }
 
   return (
     <div
@@ -2166,7 +2356,7 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
                 {loading ? 'Loading...' : `${siteSubmissions.length} submissions`}
               </span>
               <button
-                onClick={() => setRefreshTrigger((prev) => prev + 1)}
+                onClick={onRefresh}
                 disabled={loading}
                 style={{
                   padding: '0.5rem 1rem',
@@ -2200,17 +2390,7 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
                 marginBottom: '1rem',
                 border: '1px solid #ffeaa7',
               }}
-            >
-              {/* <h4 style={{ margin: '0 0 0.5rem 0', color: '#856404' }}>📝 No Form Submissions Found</h4>
-              <p style={{ margin: '0', color: '#856404' }}>To see data here, submit some conference forms by:</p>
-              <ol style={{ margin: '0.5rem 0 0 1rem', color: '#856404' }}>
-                <li>Go to the Conference Form (left panel)</li>
-                <li>Select {selectedSiteName} from the Sites dropdown</li>
-                <li>Fill out the conference form</li>
-                <li>Click Submit (बुझाउनुहोस्)</li>
-                <li>Return here to see your submitted data</li>
-              </ol> */}
-            </div>
+            ></div>
           ) : (
             <></>
           )}
@@ -2367,22 +2547,25 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
 }
 
 // Form Filling Interface Component for Left Side
-function FormFillingInterface({ formUuid, patients }: { formUuid: string; patients: any[] }): JSX.Element {
+const FormFillingInterface = ({
+  formUuid,
+  patients,
+  onSubmitSuccess,
+}: {
+  formUuid: string;
+  patients: any[];
+  onSubmitSuccess?: () => void;
+}): JSX.Element => {
+  // State to hold fetched obs for visualization
+  const [patientObs, setPatientObs] = React.useState<any[]>([]);
   const session = useSession();
-  const sessionLocationUuid = session?.sessionLocation?.uuid || '';
-  const sessionLocationName = session?.sessionLocation?.display || 'Unknown Location';
-
-  const [selectedPatient, setSelectedPatient] = React.useState<string>('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [formSchema, setFormSchema] = React.useState<any>(null);
   const [formDefinition, setFormDefinition] = React.useState<any>(null);
-  const [encounter, setEncounter] = React.useState<any>(null);
   const [formData, setFormData] = React.useState<Record<string, any>>({});
 
-  // Override: Use local JSON for conference form instead of loading from database
   React.useEffect(() => {
     if (formUuid === '55b82773-3cd0-4813-a38e-9d0c1ea35e45') {
-      // console.log('🎯 Using LOCAL conference form JSON instead of database');
       setFormDefinition(conferenceFormJson);
     }
   }, [formUuid]);
@@ -2413,13 +2596,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
     return true;
   };
 
-  // Auto-set location from session (no dropdown needed)
-  React.useEffect(() => {
-    if (sessionLocationUuid) {
-      console.log('🏥 Auto-setting location from session:', sessionLocationName, sessionLocationUuid);
-      setSelectedPatient(sessionLocationUuid);
-    }
-  }, [sessionLocationUuid, sessionLocationName]);
+  // No location selection needed
 
   // Load form schema from OpenMRS
   // form containing the form's metadata and resources which include form name creator dates and array of resources related to form.
@@ -2428,64 +2605,53 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
   const loadFormSchema = React.useCallback(async () => {
     try {
       setIsLoading(true);
-      // console.log('Loading form schema for UUID:', formUuid);
+      console.log('[DEBUG] Loading form schema for UUID:', formUuid);
 
-      // Try to load form definition
       const formResponse = await fetch(`/openmrs/ws/rest/v1/form/${formUuid}?v=full`);
-      // console.log('Form API response status:', formResponse.status);
+      console.log('[DEBUG] Form API response status:', formResponse.status);
 
       if (formResponse.ok) {
         const form = await formResponse.json();
-        // console.log('Form schema loaded successfully:', form);
-        // console.log('Form resources:', form.resources);
-        // console.log('Form published:', form.published);
+        console.log('[DEBUG] Form schema loaded successfully:', form);
         setFormSchema(form);
 
-        // Try to get the actual form definition from resources
         if (form.resources && form.resources.length > 0) {
           for (const resource of form.resources) {
             if (resource.name === 'JSON schema' && resource.valueReference) {
-              // console.log('Found JSON schema resource, valueReference:', resource.valueReference);
+              console.log('[DEBUG] Found JSON schema resource, valueReference:', resource.valueReference);
 
-              // Check if valueReference is a UUID (resource reference)
-              //https://resources.openmrs.org/doc-1.10/index.html?org/openmrs/api/db/ClobDatatypeStorage.html
-              // checks if the valueReference matches the UUID pattern mean the content is stored externally in the CLOB storage
               if (
                 typeof resource.valueReference === 'string' &&
                 resource.valueReference.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
               ) {
-                // console.log('ValueReference is a UUID, fetching resource content...');
-
                 try {
-                  // Fetch the actual form resource content
                   const resourceResponse = await fetch(`/openmrs/ws/rest/v1/clobdata/${resource.valueReference}`);
                   if (resourceResponse.ok) {
                     const resourceText = await resourceResponse.text();
-                    // console.log('Resource content fetched:', resourceText);
+                    console.log('[DEBUG] Resource content fetched:', resourceText);
 
                     try {
                       const parsedFormDefinition = JSON.parse(resourceText);
-                      // console.log('Parsed form definition:', parsedFormDefinition);
+                      console.log('[DEBUG] Parsed form definition:', parsedFormDefinition);
                       setFormDefinition(parsedFormDefinition);
                       break;
                     } catch (parseError) {
-                      // console.error('Error parsing resource content as JSON:', parseError);
+                      console.error('[DEBUG] Error parsing resource content as JSON:', parseError);
                     }
                   } else {
-                    // console.error('Failed to fetch resource content:', resourceResponse.status);
+                    console.error('[DEBUG] Failed to fetch resource content:', resourceResponse.status);
                   }
                 } catch (fetchError) {
-                  console.error('Error fetching resource content:', fetchError);
+                  console.error('[DEBUG] Error fetching resource content:', fetchError);
                 }
               } else {
-                // Try to parse as direct JSON content
                 try {
                   const parsedFormDefinition = JSON.parse(resource.valueReference);
-                  // console.log('Direct JSON parsing successful:', parsedFormDefinition);
+                  console.log('[DEBUG] Direct JSON parsing successful:', parsedFormDefinition);
                   setFormDefinition(parsedFormDefinition);
                   break;
                 } catch (parseError) {
-                  // console.log('Not direct JSON content, skipping...');
+                  console.log('[DEBUG] Not direct JSON content, skipping...');
                 }
               }
             }
@@ -2493,24 +2659,19 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
         }
       } else {
         const errorText = await formResponse.text();
-        // console.error('Failed to load form schema:', formResponse.status, formResponse.statusText);
-        // console.error('Error response:', errorText);
+        console.error('[DEBUG] Failed to load form schema:', formResponse.status, formResponse.statusText);
+        console.error('[DEBUG] Error response:', errorText);
 
-        // Try alternative form loading methods
-        // console.log('Trying alternative form loading...');
-
-        // Try loading as form resource
         const altResponse = await fetch(`/openmrs/ws/rest/v1/formresource?form=${formUuid}&v=full`);
         if (altResponse.ok) {
           const altForm = await altResponse.json();
-          // console.log('Alternative form data:', altForm);
+          console.log('[DEBUG] Alternative form data:', altForm);
         }
       }
     } catch (error) {
-      // console.error('Error loading form schema:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('[DEBUG] Error loading form schema:', error);
     }
+    setIsLoading(false); // Force loading to false in all cases
   }, [formUuid]);
 
   React.useEffect(() => {
@@ -2519,275 +2680,351 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
     }
   }, [formUuid, loadFormSchema]);
 
-  // Create or load encounter when patient is selected
-  React.useEffect(() => {
-    const setupEncounter = async () => {
-      // console.log('🏥 setupEncounter called:', {
-      //   selectedPatient: selectedPatient ? 'SELECTED' : 'NOT_SELECTED',
-      //   formSchema: formSchema ? 'LOADED' : 'NOT_LOADED',
-      //   formUuid,
-      // });
+  // No encounter logic needed
 
-      if (!selectedPatient) {
-        // console.log('⚠️ No patient selected yet');
+  const handleSubmit = async (e: React.FormEvent) => {
+    // if (patients && patients.length > 0) {
+    //   console.log('[DEBUG] first patient object:', patients[0]);
+    // }
+    e.preventDefault();
+    try {
+      // console.log('[DEBUG] handleSubmit called');
+      e.preventDefault();
+      // console.log('[DEBUG] Submit button clicked');
+      // console.log('[DEBUG] formData keys:', Object.keys(formData));
+      // console.log('[DEBUG] formData values:', formData);
+      // console.log('[DEBUG] patients array:', patients);
+
+      // Helper to find question by id in formDefinition
+      function findQuestionById(formDef, questionId) {
+        if (!formDef || !formDef.pages) return null;
+        for (const page of formDef.pages) {
+          if (!page.sections) continue;
+          for (const section of page.sections) {
+            if (!section.questions) continue;
+            for (const question of section.questions) {
+              if (question.id === questionId) return question;
+            }
+          }
+        }
+        return null;
+      }
+
+      // Build obsArray using question.id → concept UUID mapping, and map value type
+      const skippedFields: string[] = [];
+      // List all possible Yes/No UUIDs used in radio answers
+      const YES_UUIDS = [
+        '5f74c3b5-c1d0-4835-9bc2-7098cb711f99', // Yes
+        'f643d6d0-27e4-4ec2-be28-fb0a4a8019c9', // No (sometimes used as Yes in some forms)
+        'e2b7e5e2-1e4e-4e7a-9e2e-2e2e2e2e2e2e', // No (alternate)
+      ];
+      const NO_UUIDS = [
+        'f643d6d0-27e4-4ec2-be28-fb0a4a8019c9', // No
+        'e2b7e5e2-1e4e-4e7a-9e2e-2e2e2e2e2e2e', // No (alternate)
+      ];
+      const obsArray = Object.entries(formData)
+        .map(([questionId, value]) => {
+          const question = findQuestionById(formDefinition, questionId);
+          const rendering = question?.questionOptions?.rendering;
+          const concept = question?.questionOptions?.concept;
+          const datatype = question?.questionOptions?.datatype;
+          const allowDecimal = question?.questionOptions?.allowDecimal;
+          let mappedValue = value;
+          let valid = true;
+          let reason = '';
+
+          console.log(`🔍 Processing field: ${questionId}`, {
+            value,
+            rendering,
+            concept,
+            datatype,
+          });
+
+          // Strict radio mapping: must match concept UUID
+          if (rendering === 'radio' && question?.questionOptions?.answers) {
+            const answerObj = question.questionOptions.answers.find(
+              (ans: any) => ans.label === value || ans.concept === value,
+            );
+            if (answerObj) {
+              mappedValue = answerObj.concept;
+              console.log(`✅ Radio matched:`, { questionId, mappedValue, concept, answerObj });
+
+              // IMMEDIATE conversion for numeric radio concepts
+              // These conference form concepts are Numeric type in OpenMRS database
+              if (
+                concept === '7189452b-be65-42aa-ad77-4861f7d07bae' ||
+                concept === '49b60881-a607-408d-89b4-f0c2105c1d96'
+              ) {
+                console.log(`🔢 Converting radio UUID to numeric for concept ${concept}`);
+
+                // Map answer concept UUIDs to their numeric values from the form definition
+                if (mappedValue === '5f74c3b5-c1d0-4835-9bc2-7098cb711f99') {
+                  // "गरियो" / "भयो" (Yes) - answer value = 1
+                  mappedValue = 1;
+                  console.log(`✅ Converted '5f74c3b5...' (Yes) → 1`);
+                } else if (mappedValue === 'f643d6d0-27e4-4ec2-be28-fb0a4a8019c9') {
+                  // "गरिएन" / "भएन" (No) - answer value = 2
+                  mappedValue = 2;
+                  console.log(`✅ Converted 'f643d6d0...' (No) → 2`);
+                } else {
+                  valid = false;
+                  reason = `Unknown radio answer UUID for numeric concept: ${mappedValue}`;
+                  console.log(`❌ ${reason}`);
+                }
+              }
+            } else {
+              valid = false;
+              reason = 'Radio answer not mapped to concept UUID';
+              console.log(`❌ Radio NOT matched:`, {
+                questionId,
+                value,
+                availableAnswers: question.questionOptions.answers,
+              });
+            }
+          }
+
+          // For numeric concepts, convert Yes/No UUIDs to 1/0, only allow integers if allowDecimal is false
+          if ((rendering === 'number' || datatype === 'Numeric') && concept) {
+            if (
+              concept === '7189452b-be65-42aa-ad77-4861f7d07bae' ||
+              concept === '49b60881-a607-408d-89b4-f0c2105c1d96'
+            ) {
+              if (YES_UUIDS.includes(mappedValue)) mappedValue = 1;
+              else if (NO_UUIDS.includes(mappedValue)) mappedValue = 0;
+            }
+            if (allowDecimal === false || allowDecimal === 'No') {
+              if (typeof mappedValue === 'string') {
+                if (mappedValue.trim().toLowerCase() === 'yes') mappedValue = 1;
+                else if (mappedValue.trim().toLowerCase() === 'no') mappedValue = 0;
+                else if (/^\d+$/.test(mappedValue.trim())) mappedValue = parseInt(mappedValue.trim(), 10);
+                else {
+                  valid = false;
+                  reason = 'Value is not integer for numeric concept';
+                }
+              } else if (Number.isInteger(mappedValue)) {
+                // already integer
+              } else {
+                valid = false;
+                reason = 'Value is not integer for numeric concept';
+              }
+              if (!valid || !Number.isInteger(mappedValue)) {
+                valid = false;
+                reason = 'Final check failed: value is not integer for numeric concept';
+              }
+            } else {
+              mappedValue = Number(mappedValue);
+              if (isNaN(mappedValue)) {
+                valid = false;
+                reason = 'Value is not a valid number for numeric concept';
+              }
+            }
+          }
+          // Strict date mapping
+          if (rendering === 'date' || datatype === 'Date') {
+            if (!mappedValue || isNaN(Date.parse(mappedValue))) {
+              valid = false;
+              reason = 'Value is not a valid date';
+            }
+          }
+
+          // Strict text/textarea mapping
+          if (
+            (rendering === 'text' || rendering === 'textarea' || datatype === 'Text') &&
+            typeof mappedValue !== 'string'
+          ) {
+            valid = false;
+            reason = 'Value is not a valid string';
+          }
+
+          // Concept UUID must exist
+          if (!concept) {
+            valid = false;
+            reason = 'Missing concept UUID';
+          }
+          if (!valid) {
+            skippedFields.push(`${question?.label || questionId}: ${reason}`);
+            return null;
+          }
+          return {
+            concept,
+            value: mappedValue,
+            obsDatetime: new Date().toISOString(),
+          };
+        })
+        .filter((o) => o && o.concept && o.value !== undefined && o.value !== null && o.value !== '');
+
+      // console.log('[DEBUG] OBS Array:', obsArray);
+
+      if (obsArray.length === 0) {
+        // console.log('[DEBUG] Branch: No observations, showing warning snackbar');
+        showSnackbar({
+          title: 'Warning',
+          kind: 'warning',
+          subtitle: 'No valid observations detected. Make sure all fields have valid values and concept UUIDs.',
+        });
         return;
       }
 
-      // Skip API encounter creation - just create a simple encounter object
+      const currentLocationUuid = session?.sessionLocation?.uuid;
+      const currentLocationName = session?.sessionLocation?.display;
+
+      const patient =
+        patients && patients.length > 0
+          ? patients.find((p) => {
+              const hasLocationIdentifier = p.identifier?.some(
+                (id: any) => id.value?.trim().toLowerCase() === 'location',
+              );
+              // For now, match by identifier "location" only
+              // In the future, you can add location-specific matching here
+              return hasLocationIdentifier;
+            })
+          : null;
+
+      if (!patient || !patient.id) {
+        showSnackbar({
+          title: 'त्रुटि / Error',
+          kind: 'error',
+          subtitle: 'No patient found with identifier value "location" for current site. Cannot submit form.',
+        });
+        return;
+      }
+
+      console.log('📝 Submitting form for location:', currentLocationName, 'using patient:', patient.id);
+      // Fetch obs for patient after submission
       try {
-        setIsLoading(true);
-
-        // console.log('🏥 Creating simple encounter object for patient:', selectedPatient);
-
-        // Use first patient as dummy patient, selectedPatient is now location UUID
-        const dummyPatientUuid = patients && patients.length > 0 ? patients[0].uuid || patients[0].id : 'dummy-patient';
-
-        const simpleEncounter = {
-          uuid: `temp-encounter-${selectedPatient}-${Date.now()}`,
-          patient: { uuid: dummyPatientUuid },
-          encounterType: { uuid: 'dd528487-82a5-4082-9c72-ed246bd49591' },
-          form: { uuid: formUuid },
-          location: { uuid: selectedPatient },
-          encounterDatetime: new Date().toISOString(),
-          voided: false,
+        const obsResponse = await openmrsFetch(`/ws/rest/v1/obs?person=${patient.id}`);
+        if (obsResponse && obsResponse.data && Array.isArray(obsResponse.data.results)) {
+          setPatientObs(obsResponse.data.results);
+        } else {
+          setPatientObs([]);
+        }
+      } catch (err) {
+        setPatientObs([]);
+      }
+      // Submit each observation directly to /ws/rest/v1/obs
+      const locationUuid = session?.sessionLocation?.uuid;
+      let allSuccess = true;
+      let errorMessages = [];
+      for (const obs of obsArray) {
+        const obsPayload = {
+          person: patient.id,
+          concept: obs.concept,
+          value: obs.value,
+          obsDatetime: obs.obsDatetime,
+          location: locationUuid,
         };
 
-        // console.log('✅ Simple encounter created:', simpleEncounter.uuid);
-        setEncounter(simpleEncounter);
-
-        // Optional: Try to create real encounter in background (non-blocking)
+        console.log('[DEBUG] Obs payload to submit:', obsPayload);
+        // console.log('[DEBUG] Obs payload to submit:', obsPayload);
+        // console.log('[DEBUG] openmrsFetch obs response:', obsResponse);
+        let response;
         try {
-          const now = new Date();
-          // Ensure datetime is current or slightly in the past
-          const encounterDatetime = new Date(now.getTime() - 60000).toISOString(); // 1 minute ago
-
-          const encounterPayload = {
-            patient: dummyPatientUuid,
-            encounterType: 'dd528487-82a5-4082-9c72-ed246bd49591',
-            form: formUuid,
-            location: selectedPatient,
-            encounterDatetime: encounterDatetime,
-          };
-
-          // console.log('🔄 Attempting background API encounter creation:', encounterPayload);
-
-          const encounterResponse = await fetch('/openmrs/ws/rest/v1/encounter', {
+          response = await openmrsFetch('/ws/rest/v1/obs', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(encounterPayload),
+            body: JSON.stringify(obsPayload),
           });
-
-          if (encounterResponse.ok) {
-            const realEncounter = await encounterResponse.json();
-            // console.log('🎯 Real encounter created successfully:', realEncounter.uuid);
-            setEncounter(realEncounter); // Update with real encounter
-          } else {
-            const errorText = await encounterResponse.text();
-            // console.log('⚠️ Background encounter creation failed (using fallback):', {
-            //   status: encounterResponse.status,
-            //   statusText: encounterResponse.statusText,
-            //   error: errorText,
-            // });
-            // Keep using the simple encounter - no problem
-          }
-        } catch (bgError) {
-          // console.log('⚠️ Background encounter creation error (using fallback):', bgError.message);
-          // Keep using the simple encounter - no problem
-        }
-      } catch (error) {
-        // console.error('❌ Error in setupEncounter:', error);
-        //
-        // Always create a fallback encounter object
-        const fallbackPatientUuid =
-          patients && patients.length > 0 ? patients[0].uuid || patients[0].id : 'fallback-patient';
-        setEncounter({
-          uuid: `fallback-encounter-${selectedPatient}-${Date.now()}`,
-          patient: { uuid: fallbackPatientUuid },
-          location: { uuid: selectedPatient },
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    setupEncounter();
-  }, [selectedPatient, formUuid]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    console.log('🚀 Form submission started:', {
-      selectedPatient: selectedPatient ? 'YES' : 'NO',
-      encounter: encounter ? `YES (${encounter.uuid})` : 'NO',
-      formDataKeys: Object.keys(formData).length,
-      sessionLocation: session?.sessionLocation?.display,
-    });
-
-    if (!selectedPatient) {
-      showSnackbar({
-        title: 'स्थान चयन गर्नुहोस् / Select Location',
-        kind: 'warning',
-        subtitle: 'कृपया पहिले स्थान छान्नुहोस्। Please select a location.',
-      });
-      return;
-    }
-
-    if (!encounter) {
-      showSnackbar({
-        title: 'Encounter तयार हुँदैछ / Preparing Encounter',
-        kind: 'info',
-        subtitle:
-          'Encounter सिर्जना भइरहेको छ। कृपया केही बेर पर्खनुहोस्। Encounter is being created, please wait a moment.',
-      });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      // Submit observations individually (this was working for 3 out of 5)
-      let successCount = 0;
-      let errorCount = 0;
-
-      console.log('🚀 Starting individual observation submission...');
-
-      // Create observations from form data (matching clinical form format)
-      for (const [conceptUuid, value] of Object.entries(formData)) {
-        if (value && value !== '') {
-          // Convert radio button values - OpenMRS expects pure numbers for these concepts
-          let processedValue = value;
-
-          // For radio button concepts - convert to simple numbers (1, 2)
-          if (
-            conceptUuid === '7189452b-be65-42aa-ad77-4861f7d07bae' ||
-            conceptUuid === '49b60881-a607-408d-89b4-f0c2105c1d96'
-          ) {
-            // Radio button values must be pure numbers, not concept UUIDs
-            processedValue = value === 'हो' || value === 'Yes' ? 1 : 2;
-            console.log(`🔄 Radio ${conceptUuid}: "${value}" → ${processedValue} (NumberFormatException fixed!)`);
-          }
-
-          const obsPayload = {
-            concept: conceptUuid,
-            person: encounter.patient.uuid,
-            value: processedValue,
-            obsDatetime: new Date().toISOString(),
-            location: selectedPatient,
-            encounter: encounter.uuid,
-          };
-
-          try {
-            console.log(`🔄 Submitting concept ${conceptUuid}:`, {
-              value: processedValue,
-              originalValue: value,
-              person: encounter.patient.uuid,
-              location: selectedPatient,
-              encounter: encounter.uuid,
-            });
-
-            const obsResponse = await fetch('/openmrs/ws/rest/v1/obs', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(obsPayload),
-            });
-
-            if (obsResponse.ok) {
-              successCount++;
-              const savedObs = await obsResponse.json();
-              console.log(`✅ SUCCESS: ${conceptUuid}`, { uuid: savedObs.uuid, location: obsPayload.location });
-            } else {
-              errorCount++;
-              const errorText = await obsResponse.text();
-              console.log(`❌ FAILED: ${conceptUuid}`, {
-                status: obsResponse.status,
-                error: errorText,
-              });
+          console.log('[DEBUG] openmrsFetch obs response:', response);
+          if (!(response && (response.status === 200 || response.status === 201))) {
+            allSuccess = false;
+            let errorText = 'Unknown error';
+            if (response.data && response.data.error) {
+              errorText = response.data.error;
+            } else if (response.data) {
+              errorText = JSON.stringify(response.data);
             }
-          } catch (error) {
-            errorCount++;
-            console.log(`❌ ERROR: ${conceptUuid}`, error.message);
+            errorMessages.push(errorText);
+            showSnackbar({
+              title: 'Observation Error',
+              kind: 'error',
+              subtitle: `Obs for concept ${obs.concept} failed: ${errorText}`,
+            });
           }
+        } catch (err) {
+          allSuccess = false;
+          errorMessages.push(String(err));
+          showSnackbar({
+            title: 'Observation Error',
+            kind: 'error',
+            subtitle: `Obs for concept ${obs.concept} failed: ${String(err)}`,
+          });
         }
       }
-
-      // Store encounter-location mapping in localStorage for Sites visualization
-      if (errorCount === 0 && encounter?.uuid && selectedPatient) {
-        try {
-          const storageKey = 'conferenceFormEncounters';
-          const existingData = JSON.parse(localStorage.getItem(storageKey) || '[]');
-          existingData.push({
-            encounterUuid: encounter.uuid,
-            locationUuid: selectedPatient,
-            locationName: session?.sessionLocation?.display || 'Unknown',
-            submittedAt: new Date().toISOString(),
-          });
-          localStorage.setItem(storageKey, JSON.stringify(existingData));
-          console.log('💾 Stored encounter-location mapping:', {
-            encounter: encounter.uuid,
-            location: selectedPatient,
-          });
-        } catch (e) {
-          console.log('⚠️ Failed to store encounter mapping:', e);
-        }
-      }
-
-      // Show results with proper notifications
-      if (errorCount === 0) {
+      if (allSuccess) {
         showSnackbar({
           title: 'फारम सफल / Form Success',
           kind: 'success',
-          subtitle: `फारम सफलतापूर्वक पेश गरियो! Form submitted successfully!`,
+          subtitle: 'फारम सफलतापूर्वक पेश गरियो! All observations submitted successfully!',
         });
         setFormData({});
+
+        // Trigger SitesDataVisualization refresh after successful submission
+        if (onSubmitSuccess) {
+          onSubmitSuccess();
+        }
       } else {
         showSnackbar({
-          title: 'आंशिक सफलता / Partial Success',
-          kind: 'warning',
-          subtitle: `फारम आंशिक रूपमा पेश गरियो। ${successCount} सफल, ${errorCount} असफल। Form partially submitted. ${successCount} successful, ${errorCount} failed.`,
+          title: 'त्रुटि / Error',
+          kind: 'error',
+          subtitle: 'Some observations failed: ' + errorMessages.join('; '),
         });
       }
-    } catch (error) {
-      console.error('❌ Form submission error:', error);
+    } catch (e) {
+      console.error('[DEBUG] Exception in handleSubmit (outer):', e);
       showSnackbar({
         title: 'त्रुटि / Error',
         kind: 'error',
         subtitle: 'फारम पेश गर्दा त्रुटि भयो। कृपया फेरि प्रयास गर्नुहोस्। Error submitting form. Please try again.',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
     <div style={{ minHeight: '300px', background: '#f9f9f9', padding: '1rem' }}>
-      <h4 style={{ margin: '0 0 1rem 0', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
-        Conference Form{' '}
-      </h4>
-
-      {/* Location Display (Auto-set from Session) */}
-      <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#666' }}>
-          स्थान / Location:
-        </label>
+      {/* Visualization: Show obs in table if available */}
+      {patientObs && patientObs.length > 0 && (
         <div
           style={{
-            padding: '0.5rem 0',
-            fontWeight: '500',
-            color: '#888',
-            fontSize: '0.95rem',
+            margin: '1rem 0',
+            background: '#fff',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px #eee',
+            padding: '1rem',
           }}
         >
-          {sessionLocationName || 'Location not found'}
+          <h5 style={{ color: '#1890ff', marginBottom: '1rem' }}>Submitted Observations</h5>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1em' }}>
+            <thead>
+              <tr style={{ background: '#f6fbff' }}>
+                <th style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>Concept</th>
+                <th style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>Value</th>
+                <th style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>Datetime</th>
+              </tr>
+            </thead>
+            <tbody>
+              {patientObs.map((obs) => (
+                <tr key={obs.uuid}>
+                  <td style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>
+                    {obs.concept?.display || obs.concept?.uuid}
+                  </td>
+                  <td style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>{obs.value}</td>
+                  <td style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>
+                    {obs.obsDatetime ? new Date(obs.obsDatetime).toLocaleString() : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        {!sessionLocationUuid && (
-          <p style={{ color: '#ff7875', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-            ⚠️ No session location found. Please ensure you are logged in.
-          </p>
-        )}
-      </div>
-
+      )}
+      <h4 style={{ margin: '0 0 1rem 0', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
+        Conference Form{' '}
+        <span style={{ fontSize: '0.85em', color: '#888', fontWeight: 'normal', marginLeft: '0.5rem' }}>
+          ({session?.sessionLocation?.display || 'Unknown Location'})
+        </span>
+      </h4>
       {/* Form Interface */}
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -2853,11 +3090,11 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                 {/* Render different input types based on question type */}
                                 {question.questionOptions?.rendering === 'textarea' ? (
                                   <textarea
-                                    value={formData[question.questionOptions?.concept] || ''}
+                                    value={formData[question.id] || ''}
                                     onChange={(e) =>
                                       setFormData({
                                         ...formData,
-                                        [question.questionOptions?.concept]: e.target.value,
+                                        [question.id]: e.target.value,
                                       })
                                     }
                                     rows={question.questionOptions?.rows || 4}
@@ -2877,18 +3114,15 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                         <label key={answerIndex} style={{ display: 'block', marginBottom: '0.3rem' }}>
                                           <input
                                             type="checkbox"
-                                            checked={
-                                              formData[question.questionOptions?.concept]?.includes(answer.concept) ||
-                                              false
-                                            }
+                                            checked={formData[question.id]?.includes(answer.concept) || false}
                                             onChange={(e) => {
-                                              const currentValues = formData[question.questionOptions?.concept] || [];
+                                              const currentValues = formData[question.id] || [];
                                               const newValues = e.target.checked
                                                 ? [...currentValues, answer.concept]
                                                 : currentValues.filter((v: string) => v !== answer.concept);
                                               setFormData({
                                                 ...formData,
-                                                [question.questionOptions?.concept]: newValues,
+                                                [question.id]: newValues,
                                               });
                                             }}
                                             style={{ marginRight: '0.5rem' }}
@@ -2900,17 +3134,16 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                 ) : question.questionOptions?.rendering === 'date' ? (
                                   <input
                                     type="date"
-                                    value={formData[question.questionOptions?.concept] || ''}
+                                    value={formData[question.id] || ''}
                                     onChange={(e) =>
                                       setFormData({
                                         ...formData,
-                                        [question.questionOptions?.concept]: e.target.value,
+                                        [question.id]: e.target.value,
                                       })
                                     }
                                     style={{
                                       width: '100%',
                                       padding: '0.5rem',
-
                                       border: '1px solid #ccc',
                                       borderRadius: '4px',
                                       fontSize: '1rem',
@@ -2925,14 +3158,13 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                             type="radio"
                                             name={question.id}
                                             value={answer.concept}
-                                            checked={formData[question.questionOptions?.concept] === answer.concept}
+                                            checked={formData[question.id] === answer.concept}
                                             onChange={(e) => {
                                               const value = e.target.value;
                                               setFormData({
                                                 ...formData,
-                                                [question.questionOptions?.concept]: value,
+                                                [question.id]: value,
                                               });
-
                                               // Update conditional values for radio buttons
                                               if (question.id === 'decide_to_implement') {
                                                 setConditionalValues({
@@ -3020,17 +3252,17 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
 
           <button
             type="submit"
-            disabled={!selectedPatient || isLoading}
+            disabled={isLoading}
             style={{
               width: '100%',
               padding: '0.75rem',
-              backgroundColor: selectedPatient && !isLoading ? '#056b2cff' : '#ccc',
+              backgroundColor: !isLoading ? '#056b2cff' : '#ccc',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
               fontSize: '1rem',
               fontWeight: 'bold',
-              cursor: selectedPatient && !isLoading ? 'pointer' : 'not-allowed',
+              cursor: !isLoading ? 'pointer' : 'not-allowed',
             }}
           >
             {isLoading ? 'Submitting...' : 'बुझाउनुहोस्'}
@@ -3043,40 +3275,10 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
       )}
     </div>
   );
+};
+
+export { FormFillingInterface };
+
+function setLocationPatientUuid(uuid: any) {
+  throw new Error('Function not implemented.');
 }
-
-// State Variable,Purpose
-// selectedPatient,The UUID of the patient currently selected from the dropdown.
-// isLoading,A boolean flag used to disable buttons and show a loading spinner during API calls.
-// formSchema,"The basic metadata fetched from the OpenMRS /form REST endpoint (includes name, UUID, and resource list)."
-// formDefinition,"The detailed JSON structure of the form (pages, sections, questions) parsed from the form's resource (CLOB data). This drives the dynamic rendering."
-
-//////              useful links              //////
-//-----------------------------------------------//
-//https://resources.openmrs.org/doc-1.10/index.html?org/openmrs/api/db/ClobDatatypeStorage.html
-//https://talk.openmrs.org/t/o3forms-module-to-support-posting-form-translations/45453/8
-
-// encounter,"The new Encounter object created when a patient is selected, necessary to link observations."
-// formData,"An object that stores the collected form data, mapping Concept UUIDs to user input values."
-
-// {/* ) : question.id === 'prompt_conference' ? (
-//       <textarea
-//         value={formData[question.questionOptions?.concept] || ''}
-//         onChange={(e) =>
-//           setFormData({
-//             ...formData,
-//             [question.questionOptions?.concept]: e.target.value,
-//           })
-//         }
-//         rows={4}
-//         // placeholder="कृपया यहाँ बैठकको छलफलको विवरण लेख्नुहोस्..."
-//         style={{
-//           width: '100%',
-//           padding: '0.5rem',
-//           border: '1px solid #ccc',
-//           borderRadius: '4px',
-//           fontFamily: 'inherit',
-//           resize: 'vertical',
-//         }}
-//       />
-//     */}
