@@ -60,11 +60,13 @@ const PaginatedVitals: React.FC<PaginatedVitalsProps> = ({
     cellA,
     cellB,
     { key, sortDirection }: { key: string; sortDirection: 'ASC' | 'DESC' | 'NONE' },
-  ) => {
+  ): number => {
     if (sortDirection === 'NONE') {
       setSortParams({ key: '', sortDirection });
+      return 0;
     } else {
       setSortParams({ key, sortDirection });
+      return 0;
     }
   };
 
@@ -107,9 +109,9 @@ const PaginatedVitals: React.FC<PaginatedVitalsProps> = ({
             <Table aria-label="vitals" className={styles.table} {...getTableProps()}>
               <TableHead>
                 <TableRow>
-                  {headers.map((header) => (
+                  {headers.map((header: any) => (
                     <TableHeader {...getHeaderProps({ header, isSortable: header.isSortable })} key={header.key}>
-                      {header.header?.content ?? header.header}
+                      {(header.header as any)?.content ?? header.header}
                     </TableHeader>
                   ))}
                   <TableHeader aria-label={t('actions', 'Actions')} />

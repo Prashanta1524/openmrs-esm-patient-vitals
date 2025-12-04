@@ -44,12 +44,9 @@ const PaginatedBiometrics: React.FC<PaginatedBiometricsProps> = ({
     cellA,
     cellB,
     { key, sortDirection }: { key: string; sortDirection: 'ASC' | 'DESC' | 'NONE' },
-  ) => {
-    if (sortDirection === 'NONE') {
-      setSortParams({ key: '', sortDirection });
-    } else {
-      setSortParams({ key, sortDirection });
-    }
+  ): number => {
+    setSortParams({ key, sortDirection });
+    return 0;
   };
 
   const sortedData: Array<BiometricsTableRow> = useMemo(() => {
@@ -89,14 +86,14 @@ const PaginatedBiometrics: React.FC<PaginatedBiometricsProps> = ({
             <Table aria-label="biometrics" className={styles.table} {...getTableProps()}>
               <TableHead>
                 <TableRow>
-                  {headers.map((header) => (
+                  {headers.map((header: any) => (
                     <TableHeader
                       {...getHeaderProps({
                         header,
                         isSortable: header.isSortable,
                       })}
                     >
-                      {header.header?.content ?? header.header}
+                      {(header.header as any)?.content ?? header.header}
                     </TableHeader>
                   ))}
                   <TableHeader aria-label={t('actions', 'Actions')} />

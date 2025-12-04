@@ -72,13 +72,23 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
     <div
       style={{
         backgroundColor: '#fff',
-        padding: '1.5rem',
+        padding: 'clamp(1rem, 3vw, 1.5rem)',
         borderRadius: '12px',
         boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
         width: '100%',
+        boxSizing: 'border-box',
       }}
     >
-      <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Enacted Dimension Analysis</h3>
+      <h3
+        style={{
+          margin: '0 0 1.5rem 0',
+          color: '#1e3a8a',
+          fontSize: 'clamp(1.1rem, 3vw, 1.3rem)',
+          textAlign: 'center',
+        }}
+      >
+        Enacted Dimension Analysis
+      </h3>
       {/* <div style={{ marginBottom: '2rem' }}>
         <strong>Max Enacted Dimension Scores:</strong>
         <ul>
@@ -89,58 +99,86 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
           ))}
         </ul>
       </div> */}
-      <Chart
-        type="bar"
-        data={{
-          labels: chartLabels,
-          datasets: [
-            {
-              label: 'Max Score',
-              data: chartData,
-              backgroundColor: [
-                'rgba(220, 38, 38, 0.7)',
-                'rgba(251, 191, 36, 0.7)',
-                'rgba(34, 197, 94, 0.7)',
-                'rgba(139, 92, 246, 0.7)',
-              ],
-              borderColor: [
-                'rgba(220, 38, 38, 1)',
-                'rgba(251, 191, 36, 1)',
-                'rgba(34, 197, 94, 1)',
-                'rgba(139, 92, 246, 1)',
-              ],
-              borderWidth: 2,
-            },
-          ],
+      <div
+        style={{
+          height: window.innerWidth <= 480 ? '250px' : window.innerWidth <= 768 ? '300px' : '350px',
+          width: '100%',
+          position: 'relative',
         }}
-        options={{
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function (context: any) {
-                  return `Max Score: ${context.parsed.y}`;
+      >
+        <Chart
+          type="bar"
+          data={{
+            labels: chartLabels,
+            datasets: [
+              {
+                label: 'Max Score',
+                data: chartData,
+                backgroundColor: [
+                  'rgba(220, 38, 38, 0.7)',
+                  'rgba(251, 191, 36, 0.7)',
+                  'rgba(34, 197, 94, 0.7)',
+                  'rgba(139, 92, 246, 0.7)',
+                ],
+                borderColor: [
+                  'rgba(220, 38, 38, 1)',
+                  'rgba(251, 191, 36, 1)',
+                  'rgba(34, 197, 94, 1)',
+                  'rgba(139, 92, 246, 1)',
+                ],
+                borderWidth: 2,
+              },
+            ],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                titleFont: {
+                  size: window.innerWidth <= 480 ? 11 : 13,
+                },
+                bodyFont: {
+                  size: window.innerWidth <= 480 ? 10 : 12,
+                },
+                callbacks: {
+                  label: function (context: any) {
+                    return `Max Score: ${context.parsed.y}`;
+                  },
                 },
               },
             },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Max Score',
-                font: { size: 14, weight: 600 },
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Max Score',
+                  font: {
+                    size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
+                    weight: 600,
+                  },
+                },
+                ticks: {
+                  font: {
+                    size: window.innerWidth <= 480 ? 9 : window.innerWidth <= 768 ? 10 : 12,
+                  },
+                },
               },
-              ticks: { font: { size: 12 } },
+              x: {
+                ticks: {
+                  font: {
+                    size: window.innerWidth <= 480 ? 8 : window.innerWidth <= 768 ? 10 : 12,
+                  },
+                  maxRotation: window.innerWidth <= 480 ? 45 : 0,
+                  minRotation: 0,
+                },
+              },
             },
-            x: {
-              ticks: { font: { size: 12 } },
-            },
-          },
-        }}
-      />
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -480,26 +518,96 @@ export function checkCutoff(
 }
 
 // ---------------- Fetch Counselling/Stigma Data for a patient (with location filter) ----------------
+// Static flag to log REST API fallback message only once
+let hasLoggedRestApiFallback = false;
+
 async function fetchPatientStigmaData(patientId: string, locationUuid?: string) {
   try {
-    const url = `${fhirBaseUrl}/Observation?subject=${patientId}&_count=100`;
-    const { data } = await openmrsFetch(url);
-    if (!data?.entry) return [];
+    // Try REST API first to get observations WITH location data (obs.location.uuid)
+    const restUrl = `/ws/rest/v1/obs?patient=${patientId}&v=full&limit=1000`;
+    const restResponse = await openmrsFetch(restUrl);
 
-    let observations = data.entry.map((e: any) => e.resource);
+    if (restResponse.data?.results) {
+      let observations = restResponse.data.results;
 
-    if (locationUuid) {
-      observations = observations.filter((obs: any) => {
-        const obsLocation = obs.location?.reference?.split('/')?.pop() || obs.location?.uuid || obs.location?.id;
-        return obsLocation === locationUuid;
-      });
+      // Add location info to each observation for easy access
+      observations = observations.map((obs: any) => ({
+        ...obs,
+        locationUuid: obs?.location?.uuid,
+        locationName: obs?.location?.display,
+      }));
+
+      // Filter by location if provided
+      if (locationUuid) {
+        observations = observations.filter((obs: any) => obs.locationUuid === locationUuid);
+      }
+
+      return observations;
     }
+  } catch (restError) {
+    // Only log this message once to avoid console clutter
+    if (!hasLoggedRestApiFallback) {
+      console.info('ℹ️ REST API not available for patients, using FHIR API with encounter location data');
+      hasLoggedRestApiFallback = true;
+    } // Fallback to FHIR API and fetch encounters to get location
+    try {
+      const fhirUrl = `${fhirBaseUrl}/Observation?subject=${patientId}&_count=1000`;
+      const fhirResponse = await openmrsFetch(fhirUrl);
 
-    return observations;
-  } catch (error) {
-    // console.error(`Error fetching stigma data for patient ${patientId}:`, error);
-    return [];
+      if (!fhirResponse.data?.entry) return [];
+
+      let observations = fhirResponse.data.entry.map((e: any) => e.resource);
+
+      // Fetch encounter details to get location for each observation
+      const encounterIds = [
+        ...new Set(observations.map((obs: any) => obs.encounter?.reference?.split('/')?.[1]).filter(Boolean)),
+      ] as string[];
+
+      const encounterLocations: Record<string, { uuid: string; display: string }> = {};
+
+      // Fetch encounters in parallel (limit to avoid too many requests)
+      await Promise.all(
+        encounterIds.slice(0, 50).map(async (encId: string) => {
+          try {
+            const encUrl = `${fhirBaseUrl}/Encounter/${encId}`;
+            const encResp = await openmrsFetch(encUrl);
+            const location = encResp.data?.location?.[0]?.location;
+            if (location) {
+              encounterLocations[encId] = {
+                uuid: location.reference?.split('/')?.[1] || location.id,
+                display: location.display || '',
+              };
+            }
+          } catch (e) {
+            // Ignore individual encounter fetch errors
+          }
+        }),
+      );
+
+      // Add location info from encounters
+      observations = observations.map((obs: any) => {
+        const encId = obs.encounter?.reference?.split('/')?.[1] as string | undefined;
+        const location = encId ? encounterLocations[encId] : undefined;
+        return {
+          ...obs,
+          locationUuid: location?.uuid,
+          locationName: location?.display,
+        };
+      });
+
+      // Filter by location if provided
+      if (locationUuid) {
+        observations = observations.filter((obs: any) => obs.locationUuid === locationUuid);
+      }
+
+      return observations;
+    } catch (fhirError) {
+      console.error(`Both REST and FHIR APIs failed for patient ${patientId}:`, fhirError);
+      return [];
+    }
   }
+
+  return [];
 }
 
 // MonthlyBarChart is now imported from './monthly-bar-chart' to keep a single responsive implementation.
@@ -563,15 +671,32 @@ export default function AllPatientsDashboard() {
   // Debug: Log allPatientsData and extracted stigma types when user selects the Stigma Type viz
   useEffect(() => {
     if (vizType !== 'stgtype') return;
-    // console.log('All Patients Data (debug):', allPatientsData);
     if (!allPatientsData || allPatientsData.length === 0) {
-      // console.log('No patient observations loaded yet (allPatientsData is empty)');
       return;
     }
+
     const summary: Record<string, number> = { आत्मलान्छना: 0, 'अपेक्षित लान्छना': 0, 'व्यावहारिक लान्छना': 0 };
+    let totalObsChecked = 0;
+    let locationFilteredObs = 0;
+
     allPatientsData.forEach((patientObs) => {
       patientObs.forEach((obs: any) => {
-        const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
+        totalObsChecked++;
+
+        // Filter by current location
+        if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) {
+          return; // Skip observations from other locations
+        }
+
+        locationFilteredObs++;
+
+        const raw = (
+          obs.stigmaType ||
+          obs.code?.coding?.[0]?.display ||
+          obs.code?.text ||
+          obs.concept?.display ||
+          ''
+        ).toString();
         const s = raw.toLowerCase();
         // normalize common English keywords to Nepali categories
         let type = '';
@@ -584,8 +709,12 @@ export default function AllPatientsDashboard() {
         if (summary[type] !== undefined) summary[type]++;
       });
     });
-    // console.log('Stigma Type Summary (debug):', summary);
-  }, [vizType, allPatientsData]);
+
+    console.log(
+      `🎯 Stigma Type Location Filter: ${locationFilteredObs}/${totalObsChecked} observations at ${currentLocationName}`,
+    );
+    console.log('Stigma Type Summary:', summary);
+  }, [vizType, allPatientsData, currentLocationUuid, currentLocationName]);
 
   // When selecting ART ID the ArtIdPanel will be shown by the conditional render below
 
@@ -602,14 +731,20 @@ export default function AllPatientsDashboard() {
     patientData.forEach((observations, patientIndex) => {
       const patientId = String(patientIndex);
 
+      // Filter observations by current location FIRST
+      const locationFilteredObs = observations.filter(
+        (obs: any) => !currentLocationUuid || obs.locationUuid === currentLocationUuid,
+      );
+
       // Process observations to match CovidStigmaData format
-      const stigmaData: CovidStigmaData[] = observations
-        .filter((obs: any) =>
-          // Filter only stigma-related observations
-          obs.code?.coding?.some(
-            (coding: any) =>
-              coding.display?.toLowerCase().includes('stigma') || coding.code?.toLowerCase().includes('stigma'),
-          ),
+      const stigmaData: CovidStigmaData[] = locationFilteredObs
+        .filter(
+          (obs: any) =>
+            // Filter only stigma-related observations
+            obs.code?.coding?.some(
+              (coding: any) =>
+                coding.display?.toLowerCase().includes('stigma') || coding.code?.toLowerCase().includes('stigma'),
+            ) || obs.concept?.display?.toLowerCase().includes('stigma'),
         )
         .map((obs: any) => ({
           id: obs.id,
@@ -763,23 +898,28 @@ export default function AllPatientsDashboard() {
   return (
     <div
       style={{
-        padding: '1rem',
+        padding: 'clamp(0.5rem, 2vw, 1rem)',
         border: '2px solid #fafbfdff',
-        margin: '1rem',
+        margin: 'clamp(0.5rem, 2vw, 1rem)',
         backgroundColor: '#f0f8ff',
+        maxWidth: '100%',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
       }}
     >
       {/* Location Indicator */}
       <div
         style={{
           backgroundColor: '#fff',
-          padding: '0.75rem 1rem',
+          padding: 'clamp(0.5rem, 2vw, 1rem)',
           borderRadius: '8px',
           marginBottom: '1rem',
           border: '1px solid #e0e0e0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
         }}
       >
         {/* <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -791,16 +931,27 @@ export default function AllPatientsDashboard() {
         <span style={{ fontSize: '0.85rem', color: '#888', fontStyle: 'italic' }}></span> */}
       </div>
       {/* Two-column layout: Left space + Right visualization */}
-      <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem', minHeight: '400px' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+          gap: 'clamp(1rem, 2vw, 2rem)',
+          marginBottom: '1.5rem',
+          minHeight: window.innerWidth <= 768 ? 'auto' : '400px',
+          width: '100%',
+        }}
+      >
         {/* Left side - Form Filling Interface */}
         <div
           style={{
-            flex: '0 0 35%',
+            flex: window.innerWidth <= 768 ? '1 1 100%' : '0 0 35%',
             border: '1px solid #ddd',
             borderRadius: '8px',
-            padding: '1rem',
+            padding: 'clamp(0.75rem, 2vw, 1rem)',
             backgroundColor: '#fff',
             minHeight: '300px',
+            width: window.innerWidth <= 768 ? '100%' : 'auto',
+            boxSizing: 'border-box',
           }}
         >
           {patients && patients.length > 0 ? (
@@ -825,17 +976,44 @@ export default function AllPatientsDashboard() {
           )}
         </div>
         {/* Right side - Visualization dropdown and controls */}
-        <div style={{ flex: '0 0 62%' }}>
-          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-            <label style={{ marginRight: '0.5rem', fontWeight: 'bold' }}>Visualization: </label>
+        <div
+          style={{
+            flex: window.innerWidth <= 768 ? '1 1 100%' : '0 0 62%',
+            width: window.innerWidth <= 768 ? '100%' : 'auto',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            style={{
+              textAlign: 'center',
+              marginBottom: '1rem',
+              display: 'flex',
+              flexDirection: window.innerWidth <= 480 ? 'column' : 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <label
+              style={{
+                marginRight: window.innerWidth <= 480 ? '0' : '0.5rem',
+                fontWeight: 'bold',
+                fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+              }}
+            >
+              Visualization:{' '}
+            </label>
             <select
               value={vizType}
               onChange={(e) => setVizType(e.target.value as any)}
               style={{
-                padding: '0.5rem 1rem',
+                padding: 'clamp(0.4rem, 1.5vw, 0.75rem)',
                 borderRadius: '4px',
                 border: '1px solid #ccc',
                 backgroundColor: '#f8f8f8',
+                fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                width: window.innerWidth <= 480 ? '100%' : 'auto',
+                maxWidth: '300px',
               }}
             >
               <option value="summary">Above/Below Cutoff Stigma Score</option>
@@ -858,11 +1036,11 @@ export default function AllPatientsDashboard() {
             <div
               style={{
                 backgroundColor: '#fff',
-                padding: '1rem',
+                padding: 'clamp(0.75rem, 2vw, 1.5rem)',
                 borderRadius: '12px',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
                 width: '100%',
-                minHeight: 300,
+                minHeight: window.innerWidth <= 768 ? '250px' : '300px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -871,7 +1049,8 @@ export default function AllPatientsDashboard() {
             >
               <h3
                 style={{
-                  fontSize: '1.2rem',
+                  fontSize: 'clamp(1.1rem, 3vw, 1.4rem)',
+                  textAlign: 'center',
                   fontWeight: '600',
                   color: '#333',
                   marginBottom: '1rem',
@@ -904,25 +1083,26 @@ export default function AllPatientsDashboard() {
                       }}
                       options={{
                         responsive: true,
-                        maintainAspectRatio: true,
+                        maintainAspectRatio: window.innerWidth > 768,
+                        aspectRatio: window.innerWidth <= 480 ? 1 : window.innerWidth <= 768 ? 1.5 : 2,
                         plugins: {
                           legend: {
                             position: 'bottom',
                             labels: {
                               font: {
-                                size: 14,
+                                size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
                                 weight: 500,
                               },
-                              padding: 20,
+                              padding: window.innerWidth <= 768 ? 10 : 20,
                             },
                           },
                           tooltip: {
                             titleFont: {
-                              size: 14,
+                              size: window.innerWidth <= 480 ? 12 : 14,
                               weight: 600,
                             },
                             bodyFont: {
-                              size: 13,
+                              size: window.innerWidth <= 480 ? 11 : 13,
                             },
                             callbacks: {
                               label: function (context) {
@@ -963,24 +1143,71 @@ export default function AllPatientsDashboard() {
                 boxSizing: 'border-box',
               }}
             >
-              <div style={{ width: '100%', padding: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <label style={{ color: '#444', fontSize: 14 }}>Start:</label>
+              <div style={{ width: '100%', padding: 'clamp(4px, 1.5vw, 8px)' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 'clamp(6px, 1.5vw, 12px)',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                    flexWrap: 'wrap',
+                    justifyContent: window.innerWidth <= 480 ? 'center' : 'flex-start',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      width: window.innerWidth <= 480 ? '100%' : 'auto',
+                    }}
+                  >
+                    <label
+                      style={{
+                        color: '#444',
+                        fontSize: 'clamp(12px, 2vw, 14px)',
+                        minWidth: '45px',
+                      }}
+                    >
+                      Start:
+                    </label>
                     <input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      style={{ padding: '6px 8px' }}
+                      style={{
+                        padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+                        fontSize: 'clamp(12px, 2vw, 14px)',
+                        flex: 1,
+                      }}
                     />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <label style={{ color: '#444', fontSize: 14 }}>End:</label>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      width: window.innerWidth <= 480 ? '100%' : 'auto',
+                    }}
+                  >
+                    <label
+                      style={{
+                        color: '#444',
+                        fontSize: 'clamp(12px, 2vw, 14px)',
+                        minWidth: '45px',
+                      }}
+                    >
+                      End:
+                    </label>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      style={{ padding: '6px 8px' }}
+                      style={{
+                        padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+                        fontSize: 'clamp(12px, 2vw, 14px)',
+                        flex: 1,
+                      }}
                     />
                   </div>
                   <button
@@ -992,7 +1219,11 @@ export default function AllPatientsDashboard() {
                         setEndDate(s);
                       }
                     }}
-                    style={{ padding: '6px 10px' }}
+                    style={{
+                      padding: 'clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 10px)',
+                      fontSize: 'clamp(12px, 2vw, 14px)',
+                      cursor: 'pointer',
+                    }}
                   >
                     Apply
                   </button>
@@ -1001,7 +1232,11 @@ export default function AllPatientsDashboard() {
                       setStartDate('');
                       setEndDate('');
                     }}
-                    style={{ padding: '6px 10px' }}
+                    style={{
+                      padding: 'clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 10px)',
+                      fontSize: 'clamp(12px, 2vw, 14px)',
+                      cursor: 'pointer',
+                    }}
                   >
                     Clear
                   </button>
@@ -1014,6 +1249,7 @@ export default function AllPatientsDashboard() {
                   availableYears={availableYears}
                   startDate={startDate || undefined}
                   endDate={endDate || undefined}
+                  currentLocationUuid={currentLocationUuid}
                 />
               </div>
             </div>
@@ -1027,6 +1263,7 @@ export default function AllPatientsDashboard() {
               allPatientsData={allPatientsData}
               startDate={startDate || undefined}
               endDate={endDate || undefined}
+              currentLocationUuid={currentLocationUuid}
             />
           )}
 
@@ -1062,8 +1299,12 @@ export default function AllPatientsDashboard() {
               onRefresh={handleSitesRefresh}
             />
           )}
-          {vizType === 'Intersectional' && <IntersectionalStigmaVisualization patients={allPatientsData} />}
-          {vizType === 'Dimension' && <DimensionVisualization patients={allPatientsData} />}
+          {vizType === 'Intersectional' && (
+            <IntersectionalStigmaVisualization patients={allPatientsData} currentLocationUuid={currentLocationUuid} />
+          )}
+          {vizType === 'Dimension' && (
+            <DimensionVisualization patients={allPatientsData} currentLocationUuid={currentLocationUuid} />
+          )}
           {/* Optional: Stigma Overview Chart */}
           {/* <div style={{ marginTop: '2rem' }}>
         <StigmaOverviewChart allPatientsData={allPatientsData} />
@@ -1338,31 +1579,49 @@ export default function AllPatientsDashboard() {
                   >
                     सपोर्ट ग्रुपहरूको सूची: (जब सहभागीले सपोर्ट ग्रुपमा सामेल हुन सहमति जनाउँछन् तब देखाउनुहोस्)
                   </h4>
-                  <div style={{ marginLeft: '1rem' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', lineHeight: '1.6' }}>
+                  <div style={{ marginLeft: 'clamp(0.5rem, 2vw, 1rem)', overflowX: 'auto' }}>
+                    <table
+                      style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        lineHeight: '1.6',
+                        fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                        minWidth: '300px',
+                      }}
+                    >
                       <tbody>
                         <tr>
-                          <td>१. ड्रप-इन सेन्टर</td>
-                          <td>स्वतन्त्र पथ, बुटवल, रूपन्देही</td>
-                          <td>msmgnepal@gmail.com, ०७१-५२४८६२</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>१. ड्रप-इन सेन्टर</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>स्वतन्त्र पथ, बुटवल, रूपन्देही</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)', wordBreak: 'break-word' }}>
+                            msmgnepal@gmail.com, ०७१-५२४८६२
+                          </td>
                         </tr>
                         <tr>
-                          <td>२. ड्रप-इन सेन्टर</td>
-                          <td>मुर्ली बगैचा, वीरगञ्ज, पर्सा</td>
-                          <td>parsachemsexdic@gmail.com, ०५१-५२८६०६</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>२. ड्रप-इन सेन्टर</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>मुर्ली बगैचा, वीरगञ्ज, पर्सा</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)', wordBreak: 'break-word' }}>
+                            parsachemsexdic@gmail.com, ०५१-५२८६०६
+                          </td>
                         </tr>
                         <tr>
-                          <td>३. ड्रप-इन सेन्टर</td>
-                          <td>नील सरस्वतीथान, खुरसानिटार, काठमाडौं</td>
-                          <td>cruiseaids@gmail.com, ०१-४४२४०५२</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>३. ड्रप-इन सेन्टर</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>
+                            नील सरस्वतीथान, खुरसानिटार, काठमाडौं
+                          </td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)', wordBreak: 'break-word' }}>
+                            cruiseaids@gmail.com, ०१-४४२४०५२
+                          </td>
                         </tr>
                         <tr>
-                          <td>४. एनएपि+एन</td>
-                          <td>बालुवाटार, काठमाडौं</td>
-                          <td>info@napn.org.np, ०१-४५२७४५९</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>४. एनएपि+एन</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>बालुवाटार, काठमाडौं</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)', wordBreak: 'break-word' }}>
+                            info@napn.org.np, ०१-४५२७४५९
+                          </td>
                         </tr>
                         <tr>
-                          <td>५. एनएफडब्लुएलएचए</td>
+                          <td style={{ padding: 'clamp(0.3rem, 1vw, 0.5rem)' }}>५. एनएफडब्लुएलएचए</td>
                           <td>नयाँ बानेश्वर, काठमाडौं</td>
                           <td>nfwlha007@gmail.com, ०१-४५९९३७५</td>
                         </tr>
@@ -1513,7 +1772,13 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
 }
 
 // Intersectional Stigma Visualization Component
-function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
+function IntersectionalStigmaVisualization({
+  patients,
+  currentLocationUuid,
+}: {
+  patients: any[];
+  currentLocationUuid?: string;
+}) {
   const [loading, setLoading] = React.useState(true);
   const [intersectionalData, setIntersectionalData] = React.useState<{
     stigma_as: { highest: any };
@@ -1549,12 +1814,17 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
       patients.forEach((observations, patientIndex) => {
         if (!Array.isArray(observations) || observations.length === 0) return;
 
-        // Filter stigma-related observations
-        const stigmaData = observations.filter((obs: any) =>
-          obs.code?.coding?.some(
-            (coding: any) =>
-              coding.display?.toLowerCase().includes('stigma') || coding.code?.toLowerCase().includes('stigma'),
-          ),
+        // Filter stigma-related observations AND by location
+        const stigmaData = observations.filter(
+          (obs: any) =>
+            // Filter by location first
+            (!currentLocationUuid || obs.locationUuid === currentLocationUuid) &&
+            // Then filter stigma-related
+            (obs.code?.coding?.some(
+              (coding: any) =>
+                coding.display?.toLowerCase().includes('stigma') || coding.code?.toLowerCase().includes('stigma'),
+            ) ||
+              obs.concept?.display?.toLowerCase().includes('stigma')),
         );
 
         if (stigmaData.length === 0) return;
@@ -1580,17 +1850,14 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
             const prevHighest = stigmaTypes.stigma_as.highestScore;
             if (score > stigmaTypes.stigma_as.highestScore) {
               stigmaTypes.stigma_as.highestScore = score;
-              // Get ART ID from patient identifier
+              // Get ART ID from patient identifier (UUID: 9c257200-27e4-447b-b78f-b7778d27cf9f)
               const patient = allPatients[patientIndex];
-              // Find ART ID, not OpenMRS ID
               const artIdObj = patient?.identifier?.find(
-                (id: any) =>
-                  (id.identifierType?.display === 'ART ID' ||
-                    id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f') &&
-                  id.value,
+                (id: any) => id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value,
               );
-              const artId = artIdObj?.value || `ART ID ${patientIndex}`;
-              const identifierType = artIdObj?.identifierType?.display || 'ART ID';
+              // Only use actual ART ID, no fallback
+              const artId = artIdObj?.value;
+              if (!artId) return; // Skip if no ART ID
               stigmaTypes.stigma_as.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
               // console.log(
               //   `🔴 New HIGHEST AS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
@@ -1607,16 +1874,13 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
             const prevHighest = stigmaTypes.stigma_es.highestScore;
             if (score > stigmaTypes.stigma_es.highestScore) {
               stigmaTypes.stigma_es.highestScore = score;
-              // Get ART ID from patient identifier
+              // Get ART ID from patient identifier (UUID: 9c257200-27e4-447b-b78f-b7778d27cf9f)
               const patient = allPatients[patientIndex];
               const artIdObj = patient?.identifier?.find(
-                (id: any) =>
-                  (id.identifierType?.display === 'ART ID' ||
-                    id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f') &&
-                  id.value,
+                (id: any) => id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value,
               );
               const artId = artIdObj?.value || `ART ID ${patientIndex}`;
-              const identifierType = artIdObj?.identifierType?.display || 'ART ID';
+              const identifierType = artIdObj?.identifierType?.display || ' ';
               stigmaTypes.stigma_es.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
               // console.log(
               //   `🔴 New HIGHEST ES: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
@@ -1636,13 +1900,10 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
               // Get ART ID from patient identifier
               const patient = allPatients[patientIndex];
               const artIdObj = patient?.identifier?.find(
-                (id: any) =>
-                  (id.identifierType?.display === 'ART ID' ||
-                    id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f') &&
-                  id.value,
+                (id: any) => id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value,
               );
-              const artId = artIdObj?.value || `Patient ${patientIndex}`;
-              const identifierType = artIdObj?.identifierType?.display || 'ART ID';
+              const artId = artIdObj?.value || `ART ID ${patientIndex}`;
+              const identifierType = artIdObj?.identifierType?.display || ' ';
               stigmaTypes.stigma_is.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
               // console.log(
               //   `🔴 New HIGHEST IS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
@@ -1708,101 +1969,121 @@ function IntersectionalStigmaVisualization({ patients }: { patients: any[] }) {
     <div
       style={{
         backgroundColor: '#fff',
-        padding: '1.5rem',
+        padding: 'clamp(1rem, 3vw, 1.5rem)',
         borderRadius: '12px',
         boxShadow: '0 4px 16px rgba(191, 188, 188, 0.1)',
         width: '100%',
+        boxSizing: 'border-box',
       }}
     >
-      <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Intersectional</h3>
+      <h3
+        style={{
+          margin: '0 0 1.5rem 0',
+          color: '#1e3a8a',
+          fontSize: 'clamp(1.1rem, 3vw, 1.3rem)',
+          textAlign: 'center',
+        }}
+      >
+        Intersectional
+      </h3>
 
       {/* Bar Chart Visualization - Full Width */}
-      <Chart
-        type="bar"
-        data={{
-          labels: ['Anticipated Stigma (AS)', 'Enacted Stigma (ES)', 'Internalized Stigma (IS)'],
-          datasets: [
-            {
-              label: 'Highest Score',
-              data: [
-                intersectionalData.stigma_as.highest?.score || 0,
-                intersectionalData.stigma_es.highest?.score || 0,
-                intersectionalData.stigma_is.highest?.score || 0,
-              ],
-              backgroundColor: 'rgba(220, 38, 38, 0.8)',
-              borderColor: 'rgba(220, 38, 38, 1)',
-              borderWidth: 2,
-            },
-          ],
+      <div
+        style={{
+          height: window.innerWidth <= 480 ? '280px' : window.innerWidth <= 768 ? '320px' : '380px',
+          width: '100%',
+          position: 'relative',
         }}
-        options={{
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: {
-                font: {
-                  size: 14,
-                  weight: 500,
+      >
+        <Chart
+          type="bar"
+          data={{
+            labels: ['Anticipated Stigma (AS)', 'Enacted Stigma (ES)', 'Internalized Stigma (IS)'],
+            datasets: [
+              {
+                label: 'Highest Score',
+                data: [
+                  intersectionalData.stigma_as.highest?.score || 0,
+                  intersectionalData.stigma_es.highest?.score || 0,
+                  intersectionalData.stigma_is.highest?.score || 0,
+                ],
+                backgroundColor: 'rgba(220, 38, 38, 0.8)',
+                borderColor: 'rgba(220, 38, 38, 1)',
+                borderWidth: 2,
+              },
+            ],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: {
+                  font: {
+                    size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
+                    weight: 500,
+                  },
+                  padding: window.innerWidth <= 480 ? 8 : 15,
                 },
-                padding: 15,
               },
-            },
-            tooltip: {
-              titleFont: {
-                size: 14,
-                weight: 600,
-              },
-              bodyFont: {
-                size: 13,
-              },
-              callbacks: {
-                afterLabel: function (context) {
-                  const stigmaType =
-                    context.dataIndex === 0 ? 'stigma_as' : context.dataIndex === 1 ? 'stigma_es' : 'stigma_is';
-                  const data = intersectionalData[stigmaType].highest;
-                  if (data) {
-                    return `ART ID: ${data.artId}\nDate: ${new Date(data.date).toLocaleDateString()}`;
-                  }
-                  return '';
-                },
-              },
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Stigma Score',
-                font: {
-                  size: 14,
+              tooltip: {
+                titleFont: {
+                  size: window.innerWidth <= 480 ? 11 : 14,
                   weight: 600,
                 },
-              },
-              ticks: {
-                font: {
-                  size: 12,
+                bodyFont: {
+                  size: window.innerWidth <= 480 ? 10 : 13,
+                },
+                callbacks: {
+                  afterLabel: function (context) {
+                    const stigmaType =
+                      context.dataIndex === 0 ? 'stigma_as' : context.dataIndex === 1 ? 'stigma_es' : 'stigma_is';
+                    const data = intersectionalData[stigmaType].highest;
+                    if (data) {
+                      return `ART ID: ${data.artId}\nDate: ${new Date(data.date).toLocaleDateString()}`;
+                    }
+                    return '';
+                  },
                 },
               },
             },
-            x: {
-              ticks: {
-                font: {
-                  size: 12,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Stigma Score',
+                  font: {
+                    size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
+                    weight: 600,
+                  },
+                },
+                ticks: {
+                  font: {
+                    size: window.innerWidth <= 480 ? 9 : window.innerWidth <= 768 ? 10 : 12,
+                  },
+                },
+              },
+              x: {
+                ticks: {
+                  font: {
+                    size: window.innerWidth <= 480 ? 8 : window.innerWidth <= 768 ? 10 : 12,
+                  },
+                  maxRotation: window.innerWidth <= 480 ? 45 : 0,
+                  minRotation: 0,
                 },
               },
             },
-          },
-        }}
-      />
+          }}
+        />
+      </div>
     </div>
   );
 }
 
 // Dimension Visualization Component
-function DimensionVisualization({ patients }: { patients: any[] }) {
+function DimensionVisualization({ patients, currentLocationUuid }: { patients: any[]; currentLocationUuid?: string }) {
   // Support anticipated and internalized dimensions
   // Separate keys and labels for anticipated and internalized
   const anticipatedKeys = ['hiv_domain_as', 'mh_domain_as', 'sgm_domain_as', 'em_domain_as'];
@@ -1840,6 +2121,10 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
   patients.forEach((observations) => {
     if (!Array.isArray(observations)) return;
     observations.forEach((obs: any) => {
+      // Filter by location
+      if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) {
+        return;
+      }
       const codeText = obs.code?.text;
       let key = codeToDimensionKey[codeText];
       if (!key) {
@@ -1949,7 +2234,16 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
       </div>
       {tab === 'anticipated' && (
         <>
-          <h3 style={{ margin: '0 0 1.5rem 0', color: '#1e3a8a', fontSize: '1.3rem' }}>Dimension (Anticipated)</h3>
+          <h3
+            style={{
+              margin: '0 0 1.5rem 0',
+              color: '#1e3a8a',
+              fontSize: 'clamp(1.1rem, 3vw, 1.3rem)',
+              textAlign: 'center',
+            }}
+          >
+            Dimension (Anticipated)
+          </h3>
           {/* <div style={{ marginBottom: '2rem' }}>
             <strong>Max Dimension Scores:</strong>
             <ul>
@@ -1961,64 +2255,94 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
               ))}
             </ul>
           </div> */}
-          <Chart
-            type="bar"
-            data={{
-              labels: anticipatedLabels,
-              datasets: [
-                {
-                  label: 'Max Score',
-                  data: anticipatedKeys.map((key) => maxDimensions[key]),
-                  backgroundColor: [
-                    'rgba(56, 189, 248, 0.7)',
-                    'rgba(34, 197, 94, 0.7)',
-                    'rgba(139, 92, 246, 0.7)',
-                    'rgba(251, 191, 36, 0.7)',
-                  ],
-                  borderColor: [
-                    'rgba(56, 189, 248, 1)',
-                    'rgba(34, 197, 94, 1)',
-                    'rgba(139, 92, 246, 1)',
-                    'rgba(251, 191, 36, 1)',
-                  ],
-                  borderWidth: 2,
-                },
-              ],
+          <div
+            style={{
+              height: window.innerWidth <= 480 ? '250px' : window.innerWidth <= 768 ? '300px' : '350px',
+              width: '100%',
+              position: 'relative',
             }}
-            options={{
-              responsive: true,
-              plugins: {
-                legend: { display: false },
-                tooltip: {
-                  callbacks: {
-                    label: function (context: any) {
-                      return `Max Score: ${context.parsed.y}`;
+          >
+            <Chart
+              type="bar"
+              data={{
+                labels: anticipatedLabels,
+                datasets: [
+                  {
+                    label: 'Max Score',
+                    data: anticipatedKeys.map((key) => maxDimensions[key]),
+                    backgroundColor: [
+                      'rgba(56, 189, 248, 0.7)',
+                      'rgba(34, 197, 94, 0.7)',
+                      'rgba(139, 92, 246, 0.7)',
+                      'rgba(251, 191, 36, 0.7)',
+                    ],
+                    borderColor: [
+                      'rgba(56, 189, 248, 1)',
+                      'rgba(34, 197, 94, 1)',
+                      'rgba(139, 92, 246, 1)',
+                      'rgba(251, 191, 36, 1)',
+                    ],
+                    borderWidth: 2,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: function (context: any) {
+                        return `Max Score: ${context.parsed.y}`;
+                      },
                     },
                   },
                 },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Max Score',
-                    font: { size: 14, weight: 600 },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: {
+                      display: true,
+                      text: 'Max Score',
+                      font: {
+                        size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
+                        weight: 600,
+                      },
+                    },
+                    ticks: {
+                      font: {
+                        size: window.innerWidth <= 480 ? 9 : window.innerWidth <= 768 ? 10 : 12,
+                      },
+                    },
                   },
-                  ticks: { font: { size: 12 } },
+                  x: {
+                    ticks: {
+                      font: {
+                        size: window.innerWidth <= 480 ? 8 : window.innerWidth <= 768 ? 10 : 12,
+                      },
+                      maxRotation: window.innerWidth <= 480 ? 45 : 0,
+                      minRotation: 0,
+                    },
+                  },
                 },
-                x: {
-                  ticks: { font: { size: 12 } },
-                },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
         </>
       )}
       {tab === 'enacted' && <EnactedDimensionVisualization patients={patients} />}
       {tab === 'internalized' && (
         <>
-          <h3 style={{ margin: '0 0 1.5rem 0', color: '#a21caf', fontSize: '1.3rem' }}>Dimension (Internalized)</h3>
+          <h3
+            style={{
+              margin: '0 0 1.5rem 0',
+              color: '#a21caf',
+              fontSize: 'clamp(1.1rem, 3vw, 1.3rem)',
+              textAlign: 'center',
+            }}
+          >
+            Dimension (Internalized)
+          </h3>
           {/* <div style={{ marginBottom: '2rem' }}>
             <strong>Max Dimension Scores:</strong>
             <ul>
@@ -2030,58 +2354,86 @@ function DimensionVisualization({ patients }: { patients: any[] }) {
               ))}
             </ul>
           </div> */}
-          <Chart
-            type="bar"
-            data={{
-              labels: internalizedLabels,
-              datasets: [
-                {
-                  label: 'Max Score',
-                  data: internalizedKeys.map((key) => maxDimensions[key]),
-                  backgroundColor: [
-                    'rgba(168, 85, 247, 0.7)',
-                    'rgba(236, 72, 153, 0.7)',
-                    'rgba(59, 130, 246, 0.7)',
-                    'rgba(251, 191, 36, 0.7)',
-                  ],
-                  borderColor: [
-                    'rgba(168, 85, 247, 1)',
-                    'rgba(236, 72, 153, 1)',
-                    'rgba(59, 130, 246, 1)',
-                    'rgba(251, 191, 36, 1)',
-                  ],
-                  borderWidth: 2,
-                },
-              ],
+          <div
+            style={{
+              height: window.innerWidth <= 480 ? '250px' : window.innerWidth <= 768 ? '300px' : '350px',
+              width: '100%',
+              position: 'relative',
             }}
-            options={{
-              responsive: true,
-              plugins: {
-                legend: { display: false },
-                tooltip: {
-                  callbacks: {
-                    label: function (context: any) {
-                      return `Max Score: ${context.parsed.y}`;
+          >
+            <Chart
+              type="bar"
+              data={{
+                labels: internalizedLabels,
+                datasets: [
+                  {
+                    label: 'Max Score',
+                    data: internalizedKeys.map((key) => maxDimensions[key]),
+                    backgroundColor: [
+                      'rgba(168, 85, 247, 0.7)',
+                      'rgba(236, 72, 153, 0.7)',
+                      'rgba(59, 130, 246, 0.7)',
+                      'rgba(251, 191, 36, 0.7)',
+                    ],
+                    borderColor: [
+                      'rgba(168, 85, 247, 1)',
+                      'rgba(236, 72, 153, 1)',
+                      'rgba(59, 130, 246, 1)',
+                      'rgba(251, 191, 36, 1)',
+                    ],
+                    borderWidth: 2,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    titleFont: {
+                      size: window.innerWidth <= 480 ? 11 : 13,
+                    },
+                    bodyFont: {
+                      size: window.innerWidth <= 480 ? 10 : 12,
+                    },
+                    callbacks: {
+                      label: function (context: any) {
+                        return `Max Score: ${context.parsed.y}`;
+                      },
                     },
                   },
                 },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Max Score',
-                    font: { size: 14, weight: 600 },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: {
+                      display: true,
+                      text: 'Max Score',
+                      font: {
+                        size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
+                        weight: 600,
+                      },
+                    },
+                    ticks: {
+                      font: {
+                        size: window.innerWidth <= 480 ? 9 : window.innerWidth <= 768 ? 10 : 12,
+                      },
+                    },
                   },
-                  ticks: { font: { size: 12 } },
+                  x: {
+                    ticks: {
+                      font: {
+                        size: window.innerWidth <= 480 ? 8 : window.innerWidth <= 768 ? 10 : 12,
+                      },
+                      maxRotation: window.innerWidth <= 480 ? 45 : 0,
+                      minRotation: 0,
+                    },
+                  },
                 },
-                x: {
-                  ticks: { font: { size: 12 } },
-                },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
         </>
       )}
     </div>
@@ -2410,35 +2762,69 @@ function SitesDataVisualization({
       {/* Table View of Form Data */}
       {defaultLocationUuid && siteSubmissions.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
-          <h4 style={{ margin: '0 0 1rem 0', color: '#1e3a8a' }}> </h4>
-          <div style={{ overflowX: 'auto' }}>
+          <h4
+            style={{
+              margin: '0 0 1rem 0',
+              color: '#1e3a8a',
+              fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
+            }}
+          >
+            {' '}
+          </h4>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
             <table
               style={{
                 width: '100%',
                 borderCollapse: 'collapse',
                 border: '1px solid #e5e7eb',
-                fontSize: '0.9rem',
-                tableLayout: 'fixed',
+                fontSize: 'clamp(0.75rem, 2vw, 0.9rem)',
+                tableLayout: window.innerWidth <= 768 ? 'auto' : 'fixed',
+                minWidth: '600px',
               }}
             >
               <thead>
                 <tr style={{ backgroundColor: '#1e3a8a', color: '#fff' }}>
                   <th
-                    style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #1e3a8a', width: '60px' }}
+                    style={{
+                      padding: 'clamp(0.5rem, 1.5vw, 0.75rem)',
+                      textAlign: 'left',
+                      borderBottom: '2px solid #1e3a8a',
+                      width: window.innerWidth <= 768 ? 'auto' : '60px',
+                      minWidth: '40px',
+                    }}
                   >
                     No.
                   </th>
                   <th
-                    style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #1e3a8a', width: '180px' }}
+                    style={{
+                      padding: 'clamp(0.5rem, 1.5vw, 0.75rem)',
+                      textAlign: 'left',
+                      borderBottom: '2px solid #1e3a8a',
+                      width: window.innerWidth <= 768 ? 'auto' : '180px',
+                      minWidth: '120px',
+                    }}
                   >
                     Submission Date
                   </th>
                   <th
-                    style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #1e3a8a', width: '120px' }}
+                    style={{
+                      padding: 'clamp(0.5rem, 1.5vw, 0.75rem)',
+                      textAlign: 'left',
+                      borderBottom: '2px solid #1e3a8a',
+                      width: window.innerWidth <= 768 ? 'auto' : '120px',
+                      minWidth: '80px',
+                    }}
                   >
                     Site
                   </th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #1e3a8a' }}>
+                  <th
+                    style={{
+                      padding: 'clamp(0.5rem, 1.5vw, 0.75rem)',
+                      textAlign: 'left',
+                      borderBottom: '2px solid #1e3a8a',
+                      minWidth: '150px',
+                    }}
+                  >
                     Form Data
                   </th>
                 </tr>
@@ -2694,6 +3080,63 @@ const FormFillingInterface = ({
       // console.log('[DEBUG] formData keys:', Object.keys(formData));
       // console.log('[DEBUG] formData values:', formData);
       // console.log('[DEBUG] patients array:', patients);
+
+      // ===== VALIDATION: Check if form has any data =====
+      const hasAnyData =
+        Object.keys(formData).length > 0 &&
+        Object.values(formData).some((value) => {
+          if (Array.isArray(value)) {
+            return value.length > 0;
+          }
+          return value !== null && value !== undefined && value !== '';
+        });
+
+      if (!hasAnyData) {
+        showSnackbar({
+          title: 'फारम रित्तो छ / Empty Form',
+          kind: 'warning',
+          subtitle: 'कृपया फारम भर्नुहोस्। सबै क्षेत्रहरू रित्तो छन्। / Please fill the form. All fields are empty.',
+        });
+        return;
+      }
+
+      // ===== VALIDATION: Check for required fields =====
+      if (formDefinition && formDefinition.pages) {
+        const emptyRequiredFields: string[] = [];
+
+        formDefinition.pages.forEach((page: any) => {
+          if (page.sections) {
+            page.sections.forEach((section: any) => {
+              if (section.questions) {
+                section.questions.forEach((question: any) => {
+                  // Check if field is required and should be shown
+                  if (question.required && shouldShowField(question)) {
+                    const value = formData[question.id];
+                    const isEmpty =
+                      value === undefined ||
+                      value === null ||
+                      value === '' ||
+                      (Array.isArray(value) && value.length === 0);
+
+                    if (isEmpty) {
+                      emptyRequiredFields.push(question.label || question.id);
+                    }
+                  }
+                });
+              }
+            });
+          }
+        });
+
+        if (emptyRequiredFields.length > 0) {
+          showSnackbar({
+            title: 'आवश्यक क्षेत्रहरू छुटेका छन् / Required Fields Missing',
+            kind: 'warning',
+            subtitle: `कृपया यी क्षेत्रहरू भर्नुहोस्: ${emptyRequiredFields.join(', ')} / Please fill: ${emptyRequiredFields.join(', ')}`,
+          });
+          return;
+        }
+      }
 
       // Helper to find question by id in formDefinition
       function findQuestionById(formDef, questionId) {
@@ -2994,29 +3437,91 @@ const FormFillingInterface = ({
             padding: '1rem',
           }}
         >
-          <h5 style={{ color: '#1890ff', marginBottom: '1rem' }}>Submitted Observations</h5>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1em' }}>
-            <thead>
-              <tr style={{ background: '#f6fbff' }}>
-                <th style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>Concept</th>
-                <th style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>Value</th>
-                <th style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>Datetime</th>
-              </tr>
-            </thead>
-            <tbody>
-              {patientObs.map((obs) => (
-                <tr key={obs.uuid}>
-                  <td style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>
-                    {obs.concept?.display || obs.concept?.uuid}
-                  </td>
-                  <td style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>{obs.value}</td>
-                  <td style={{ border: '1px solid #e6f7ff', padding: '0.5rem' }}>
-                    {obs.obsDatetime ? new Date(obs.obsDatetime).toLocaleString() : ''}
-                  </td>
+          <h5
+            style={{
+              color: '#1890ff',
+              marginBottom: '1rem',
+              fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
+            }}
+          >
+            Submitted Observations
+          </h5>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: 'clamp(0.75rem, 2vw, 1rem)',
+                minWidth: '300px',
+              }}
+            >
+              <thead>
+                <tr style={{ background: '#f6fbff' }}>
+                  <th
+                    style={{
+                      border: '1px solid #e6f7ff',
+                      padding: 'clamp(0.3rem, 1.5vw, 0.5rem)',
+                      fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                    }}
+                  >
+                    Concept
+                  </th>
+                  <th
+                    style={{
+                      border: '1px solid #e6f7ff',
+                      padding: 'clamp(0.3rem, 1.5vw, 0.5rem)',
+                      fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                    }}
+                  >
+                    Value
+                  </th>
+                  <th
+                    style={{
+                      border: '1px solid #e6f7ff',
+                      padding: 'clamp(0.3rem, 1.5vw, 0.5rem)',
+                      fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                    }}
+                  >
+                    Datetime
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {patientObs.map((obs) => (
+                  <tr key={obs.uuid}>
+                    <td
+                      style={{
+                        border: '1px solid #e6f7ff',
+                        padding: 'clamp(0.3rem, 1.5vw, 0.5rem)',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {obs.concept?.display || obs.concept?.uuid}
+                    </td>
+                    <td
+                      style={{
+                        border: '1px solid #e6f7ff',
+                        padding: 'clamp(0.3rem, 1.5vw, 0.5rem)',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {obs.value}
+                    </td>
+                    <td
+                      style={{
+                        border: '1px solid #e6f7ff',
+                        padding: 'clamp(0.3rem, 1.5vw, 0.5rem)',
+                        wordBreak: 'break-word',
+                        fontSize: 'clamp(0.65rem, 1.8vw, 0.875rem)',
+                      }}
+                    >
+                      {obs.obsDatetime ? new Date(obs.obsDatetime).toLocaleString() : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       <h4 style={{ margin: '0 0 1rem 0', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
@@ -3101,10 +3606,12 @@ const FormFillingInterface = ({
                                     // placeholder={`${question.label || question.id}...`}
                                     style={{
                                       width: '100%',
-                                      padding: '0.5rem',
+                                      padding: 'clamp(0.4rem, 1.5vw, 0.5rem)',
                                       border: '1px solid #ccc',
                                       borderRadius: '4px',
                                       resize: 'vertical',
+                                      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                                      boxSizing: 'border-box',
                                     }}
                                   />
                                 ) : question.questionOptions?.rendering === 'checkbox' ? (
@@ -3143,17 +3650,25 @@ const FormFillingInterface = ({
                                     }
                                     style={{
                                       width: '100%',
-                                      padding: '0.5rem',
+                                      padding: 'clamp(0.4rem, 1.5vw, 0.5rem)',
                                       border: '1px solid #ccc',
                                       borderRadius: '4px',
-                                      fontSize: '1rem',
+                                      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                                      boxSizing: 'border-box',
                                     }}
                                   />
                                 ) : question.questionOptions?.rendering === 'radio' ? (
                                   <div>
                                     {question.questionOptions.answers &&
                                       question.questionOptions.answers.map((answer: any, answerIndex: number) => (
-                                        <label key={answerIndex} style={{ display: 'block', marginBottom: '0.3rem' }}>
+                                        <label
+                                          key={answerIndex}
+                                          style={{
+                                            display: 'block',
+                                            marginBottom: '0.3rem',
+                                            fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                                          }}
+                                        >
                                           <input
                                             type="radio"
                                             name={question.id}
@@ -3255,14 +3770,15 @@ const FormFillingInterface = ({
             disabled={isLoading}
             style={{
               width: '100%',
-              padding: '0.75rem',
+              padding: 'clamp(0.65rem, 2vw, 0.75rem)',
               backgroundColor: !isLoading ? '#056b2cff' : '#ccc',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              fontSize: '1rem',
+              fontSize: 'clamp(0.875rem, 2vw, 1rem)',
               fontWeight: 'bold',
               cursor: !isLoading ? 'pointer' : 'not-allowed',
+              boxSizing: 'border-box',
             }}
           >
             {isLoading ? 'Submitting...' : 'बुझाउनुहोस्'}

@@ -11,6 +11,7 @@ interface MonthlyBarChartProps {
   // optional date range (ISO strings: yyyy-mm-dd)
   startDate?: string;
   endDate?: string;
+  currentLocationUuid?: string;
 }
 
 export function MonthlyBarChart({
@@ -20,6 +21,7 @@ export function MonthlyBarChart({
   availableYears,
   startDate,
   endDate,
+  currentLocationUuid,
 }: MonthlyBarChartProps) {
   // Local month state default to current month
   const [month, setMonth] = useState<number>(new Date().getMonth());
@@ -30,6 +32,9 @@ export function MonthlyBarChart({
     const counts: Record<number, number> = {};
     allPatientsData.forEach((patientData) => {
       patientData.forEach((obs: any) => {
+        // Filter by location
+        if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) return;
+
         const date = new Date(obs.effectiveDateTime || obs.date);
         if (!date) return;
         const offsetInMs = 5 * 60 * 60 * 1000 + 45 * 60 * 1000;
@@ -43,7 +48,7 @@ export function MonthlyBarChart({
       });
     });
     return counts;
-  }, [allPatientsData, selectedYear, month]);
+  }, [allPatientsData, selectedYear, month, currentLocationUuid]);
 
   const dynamic = useMemo(() => {
     if (!startDate || !endDate) return null;
@@ -54,8 +59,8 @@ export function MonthlyBarChart({
   }, [allPatientsData, startDate, endDate]);
 
   const monthCounts = useMemo(
-    () => aggregateYearMonthPatientCount(allPatientsData, selectedYear),
-    [allPatientsData, selectedYear],
+    () => aggregateYearMonthPatientCount(allPatientsData, selectedYear, currentLocationUuid),
+    [allPatientsData, selectedYear, currentLocationUuid],
   );
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -86,22 +91,31 @@ export function MonthlyBarChart({
     <div
       style={{
         backgroundColor: '#fff',
-        padding: '1rem',
+        padding: 'clamp(0.5rem, 2vw, 1rem)',
         marginBottom: '1rem',
         borderRadius: '8px',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         display: 'block',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <div>
-        <div style={{ height: 420 }}>
+        <div style={{ height: window.innerWidth <= 480 ? 300 : window.innerWidth <= 768 ? 350 : 420, width: '100%' }}>
           <Chart
             type="bar"
             data={data}
             options={{
               responsive: true,
               maintainAspectRatio: false,
-              layout: { padding: { left: 8, right: 8, top: 8, bottom: 8 } },
+              layout: {
+                padding: {
+                  left: window.innerWidth <= 480 ? 4 : 8,
+                  right: window.innerWidth <= 480 ? 4 : 8,
+                  top: window.innerWidth <= 480 ? 4 : 8,
+                  bottom: window.innerWidth <= 480 ? 4 : 8,
+                },
+              },
               plugins: {
                 legend: { display: false },
               },
@@ -113,6 +127,9 @@ export function MonthlyBarChart({
                     text: '',
                   },
                   ticks: {
+                    font: {
+                      size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 11 : 12,
+                    },
                     display: false,
                   },
                 },
@@ -120,8 +137,18 @@ export function MonthlyBarChart({
                   title: {
                     display: true,
                     text: 'Month',
+                    font: {
+                      size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 11 : 12,
+                    },
                   },
-                  ticks: { autoSkip: true, maxRotation: 0, minRotation: 0 },
+                  ticks: {
+                    autoSkip: window.innerWidth <= 480,
+                    maxRotation: window.innerWidth <= 480 ? 45 : 0,
+                    minRotation: 0,
+                    font: {
+                      size: window.innerWidth <= 480 ? 9 : window.innerWidth <= 768 ? 10 : 11,
+                    },
+                  },
                 },
               },
             }}
@@ -134,7 +161,7 @@ export function MonthlyBarChart({
 }
 
 // ---------------- Aggregate Data By Year and Month ----------------
-function aggregateYearMonthPatientCount(allPatientsData: any[], selectedYear: string) {
+function aggregateYearMonthPatientCount(allPatientsData: any[], selectedYear: string, currentLocationUuid?: string) {
   // For each month, collect a Set of patient IDs
   const monthPatientSets: Array<Set<string>> = Array(12)
     .fill(null)
@@ -142,6 +169,9 @@ function aggregateYearMonthPatientCount(allPatientsData: any[], selectedYear: st
 
   allPatientsData.forEach((patientData, patientIdx) => {
     patientData.forEach((obs: any) => {
+      // Filter by location
+      if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) return;
+
       const date = new Date(obs.effectiveDateTime || obs.date);
       if (!date) return;
       // Adjust for Nepali Time (UTC+5:45)

@@ -148,16 +148,14 @@ const VitalsAndBiometricsInput: React.FC<VitalsAndBiometricsInputProps> = ({
                               min={fieldProperty.min ?? undefined}
                               name={fieldProperty.name}
                               onBlur={() => handleFocusChange(false)}
-                              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                                checkValidity(event.target.value, onChange)
-                              }
+                              onChange={(event: any) => checkValidity(event.target.value, onChange)}
                               onFocus={() => handleFocusChange(true)}
                               placeholder={generatePlaceholder(fieldProperty.name)}
                               readOnly={readOnly}
                               ref={ref}
                               style={{ ...fieldStyles }}
                               title={fieldProperty.name}
-                              type={fieldProperty.type}
+                              type={fieldProperty.type === 'textarea' ? 'text' : fieldProperty.type}
                               value={value}
                             />
                           );

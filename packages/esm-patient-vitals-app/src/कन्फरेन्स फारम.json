@@ -48,8 +48,7 @@
                 ]
               },
               "id": "decide_to_implement",
-              "label": " २. यस बैठकमा, लान्छना सम्बन्धि  कुनै नयाँ गतिविधिहरु कार्यान्वयन गर्नको लागि निर्णय गर्नुभयो?",
-              "required": true
+              "label": " २. यस बैठकमा, लान्छना सम्बन्धि  कुनै नयाँ गतिविधिहरु कार्यान्वयन गर्नको लागि निर्णय गर्नुभयो?"
             },
             {
               "type": "obs",
@@ -62,8 +61,7 @@
                 "hideWhenExpression": "(decide_to_implement != 1)"
               },
               "id": "decision_yes_specify",
-              "label": "२.१. यदि गर्नुभयो भने, कृपया खुलाउनुहोस्",
-              "required": true
+              "label": "२.१. यदि गर्नुभयो भने, कृपया खुलाउनुहोस्"
             },
             {
               "type": "obs",
@@ -76,8 +74,7 @@
                 "hideWhenExpression": "(decide_to_implement != 2)"
               },
               "id": "decision_no_specify",
-              "label": "२.२.  यदि गर्नुभएन भने, कृपया कारण खुलाउनुहोस्",
-              "required": true
+              "label": "२.२.  यदि गर्नुभएन भने, कृपया कारण खुलाउनुहोस्"
             },
             {
               "type": "obs",
@@ -98,8 +95,7 @@
                 ]
               },
               "id": "implement_activity",
-              "label": "३. अघिल्लो बैठकमा छलफल भएको कुनै गतिविधीहरु, गएको महिनामा प्रयोग गर्नुभयो?",
-              "required": true
+              "label": "३. अघिल्लो बैठकमा छलफल भएको कुनै गतिविधीहरु, गएको महिनामा प्रयोग गर्नुभयो?"
             },
             {
               "type": "obs",
@@ -112,8 +108,7 @@
                 "hideWhenExpression": "(implement_activity != 1)"
               },
               "id": "implement_yes_specify",
-              "label": "३.१. यदि भयो भने, कृपया खुलाउनुहोस्",
-              "required": true
+              "label": "३.१. यदि भयो भने, कृपया खुलाउनुहोस्"
             },
             {
               "type": "obs",
@@ -126,8 +121,7 @@
                 "hideWhenExpression": "(implement_activity != 2)"
               },
               "id": "implement_no_specify",
-              "label": "३.२ यदि गर्नुभएन भने, कृपया खुलाउनुहोस्",
-              "required": true
+              "label": "३.२ यदि गर्नुभएन भने, कृपया खुलाउनुहोस्"
             }
           ]
         }
