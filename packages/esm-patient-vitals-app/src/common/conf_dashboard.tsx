@@ -5,68 +5,55 @@
 function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
   const dimensionKeys = ['hiv_domain_es', 'mh_domain_es', 'sgm_domain_es', 'em_domain_es'];
   const chartLabels = ['HIV Domain (ES)', 'Mental Health Domain (ES)', 'SGM Domain (ES)', 'EM Domain (ES)'];
+
+  // Exact observation UUIDs from stigma-data.resource.tsx
+  const DIMENSION_UUIDS: Record<string, string> = {
+    hiv_domain_es: '6a0fbece-ed88-4da2-9cb2-6db7848dbdfd',
+    mh_domain_es: '7ed8a592-dac5-4c7b-b9c0-3ac6126689b8',
+    sgm_domain_es: '5c10bc7a-332c-4586-94f2-fbb90b8a264d',
+    em_domain_es: '298384cf-8f27-4ec0-93ca-4657eb66c8a1',
+  };
+
   const dimensionScores: Record<string, number[]> = {
     hiv_domain_es: [],
     mh_domain_es: [],
     sgm_domain_es: [],
     em_domain_es: [],
   };
-  // Updated mapping to match actual code.text values found in debug logs
-  const codeToDimensionKey: Record<string, string> = {
-    // HIV Domain
-    'HIV Impact Rating': 'hiv_domain_es',
-    'HIV domain total score- Enacted stigma': 'hiv_domain_es',
-    'HIV domain total score-Enacted stigma': 'hiv_domain_es',
-    // Mental Health Domain
-    'Mental Health Impact Rating': 'mh_domain_es',
-    'Mental health domain score- Enacted stigma': 'mh_domain_es',
-    'Mental health domain total score - Enacted stigma': 'mh_domain_es',
-    'Mental health domain total score-Enacted stigma': 'mh_domain_es',
-    // SGM Domain
-    'Sexual and Gender Minorities Impact Rating': 'sgm_domain_es',
-    'Sexual and Gender Minorities domain total score-Enacted stigma': 'sgm_domain_es',
-    'Sexual and Gender Minorities domain score-Enacted stigma': 'sgm_domain_es',
-    'Sexual and Gender Minorities  domain score- Enacted stigma': 'sgm_domain_es',
-    // EM Domain
-    'Ethnic Minorities Impact Rating': 'em_domain_es',
-    'Ethnic Minorities domain score-Enacted stigma': 'em_domain_es',
-    'Ethnic Minorities domain total score-Enacted stigma': 'em_domain_es',
-    'Ethnic Minorities domain score- Enacted stigma score': 'em_domain_es',
-  };
-  patients.forEach((observations) => {
+
+  console.log('\n🔍 ===== ENACTED DIMENSION QA LOG START =====');
+  console.log('Using EXACT observation UUIDs:');
+  Object.entries(DIMENSION_UUIDS).forEach(([key, uuid]) => {
+    console.log(`  ${key}: ${uuid}`);
+  });
+
+  patients.forEach((observations, patientIndex) => {
     if (!Array.isArray(observations)) return;
-    observations.forEach((obs: any) => {
-      const codeText = obs.code?.text?.trim() || '';
-      let key = codeToDimensionKey[codeText];
-      if (!key) {
-        // Fallback: fuzzy match using includes
-        for (const mapText in codeToDimensionKey) {
-          if (codeText.includes(mapText)) {
-            key = codeToDimensionKey[mapText];
-            // console.log('ENACTED FUZZY MAT
-            // CH:', codeText, '->', mapText, '->', key);
-            break;
-          }
+
+    // Check each dimension for this patient
+    Object.entries(DIMENSION_UUIDS).forEach(([key, uuid]) => {
+      const obs = observations.find(
+        (o: any) => o.concept?.uuid === uuid || o.code?.coding?.some((c: any) => c.code === uuid),
+      );
+
+      if (obs) {
+        const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
+        if (typeof rawValue === 'number' && !isNaN(rawValue)) {
+          dimensionScores[key].push(rawValue);
+          console.log(`📊 Patient ${patientIndex} | ${key}: ${rawValue}`);
         }
-      }
-      if (!key) {
-        // console.log('ENACTED SKIPPED:', codeText);
-        return;
-      }
-      const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
-      if (typeof rawValue === 'number' && !isNaN(rawValue)) {
-        dimensionScores[key].push(rawValue);
-        // console.log('ENACTED MATCH', key, rawValue);
-      } else {
-        // console.log('ENACTED VALUE SKIPPED:', codeText, rawValue);
       }
     });
   });
 
+  console.log('\n📈 ENACTED DIMENSION FINAL RESULTS:');
   const maxDimensions: Record<string, number> = {};
   dimensionKeys.forEach((key) => {
     maxDimensions[key] = dimensionScores[key].length > 0 ? Math.max(...dimensionScores[key]) : 0;
+    console.log(`${key}: Max = ${maxDimensions[key]} (from ${dimensionScores[key].length} observations)`);
   });
+  console.log('🔍 ===== ENACTED DIMENSION QA LOG END =====\n');
+
   const chartData = dimensionKeys.map((key) => maxDimensions[key]);
   return (
     <div
@@ -87,7 +74,7 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
           textAlign: 'center',
         }}
       >
-        Enacted Dimension Analysis
+        Enacted Dimension
       </h3>
       {/* <div style={{ marginBottom: '2rem' }}>
         <strong>Max Enacted Dimension Scores:</strong>
@@ -646,8 +633,45 @@ export default function AllPatientsDashboard() {
   useEffect(() => {
     if (!patients?.length) return;
 
-    // Fetch patient data with location filter
-    Promise.all(patients.map((p) => fetchPatientStigmaData(p.id, currentLocationUuid))).then((results) => {
+    // Fetch patient data with location filter and add ART IDs
+    Promise.all(
+      patients.map((p, idx) => {
+        // Get ART ID from patient
+        const artIdObj = p.identifier?.find((id: any) => {
+          // REST API format
+          if (id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value) {
+            return true;
+          }
+          // FHIR format
+          if (
+            id.type?.coding?.some(
+              (coding: any) =>
+                coding.code === '9c257200-27e4-447b-b78f-b7778d27cf9f' ||
+                coding.system?.includes('9c257200-27e4-447b-b78f-b7778d27cf9f'),
+            ) &&
+            id.value
+          ) {
+            return true;
+          }
+          // Fallback: Check if display name contains "ART"
+          if (
+            (id.identifierType?.display?.includes('ART') ||
+              id.type?.text?.includes('ART') ||
+              id.type?.coding?.[0]?.display?.includes('ART')) &&
+            id.value
+          ) {
+            return true;
+          }
+          return false;
+        });
+        const artId = artIdObj?.value || `Patient ${idx}`;
+
+        return fetchPatientStigmaData(p.id, currentLocationUuid).then((observations) => {
+          // Add ART ID to each observation
+          return observations.map((obs: any) => ({ ...obs, artId }));
+        });
+      }),
+    ).then((results) => {
       setAllPatientsData(results);
       // Find all years present in the data
       const yearsSet = new Set<string>();
@@ -1791,22 +1815,44 @@ function IntersectionalStigmaVisualization({
   const allPatients = data?.patients || [];
 
   React.useEffect(() => {
+    console.log('🔍 allPatients array length:', allPatients.length);
+    console.log('🔍 First patient sample:', allPatients[0]);
+    if (allPatients.length > 0 && allPatients[0]?.identifier) {
+      console.log(
+        '🔍 First patient identifiers:',
+        allPatients[0].identifier.map((id: any) => ({
+          type: id.identifierType?.display || id.identifierType?.name,
+          uuid: id.identifierType?.uuid,
+          value: id.value,
+        })),
+      );
+    }
+  }, [allPatients]);
+
+  React.useEffect(() => {
     if (!patients || patients.length === 0) {
-      // console.log('❌ No patients data available for Intersectional Stigma Analysis');
       setLoading(false);
       return;
     }
 
-    // console.log('📊 Starting Int...');
-    // console.log('Total patients to analyze:', patients.length);
-
-    // Calculate highest for each intersectional stigma type
+    // Calculate highest for each intersectional stigma type using EXACT observation UUIDs
     const calculateExtremes = () => {
+      console.log('\n🔍 ===== INTERSECTIONAL STIGMA QA LOG START ===== ');
+      console.log('Using EXACT observation UUIDs:');
+      console.log('  AS Intersectional: 260b7159-9cc9-442d-b641-133b5dbbce06');
+      console.log('  ES Intersectional: fb3a85e9-5154-46f7-8c00-54cce586332c');
+      console.log('  IS Intersectional: 54addbef-17f5-4678-988a-9d6a68ad38f7');
+
       const stigmaTypes = {
         stigma_as: { highest: null as any, highestScore: -Infinity },
         stigma_es: { highest: null as any, highestScore: -Infinity },
         stigma_is: { highest: null as any, highestScore: -Infinity },
       };
+
+      // Intersectional stigma observation UUIDs (from stigma-data.resource.tsx)
+      const INTERSECTIONAL_AS_UUID = '260b7159-9cc9-442d-b641-133b5dbbce06';
+      const INTERSECTIONAL_ES_UUID = 'fb3a85e9-5154-46f7-8c00-54cce586332c';
+      const INTERSECTIONAL_IS_UUID = '54addbef-17f5-4678-988a-9d6a68ad38f7';
 
       let processedPatients = 0;
       let totalObservations = 0;
@@ -1814,123 +1860,201 @@ function IntersectionalStigmaVisualization({
       patients.forEach((observations, patientIndex) => {
         if (!Array.isArray(observations) || observations.length === 0) return;
 
-        // Filter stigma-related observations AND by location
-        const stigmaData = observations.filter(
-          (obs: any) =>
-            // Filter by location first
-            (!currentLocationUuid || obs.locationUuid === currentLocationUuid) &&
-            // Then filter stigma-related
-            (obs.code?.coding?.some(
-              (coding: any) =>
-                coding.display?.toLowerCase().includes('stigma') || coding.code?.toLowerCase().includes('stigma'),
-            ) ||
-              obs.concept?.display?.toLowerCase().includes('stigma')),
+        // Filter by location first
+        const locationFiltered = observations.filter(
+          (obs: any) => !currentLocationUuid || obs.locationUuid === currentLocationUuid,
         );
 
-        if (stigmaData.length === 0) return;
+        if (locationFiltered.length === 0) return;
+
+        // Get patient info for ART ID lookup
+        const patient = allPatients[patientIndex];
+
+        // Try both FHIR format (type.coding) and REST format (identifierType.uuid)
+        const artIdObj = patient?.identifier?.find((id: any) => {
+          // REST API format
+          if (id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value) {
+            return true;
+          }
+          // FHIR format - check type.coding for the UUID
+          if (
+            id.type?.coding?.some(
+              (coding: any) =>
+                coding.code === '9c257200-27e4-447b-b78f-b7778d27cf9f' ||
+                coding.system?.includes('9c257200-27e4-447b-b78f-b7778d27cf9f'),
+            ) &&
+            id.value
+          ) {
+            return true;
+          }
+          // Check if display name contains "ART"
+          if (
+            (id.identifierType?.display?.includes('ART') ||
+              id.type?.text?.includes('ART') ||
+              id.type?.coding?.[0]?.display?.includes('ART')) &&
+            id.value
+          ) {
+            return true;
+          }
+          return false;
+        });
+        const artId = artIdObj?.value || `Patient-${patientIndex}`;
+
+        // Debug identifiers for first few patients
+        if (patientIndex <= 2) {
+          console.log(`\n🔍 Patient ${patientIndex} identifiers:`);
+          patient?.identifier?.forEach((id: any, idx: number) => {
+            console.log(`  ID ${idx}:`, {
+              value: id.value,
+              restType: id.identifierType?.display,
+              restUuid: id.identifierType?.uuid,
+              fhirTypeText: id.type?.text,
+              fhirTypeCoding: id.type?.coding?.[0],
+            });
+          });
+          console.log(`  ➡️ Selected ART ID: ${artId}`);
+        }
+
+        console.log(`\n👤 Patient ${patientIndex} (ART ID: ${artId}) - ${locationFiltered.length} observations`);
+
+        // Debug: Log observation structure for Patient 2
+        if (patientIndex === 2) {
+          console.log('🔍 DEBUG Patient 2 - All observation concept UUIDs:');
+          locationFiltered.forEach((obs: any, idx: number) => {
+            console.log(`  Obs ${idx}:`, {
+              conceptUuid: obs.concept?.uuid,
+              conceptDisplay: obs.concept?.display,
+              codeSystem: obs.code?.coding?.[0]?.system,
+              codeCode: obs.code?.coding?.[0]?.code,
+              codeDisplay: obs.code?.coding?.[0]?.display,
+              value: obs.valueQuantity?.value || obs.value,
+            });
+          });
+          console.log('Looking for these UUIDs:');
+          console.log('  AS:', INTERSECTIONAL_AS_UUID);
+          console.log('  ES:', INTERSECTIONAL_ES_UUID);
+          console.log('  IS:', INTERSECTIONAL_IS_UUID);
+        }
 
         processedPatients++;
-        totalObservations += stigmaData.length;
 
-        // Process each stigma observation
-        stigmaData.forEach((obs: any) => {
-          const stigmaTypeRaw = obs.code?.coding?.[0]?.display || '';
-          const stigmaType = stigmaTypeRaw.toLowerCase();
-          const score = obs.valueQuantity?.value;
-          const date = obs.effectiveDateTime || obs.date;
+        // Check for Anticipated Intersectional Stigma (AS)
+        // Try both FHIR format (code.coding) and REST format (concept.uuid)
+        const asObs = locationFiltered.find(
+          (obs: any) =>
+            obs.concept?.uuid === INTERSECTIONAL_AS_UUID ||
+            obs.code?.coding?.some((coding: any) => coding.code === INTERSECTIONAL_AS_UUID),
+        );
+        if (asObs) {
+          const score = asObs.valueQuantity?.value;
+          const date = asObs.effectiveDateTime || asObs.date;
 
-          // Must be numeric score and intersectional type
-          if (typeof score !== 'number' || isNaN(score)) return;
-          if (!stigmaType.includes('intersectional')) return;
+          if (typeof score === 'number' && !isNaN(score)) {
+            totalObservations++;
+            console.log(`  📋 AS Intersectional: ${score} | Date: ${date}`);
 
-          // console.log(`📋 Found intersectional: ${stigmaTypeRaw} = ${score} (Patient ${patientIndex})`);
-
-          // Check Anticipated Intersectional Stigma
-          if (stigmaType.includes('anticipated')) {
             const prevHighest = stigmaTypes.stigma_as.highestScore;
-            if (score > stigmaTypes.stigma_as.highestScore) {
+            if (score > prevHighest) {
               stigmaTypes.stigma_as.highestScore = score;
-              // Get ART ID from patient identifier (UUID: 9c257200-27e4-447b-b78f-b7778d27cf9f)
-              const patient = allPatients[patientIndex];
-              const artIdObj = patient?.identifier?.find(
-                (id: any) => id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value,
-              );
-              // Only use actual ART ID, no fallback
-              const artId = artIdObj?.value;
-              if (!artId) return; // Skip if no ART ID
-              stigmaTypes.stigma_as.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
-              // console.log(
-              //   `🔴 New HIGHEST AS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
-              // );
+              stigmaTypes.stigma_as.highest = {
+                stigmaType: 'Anticipated Intersectional',
+                score,
+                date,
+                artId,
+              };
+              console.log(`  ✅ NEW HIGHEST AS: ${score} (was ${prevHighest === -Infinity ? 'None' : prevHighest})`);
             } else {
-              // console.log(
-              //   `⚪ AS: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
-              // );
+              console.log(`  ⚪ Not higher than current: ${prevHighest}`);
             }
           }
+        }
 
-          // Check Enacted Intersectional Stigma
-          if (stigmaType.includes('enacted')) {
+        // Check for Enacted Intersectional Stigma (ES)
+        const esObs = locationFiltered.find(
+          (obs: any) =>
+            obs.concept?.uuid === INTERSECTIONAL_ES_UUID ||
+            obs.code?.coding?.some((coding: any) => coding.code === INTERSECTIONAL_ES_UUID),
+        );
+        if (esObs) {
+          const score = esObs.valueQuantity?.value;
+          const date = esObs.effectiveDateTime || esObs.date;
+
+          if (typeof score === 'number' && !isNaN(score)) {
+            totalObservations++;
+            console.log(`  📋 ES Intersectional: ${score} | Date: ${date} | ART ID: ${artId}`);
+
             const prevHighest = stigmaTypes.stigma_es.highestScore;
-            if (score > stigmaTypes.stigma_es.highestScore) {
+            if (score > prevHighest) {
               stigmaTypes.stigma_es.highestScore = score;
-              // Get ART ID from patient identifier (UUID: 9c257200-27e4-447b-b78f-b7778d27cf9f)
-              const patient = allPatients[patientIndex];
-              const artIdObj = patient?.identifier?.find(
-                (id: any) => id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value,
+              stigmaTypes.stigma_es.highest = {
+                stigmaType: 'Enacted Intersectional',
+                score,
+                date,
+                artId,
+              };
+              console.log(
+                `  ✅ NEW HIGHEST ES: ${score} (ART ID: ${artId}) - was ${prevHighest === -Infinity ? 'None' : prevHighest}`,
               );
-              const artId = artIdObj?.value || `ART ID ${patientIndex}`;
-              const identifierType = artIdObj?.identifierType?.display || ' ';
-              stigmaTypes.stigma_es.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
-              // console.log(
-              //   `🔴 New HIGHEST ES: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
-              // );
             } else {
-              // console.log(
-              //   `⚪ ES: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
-              // );
+              console.log(`  ⚪ ES: ${score} (ART ID: ${artId}) - Not higher than current: ${prevHighest}`);
             }
           }
+        } else {
+          // Log when ES Intersectional is NOT found for debugging
+          if (patientIndex <= 2) {
+            console.log(`  ⚠️ No ES Intersectional observation found for Patient ${patientIndex} (ART ID: ${artId})`);
+          }
+        }
 
-          // Check Internalized Intersectional Stigma
-          if (stigmaType.includes('internalized')) {
+        // Check for Internalized Intersectional Stigma (IS)
+        const isObs = locationFiltered.find(
+          (obs: any) =>
+            obs.concept?.uuid === INTERSECTIONAL_IS_UUID ||
+            obs.code?.coding?.some((coding: any) => coding.code === INTERSECTIONAL_IS_UUID),
+        );
+        if (isObs) {
+          const score = isObs.valueQuantity?.value;
+          const date = isObs.effectiveDateTime || isObs.date;
+
+          if (typeof score === 'number' && !isNaN(score)) {
+            totalObservations++;
+            console.log(`  📋 IS Intersectional: ${score} | Date: ${date}`);
+
             const prevHighest = stigmaTypes.stigma_is.highestScore;
-            if (score > stigmaTypes.stigma_is.highestScore) {
+            if (score > prevHighest) {
               stigmaTypes.stigma_is.highestScore = score;
-              // Get ART ID from patient identifier
-              const patient = allPatients[patientIndex];
-              const artIdObj = patient?.identifier?.find(
-                (id: any) => id.identifierType?.uuid === '9c257200-27e4-447b-b78f-b7778d27cf9f' && id.value,
-              );
-              const artId = artIdObj?.value || `ART ID ${patientIndex}`;
-              const identifierType = artIdObj?.identifierType?.display || ' ';
-              stigmaTypes.stigma_is.highest = { stigmaType: stigmaTypeRaw, score, date, artId };
-              // console.log(
-              //   `🔴 New HIGHEST IS: ${score} (ART ID: ${artId}) - Previous highest was: ${prevHighest === -Infinity ? 'None' : prevHighest}`,
-              // );
+              stigmaTypes.stigma_is.highest = {
+                stigmaType: 'Internalized Intersectional',
+                score,
+                date,
+                artId,
+              };
+              console.log(`  ✅ NEW HIGHEST IS: ${score} (was ${prevHighest === -Infinity ? 'None' : prevHighest})`);
             } else {
-              // console.log(
-              //   `⚪ IS: ${score} (ART ID: ${allPatients[patientIndex]?.identifier?.find((id: any) => id.value)?.value}) - Not higher than current highest: ${prevHighest}`,
-              // );
+              console.log(`  ⚪ Not higher than current: ${prevHighest}`);
             }
           }
-        });
+        }
       });
 
-      // console.log('✅ Analysis Complete!');
-      // console.log('Processed patients with stigma data:', processedPatients);
-      // console.log('Total stigma observations:', totalObservations);
-      // console.log('Results:', {
-      //   'Anticipated Stigma (AS)': {
-      //     highest: stigmaTypes.stigma_as.highestScore,
-      //   },
-      //   'Enacted Stigma (ES)': {
-      //     highest: stigmaTypes.stigma_es.highestScore,
-      //   },
-      //   'Internalized Stigma (IS)': {
-      //     highest: stigmaTypes.stigma_is.highestScore,
-      //   },
-      // });
+      console.log('\n📈 INTERSECTIONAL STIGMA FINAL RESULTS:');
+      console.log('Anticipated (AS):', {
+        score: stigmaTypes.stigma_as.highestScore,
+        artId: stigmaTypes.stigma_as.highest?.artId,
+        date: stigmaTypes.stigma_as.highest?.date,
+      });
+      console.log('Enacted (ES):', {
+        score: stigmaTypes.stigma_es.highestScore,
+        artId: stigmaTypes.stigma_es.highest?.artId,
+        date: stigmaTypes.stigma_es.highest?.date,
+      });
+      console.log('Internalized (IS):', {
+        score: stigmaTypes.stigma_is.highestScore,
+        artId: stigmaTypes.stigma_is.highest?.artId,
+        date: stigmaTypes.stigma_is.highest?.date,
+      });
+      console.log('Processed patients:', processedPatients, '| Total observations:', totalObservations);
+      console.log('🔍 ===== INTERSECTIONAL STIGMA QA LOG END =====\n');
 
       setIntersectionalData({
         stigma_as: { highest: stigmaTypes.stigma_as.highest },
@@ -2090,6 +2214,21 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
   const anticipatedLabels = ['HIV Domain (AS)', 'Mental Health Domain (AS)', 'SGM Domain (AS)', 'EM Domain (AS)'];
   const internalizedKeys = ['hiv_domain_is', 'mh_domain_is', 'sgm_domain_is', 'em_domain_is'];
   const internalizedLabels = ['HIV Domain (IS)', 'Mental Health Domain (IS)', 'SGM Domain (IS)', 'EM Domain (IS)'];
+
+  // Exact observation UUIDs from stigma-data.resource.tsx
+  const DIMENSION_UUIDS: Record<string, string> = {
+    // Anticipated Stigma Domains
+    hiv_domain_as: '90e0da1c-1bb4-48db-869e-d0ed4cd11c24',
+    mh_domain_as: '8f94f4c3-58f2-414a-9286-68c5ede9c46e',
+    sgm_domain_as: 'eb0a135d-3b90-470c-a684-d6dc3464712d',
+    em_domain_as: 'd1ccc9dc-92fa-4118-af50-6394295131f8',
+    // Internalized Stigma Domains
+    hiv_domain_is: 'ea081a06-b663-40f0-b74c-ede85468ed89',
+    mh_domain_is: 'ef14a69f-b4fa-4fcd-8699-6b827bb67525',
+    sgm_domain_is: '79c9043f-3cb6-41b2-b189-6018cb9b2bde',
+    em_domain_is: '373eca5f-bc30-4b5e-a799-c50931731209',
+  };
+
   const dimensionScores: Record<string, number[]> = {
     hiv_domain_as: [],
     mh_domain_as: [],
@@ -2100,77 +2239,44 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
     sgm_domain_is: [],
     em_domain_is: [],
   };
-  const codeToDimensionKey: Record<string, string> = {
-    // Anticipated
-    'Anticipated stigma score': 'sgm_domain_as',
-    'HIV stigma score': 'hiv_domain_as',
-    'Mental health stigma score': 'mh_domain_as',
-    'Experience of marginalization score': 'em_domain_as',
-    'HIV domain total score- Anticipated stigma': 'hiv_domain_as',
-    'Mental health domain score- Anticipated stigma': 'mh_domain_as',
-    'Sexual and Gender Minorities  domain score- Anticipated stigma': 'sgm_domain_as',
-    'Ethnic Minorities domain score- Anticipated stigma score': 'em_domain_as',
-    // Internalized
-    'Internalized stigma score': 'sgm_domain_is',
-    'HIV domain total score- Internalized stigma': 'hiv_domain_is',
-    'Mental health domain score- Internalized stigma': 'mh_domain_is',
-    'Sexual and Gender Minorities  domain score- Internalized stigma': 'sgm_domain_is',
-    'Ethnic Minorities domain score- Internalized stigma score': 'em_domain_is',
-    // Add any other variations from logs here
-  };
-  patients.forEach((observations) => {
+
+  console.log('\n🔍 ===== ANTICIPATED & INTERNALIZED DIMENSION QA LOG START =====');
+  console.log('Using EXACT observation UUIDs:');
+  Object.entries(DIMENSION_UUIDS).forEach(([key, uuid]) => {
+    console.log(`  ${key}: ${uuid}`);
+  });
+
+  patients.forEach((observations, patientIndex) => {
     if (!Array.isArray(observations)) return;
-    observations.forEach((obs: any) => {
-      // Filter by location
-      if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) {
-        return;
-      }
-      const codeText = obs.code?.text;
-      let key = codeToDimensionKey[codeText];
-      if (!key) {
-        // Fuzzy match for internalized
-        for (const mapText in codeToDimensionKey) {
-          if (
-            codeText &&
-            mapText.toLowerCase().replace(/\s+/g, '').includes('internalized') &&
-            codeText.toLowerCase().replace(/\s+/g, '').includes('internalized') &&
-            mapText.toLowerCase().replace(/\s+/g, '') === codeText.toLowerCase().replace(/\s+/g, '')
-          ) {
-            key = codeToDimensionKey[mapText];
-            // console.log('[FUZZY MATCH INTERNALIZED]', codeText, '->', key);
-            break;
-          }
+
+    // Filter by location first
+    const locationFiltered = observations.filter(
+      (obs: any) => !currentLocationUuid || obs.locationUuid === currentLocationUuid,
+    );
+
+    // Check each dimension for this patient
+    Object.entries(DIMENSION_UUIDS).forEach(([key, uuid]) => {
+      const obs = locationFiltered.find(
+        (o: any) => o.concept?.uuid === uuid || o.code?.coding?.some((c: any) => c.code === uuid),
+      );
+
+      if (obs) {
+        const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
+        if (typeof rawValue === 'number' && !isNaN(rawValue)) {
+          dimensionScores[key].push(rawValue);
+          console.log(`📊 Patient ${patientIndex} | ${key}: ${rawValue}`);
         }
-        if (!key) {
-          // Try partial fuzzy match
-          for (const mapText in codeToDimensionKey) {
-            if (
-              codeText &&
-              mapText.toLowerCase().replace(/\s+/g, '').includes('internalized') &&
-              codeText.toLowerCase().replace(/\s+/g, '').includes('internalized')
-            ) {
-              key = codeToDimensionKey[mapText];
-              // console.log('[PARTIAL FUZZY INTERNALIZED]', codeText, '->', key);
-              break;
-            }
-          }
-        }
-      }
-      if (!key) return;
-      const rawValue = obs.valueQuantity?.value ?? (obs.valueString ? Number(obs.valueString) : undefined);
-      if (typeof rawValue === 'number' && !isNaN(rawValue)) {
-        dimensionScores[key].push(rawValue);
-        // console.log('[MATCH]', key, rawValue, 'from', codeText);
-      } else {
-        // console.log('[SKIP]', key, rawValue, 'from', codeText);
       }
     });
   });
 
+  console.log('\n📈 DIMENSION FINAL RESULTS:');
   const maxDimensions: Record<string, number> = {};
   [...anticipatedKeys, ...internalizedKeys].forEach((key) => {
     maxDimensions[key] = dimensionScores[key].length > 0 ? Math.max(...dimensionScores[key]) : 0;
+    console.log(`${key}: Max = ${maxDimensions[key]} (from ${dimensionScores[key].length} observations)`);
   });
+  console.log('🔍 ===== ANTICIPATED & INTERNALIZED DIMENSION QA LOG END =====\n');
   const [tab, setTab] = React.useState<'anticipated' | 'enacted' | 'internalized'>('anticipated');
   return (
     <div

@@ -46,17 +46,24 @@ function computeMaxScores(
   startDate?: string,
   endDate?: string,
   currentLocationUuid?: string,
-): Record<string, number> {
+): { maxMap: Record<string, number>; artIdMap: Record<string, string> } {
   const maxMap: Record<string, number> = {
     आत्मलान्छना: 0,
     'अपेक्षित लान्छना': 0,
     'व्यावहारिक लान्छना': 0,
   };
 
+  const artIdMap: Record<string, string> = {
+    आत्मलान्छना: '',
+    'अपेक्षित लान्छना': '',
+    'व्यावहारिक लान्छना': '',
+  };
+
+  console.log('\n🔍 ===== STIGMA TYPE QA LOG START ===== ');
   const start = startDate ? new Date(startDate) : null;
   const end = endDate ? new Date(endDate) : null;
 
-  (allPatientsData || []).forEach((patientObs) => {
+  (allPatientsData || []).forEach((patientObs, patientIndex) => {
     (patientObs || []).forEach((obs: any) => {
       // Filter by location first
       if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) return;
@@ -74,13 +81,28 @@ function computeMaxScores(
       const value = getNumericValueFromObservation(obs);
       if (value === null || Number.isNaN(value)) return;
 
+      console.log(`📊 Patient ${patientIndex} | ${norm} | Score: ${value} | Current Max: ${maxMap[norm]}`);
+
       if (value > (maxMap[norm] || 0)) {
         maxMap[norm] = value;
+        artIdMap[norm] = obs.artId || `Patient ${patientIndex}`;
+        console.log(`✅ NEW MAX for ${norm}: ${value} (${artIdMap[norm]})`);
       }
     });
   });
 
-  return maxMap;
+  console.log('\n📈 FINAL STIGMA TYPE RESULTS:');
+  console.log('आत्मलान्छना (Internalized):', maxMap['आत्मलान्छना'], '- ART ID:', artIdMap['आत्मलान्छना']);
+  console.log('अपेक्षित लान्छना (Anticipated):', maxMap['अपेक्षित लान्छना'], '- ART ID:', artIdMap['अपेक्षित लान्छना']);
+  console.log(
+    'व्यावहारिक लान्छना (Enacted):',
+    maxMap['व्यावहारिक लान्छना'],
+    '- ART ID:',
+    artIdMap['व्यावहारिक लान्छना'],
+  );
+  console.log('🔍 ===== STIGMA TYPE QA LOG END =====\n');
+
+  return { maxMap, artIdMap };
 }
 
 export const StgTypeVisualization: React.FC<StgTypeProps> = ({
@@ -89,12 +111,18 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
   endDate,
   currentLocationUuid,
 }) => {
-  const maxMap = useMemo(
+  const { maxMap, artIdMap } = useMemo(
     () => computeMaxScores(allPatientsData, startDate, endDate, currentLocationUuid),
     [allPatientsData, startDate, endDate, currentLocationUuid],
   );
   const labels: StigmaType[] = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
   const data = labels.map((l) => +(maxMap[l] || 0));
+
+  console.log('📊 CHART DATA BEING RENDERED:');
+  console.log('maxMap:', maxMap);
+  console.log('artIdMap:', artIdMap);
+  console.log('Chart data array:', data);
+  console.log('Labels:', labels);
 
   const max = Math.max(...data);
   const highestType = max > 0 ? labels[data.indexOf(max)] : '';
@@ -164,6 +192,13 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
                   },
                   bodyFont: {
                     size: window.innerWidth <= 480 ? 10 : 12,
+                  },
+                  callbacks: {
+                    afterLabel: (context: any) => {
+                      const label = context.label;
+                      const artId = artIdMap[label];
+                      return artId ? `ART ID: ${artId}` : '';
+                    },
                   },
                 },
               },
