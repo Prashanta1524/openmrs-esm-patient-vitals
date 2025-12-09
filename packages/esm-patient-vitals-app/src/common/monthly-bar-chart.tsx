@@ -8,7 +8,6 @@ interface MonthlyBarChartProps {
   selectedYear: string;
   onYearChange: (year: string) => void;
   availableYears: string[];
-  // optional date range (ISO strings: yyyy-mm-dd)
   startDate?: string;
   endDate?: string;
   currentLocationUuid?: string;
@@ -27,7 +26,6 @@ export function MonthlyBarChart({
   const [month, setMonth] = useState<number>(new Date().getMonth());
   const [isNarrow, setIsNarrow] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth < 1000 : false);
 
-  // If startDate and endDate provided, compute aggregation dynamically
   const countsByDay = useMemo(() => {
     const counts: Record<number, number> = {};
     allPatientsData.forEach((patientData) => {
@@ -65,14 +63,32 @@ export function MonthlyBarChart({
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+  // Modern gradient colors for bars
+  const createGradient = (ctx: any, chartArea: any) => {
+    if (!chartArea) return '#4F46E5';
+    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+    gradient.addColorStop(0, '#4F46E5'); // Indigo-600
+    gradient.addColorStop(0.5, '#6366F1'); // Indigo-500
+    gradient.addColorStop(1, '#818CF8'); // Indigo-400
+    return gradient;
+  };
+
   const data = dynamic
     ? {
         labels: dynamic.labels,
         datasets: [
           {
-            label: '',
+            label: 'Patient Count',
             data: dynamic.counts,
-            backgroundColor: '#1f2e5bff',
+            backgroundColor: (context: any) => {
+              const chart = context.chart;
+              const { ctx, chartArea } = chart;
+              if (!chartArea) return '#19147bff';
+              return createGradient(ctx, chartArea);
+            },
+            borderRadius: 8,
+            borderSkipped: false,
+            hoverBackgroundColor: '#2b21bfff', 
           },
         ],
       }
@@ -80,9 +96,17 @@ export function MonthlyBarChart({
         labels: months,
         datasets: [
           {
-            label: '',
+            label: 'Patient Count',
             data: monthCounts,
-            backgroundColor: '#1f2e5bff',
+            backgroundColor: (context: any) => {
+              const chart = context.chart;
+              const { ctx, chartArea } = chart;
+              if (!chartArea) return '#4F46E5';
+              return createGradient(ctx, chartArea);
+            },
+            borderRadius: 8,
+            borderSkipped: false,
+            hoverBackgroundColor: '#3730A3',
           },
         ],
       };
@@ -90,14 +114,16 @@ export function MonthlyBarChart({
   return (
     <div
       style={{
-        backgroundColor: '#fff',
-        padding: 'clamp(0.5rem, 2vw, 1rem)',
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+        padding: 'clamp(1rem, 2.5vw, 1.5rem)',
         marginBottom: '1rem',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        borderRadius: '16px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        border: '1px solid rgba(226, 232, 240, 0.8)',
         display: 'block',
         width: '100%',
         boxSizing: 'border-box',
+        transition: 'all 0.3s ease',
       }}
     >
       <div>
@@ -108,46 +134,89 @@ export function MonthlyBarChart({
             options={{
               responsive: true,
               maintainAspectRatio: false,
+              interaction: {
+                mode: 'index',
+                intersect: false,
+              },
               layout: {
                 padding: {
-                  left: window.innerWidth <= 480 ? 4 : 8,
-                  right: window.innerWidth <= 480 ? 4 : 8,
-                  top: window.innerWidth <= 480 ? 4 : 8,
-                  bottom: window.innerWidth <= 480 ? 4 : 8,
+                  left: window.innerWidth <= 480 ? 8 : 12,
+                  right: window.innerWidth <= 480 ? 8 : 12,
+                  top: window.innerWidth <= 480 ? 12 : 16,
+                  bottom: window.innerWidth <= 480 ? 8 : 12,
                 },
               },
               plugins: {
                 legend: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                  titleColor: '#fff',
+                  bodyColor: '#e2e8f0',
+                  padding: 12,
+                  borderColor: 'rgba(148, 163, 184, 0.3)',
+                  borderWidth: 1,
+                  cornerRadius: 8,
+                  displayColors: false,
+                  titleFont: {
+                    size: window.innerWidth <= 480 ? 13 : 14,
+                    weight: 'bold',
+                  },
+                  bodyFont: {
+                    size: window.innerWidth <= 480 ? 12 : 13,
+                  },
+                  callbacks: {
+                    label: function (context) {
+                      return `Patients: ${context.parsed.y}`;
+                    },
+                  },
+                },
               },
               scales: {
                 y: {
                   beginAtZero: true,
-                  title: {
+                  grid: {
+                    color: 'rgba(148, 163, 184, 0.15)',
+                    lineWidth: 1,
+                  },
+                  border: {
                     display: false,
-                    text: '',
                   },
                   ticks: {
                     font: {
-                      size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 11 : 12,
+                      size: window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 12 : 13,
+                      weight: 'normal',
                     },
-                    display: false,
+                    color: '#64748b',
+                    padding: 8,
                   },
                 },
                 x: {
+                  grid: {
+                    display: false,
+                  },
+                  border: {
+                    display: false,
+                  },
                   title: {
                     display: true,
-                    text: 'Month',
+                    text: dynamic ? 'Time Period' : 'Month',
                     font: {
-                      size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 11 : 12,
+                      size: window.innerWidth <= 480 ? 12 : window.innerWidth <= 768 ? 13 : 14,
+                      weight: 'bold',
                     },
+                    color: '#475569',
+                    padding: { top: 10 },
                   },
                   ticks: {
                     autoSkip: window.innerWidth <= 480,
                     maxRotation: window.innerWidth <= 480 ? 45 : 0,
                     minRotation: 0,
                     font: {
-                      size: window.innerWidth <= 480 ? 9 : window.innerWidth <= 768 ? 10 : 11,
+                      size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 11 : 12,
+                      weight: 'normal',
                     },
+                    color: '#64748b',
+                    padding: 6,
                   },
                 },
               },
@@ -178,14 +247,12 @@ function aggregateYearMonthPatientCount(allPatientsData: any[], selectedYear: st
       const offsetInMs = 5 * 60 * 60 * 1000 + 45 * 60 * 1000;
       const nepaliDate = new Date(date.getTime() + offsetInMs);
       const year = nepaliDate.getFullYear().toString();
-      const month = nepaliDate.getMonth(); // 0=Jan, 11=Dec
+      const month = nepaliDate.getMonth(); 
       if (year === selectedYear) {
-        // Use patientIdx as unique patient identifier (since each patientData is for one patient)
         monthPatientSets[month].add(String(patientIdx));
       }
     });
   });
 
-  // Convert sets to counts
   return monthPatientSets.map((set) => set.size);
 }

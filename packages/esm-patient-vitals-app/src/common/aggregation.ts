@@ -6,7 +6,10 @@ export const getAggregationLevel = (start: Date, end: Date): 'day' | 'month' | '
 };
 
 export function aggregateData(allPatientsData: any[], startDate: Date, endDate: Date, level: 'day' | 'month' | 'year') {
-  const resultMap = new Map<string, Set<number>>(); // key = label, value = set of patient indices
+  const resultMap = new Map<string, Set<number>>(); 
+  const labelMap = new Map<string, string>(); 
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   allPatientsData.forEach((patientData, patientIdx) => {
     patientData.forEach((obs: any) => {
@@ -16,21 +19,35 @@ export function aggregateData(allPatientsData: any[], startDate: Date, endDate: 
       const localDate = new Date(date.getTime() + offset);
       if (localDate < startDate || localDate > endDate) return;
 
-      let key = '';
-      if (level === 'day')
-        key = localDate.toISOString().split('T')[0]; // YYYY-MM-DD
-      else if (level === 'month')
-        key = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
-      else if (level === 'year') key = `${localDate.getFullYear()}`;
+      let sortKey = '';
+      let displayLabel = '';
+      
+      if (level === 'day') {
+        sortKey = localDate.toISOString().split('T')[0]; 
+        const month = monthNames[localDate.getMonth()];
+        const day = localDate.getDate();
+        displayLabel = `${month} ${day}`; 
+      } else if (level === 'month') {
+        sortKey = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM for sorting
+        const month = monthNames[localDate.getMonth()];
+        const year = localDate.getFullYear();
+        displayLabel = `${month} ${year}`; 
+      } else if (level === 'year') {
+        sortKey = `${localDate.getFullYear()}`;
+        displayLabel = sortKey; 
+      }
 
-      if (!resultMap.has(key)) resultMap.set(key, new Set());
-      resultMap.get(key)!.add(patientIdx);
+      if (!resultMap.has(sortKey)) {
+        resultMap.set(sortKey, new Set());
+        labelMap.set(sortKey, displayLabel);
+      }
+      resultMap.get(sortKey)!.add(patientIdx);
     });
   });
 
-  // Convert to arrays
+ 
   const sortedKeys = Array.from(resultMap.keys()).sort();
-  const labels = sortedKeys;
+  const labels = sortedKeys.map((key) => labelMap.get(key)!);
   const counts = sortedKeys.map((key) => resultMap.get(key)!.size);
 
   return { labels, counts };
