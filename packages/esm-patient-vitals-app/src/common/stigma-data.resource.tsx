@@ -310,7 +310,8 @@ function renderScoreOnly(
 }
 
 // helper for rendering intersectional score - shows the value with conditional color
-// Uses display denominator for UI (240/260/200) but compares against clinical cutoff for color
+// Always displays the number/denominator. Uses display denominator for UI (120/130/100) 
+// but compares against clinical cutoff (40/43/33) for color (blue if below, red if above)
 function renderIntersectionalScore(value: number | undefined, clinicalCutoff: number, displayDenominator: number) {
   if (value == null) return null;
   const color = value >= clinicalCutoff ? 'red' : '#5993ebff';
@@ -359,7 +360,7 @@ export function mapStigmaDataToVitalsFormat(
 
       // Display denominators for intersectional stigma (shown in UI)
       const intersectionalDisplayDenominator =
-        d.stigmaType === 'अपेक्षित लान्छना' ? 240 : d.stigmaType === 'व्यावहारिक लान्छना' ? 260 : 200;
+        d.stigmaType === 'अपेक्षित लान्छना' ? 120 : d.stigmaType === 'व्यावहारिक लान्छना' ? 130 : 100;
 
       // build JSX fragment with colored domains
       const dimensionScoreRender = (
