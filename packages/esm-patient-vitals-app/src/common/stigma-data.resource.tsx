@@ -191,7 +191,7 @@ export function useCovidStigmaData(patientUuid: string) {
       const hivIS = num(getObsVal(enc, 'ea081a06-b663-40f0-b74c-ede85468ed89'));
       const mhIS = num(getObsVal(enc, 'ef14a69f-b4fa-4fcd-8699-6b827bb67525'));
       const sgmIS = num(getObsVal(enc, '79c9043f-3cb6-41b2-b189-6018cb9b2bde'));
-      const emIS = num(getObsVal(enc, '373eca5f-bc30-4b5e-a799-c50931731209')); // keep as provided
+      const emIS = num(getObsVal(enc, '373eca5f-bc30-4b5e-a799-c50931731209')); 
 
       const asScore = num(rawAS);
       const esScore = num(rawES);
@@ -202,7 +202,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-एन्टिसिपेटेड`,
           date: enc.encounterDatetime,
           stigmaType: 'अपेक्षित लान्छना',
-          stigmaScore: `${rawAS}/36`, // Show as score/total for UI
+          stigmaScore: `${rawAS}/36`, 
           as_score: asScore,
           dimensionType: [hivAS, mhAS, sgmAS, emAS].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी :${hivAS}/60, मानसिक स्वास्थ्य:${mhAS}/60, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmAS}/60, जातीय अल्पसङ्ख्यक/दलित:${emAS}/60`,
@@ -221,7 +221,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-enacted`,
           date: enc.encounterDatetime,
           stigmaType: 'व्यावहारिक लान्छना',
-          stigmaScore: `${rawES}/13`, // Show as score/total for UI
+          stigmaScore: `${rawES}/13`, 
           es_score: esScore,
           dimensionType: [hivES, mhES, sgmES, emES].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी:${hivES}/65, मानसिक स्वास्थ्य:${mhES}/65, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmES}/65, जातीय अल्पसङ्ख्यक/दलित:${emES}/65`,
@@ -240,7 +240,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-internalized`,
           date: enc.encounterDatetime,
           stigmaType: 'आत्मलान्छना',
-          stigmaScore: `${rawIS}/30`, // Show as score/total for UI
+          stigmaScore: `${rawIS}/30`, 
           is_score: isScore,
           dimensionType: [hivIS, mhIS, sgmIS, emIS].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी:${hivIS}/50, मानसिक स्वास्थ्य:${mhIS}/50, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmIS}/50, जातीय अल्पसङ्ख्यक/दलित:${emIS}/50`,
@@ -347,7 +347,7 @@ export function mapStigmaDataToVitalsFormat(
 
       // cutoff values for dimensions (clinical thresholds for color)
       const dimensionClinicalCutoff =
-        d.stigmaType === 'अपेक्षित लान्छना' ? 40 : d.stigmaType === 'व्यावहारिक लान्छना' ? 43 : 33;
+        d.stigmaType === 'अपेक्षित लान्छना' ? 20 : d.stigmaType === 'व्यावहारिक लान्छना' ? 22 : 17;
 
       // display denominators for dimensions (shown in UI)
       const dimensionDisplayDenominator =
@@ -355,7 +355,7 @@ export function mapStigmaDataToVitalsFormat(
 
       // Clinical cutoff values for intersectional stigma (for matching logic only)
       const intersectionalCutoff =
-        d.stigmaType === 'अपेक्षित लान्छना' ? 80 : d.stigmaType === 'व्यावहारिक लान्छना' ? 86 : 66;
+        d.stigmaType === 'अपेक्षित लान्छना' ? 40 : d.stigmaType === 'व्यावहारिक लान्छना' ? 43 : 33;
 
       // Display denominators for intersectional stigma (shown in UI)
       const intersectionalDisplayDenominator =
@@ -711,7 +711,7 @@ export function computeStigmaMatch_LatestOnly(stigmaData: StigmaData[] | undefin
     if (
       entry.stigmaType === 'अपेक्षित लान्छना' &&
       score >= 12 &&
-      (hiv >= 40 || mh >= 40 || sgm >= 40 || em >= 40 || inter >= 80)
+      (hiv >= 20 || mh >= 20 || sgm >= 20 || em >= 20 || inter >= 40)
     ) {
       return { matched: true, latestEncounterUuid };
     }
@@ -719,7 +719,7 @@ export function computeStigmaMatch_LatestOnly(stigmaData: StigmaData[] | undefin
     if (
       entry.stigmaType === 'व्यावहारिक लान्छना' &&
       score >= 4 &&
-      (hiv >= 43 || mh >= 43 || sgm >= 43 || em >= 43 || inter >= 86)
+      (hiv >= 22 || mh >= 22 || sgm >= 22 || em >= 22 || inter >= 43)
     ) {
       return { matched: true, latestEncounterUuid };
     }
@@ -727,7 +727,7 @@ export function computeStigmaMatch_LatestOnly(stigmaData: StigmaData[] | undefin
     if (
       entry.stigmaType === 'आत्मलान्छना' &&
       score >= 10 &&
-      (hiv >= 33 || mh >= 33 || sgm >= 33 || em >= 33 || inter >= 66)
+      (hiv >= 17 || mh >= 17 || sgm >= 17 || em >= 17 || inter >= 33)
     ) {
       return { matched: true, latestEncounterUuid };
     }
