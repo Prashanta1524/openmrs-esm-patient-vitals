@@ -169,78 +169,7 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
     </div>
   );
 }
-// import MultiChartSelector from './stigma-data-aggregate';
-// // New function for ART ID visualization
-// function ArtIdVisualization({ patients }: { patients: any[] }) {
-//   const [artId, setArtId] = React.useState('');
-//   const [selectedPatientUuid, setSelectedPatientUuid] = React.useState<string | null>(null);
 
-//   return (
-//     <div
-//       style={{
-//         backgroundColor: '#fff',
-//         padding: 'clamp(1rem, 3vw, 2rem)',
-//         marginBottom: '1.5rem',
-//         borderRadius: '12px',
-//         boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-//         maxWidth: '98vw',
-//         minWidth: 0,
-//         width: '100%',
-//         minHeight: 300,
-//         margin: '0 auto',
-//         display: 'flex',
-//         flexDirection: 'column',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         boxSizing: 'border-box',
-//       }}
-//     >
-//       <label>
-//         Enter ART ID:{' '}
-//         <input
-//           type="text"
-//           value={artId}
-//           onChange={(e) => setArtId(e.target.value)}
-//           style={{
-//             padding: '0.5rem',
-//             borderRadius: 4,
-//             border: '1px solid #ccc',
-//             marginRight: '1rem',
-//           }}
-//         />
-//         <button
-//           onClick={() => {
-//             const patient = patients.find(
-//               (p) =>
-//                 p.identifier &&
-//                 p.identifier.some((id) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
-//             );
-//             setSelectedPatientUuid(patient ? patient.id : null);
-//           }}
-//           style={{
-//             padding: '0.5rem 1rem',
-//             borderRadius: 4,
-//             border: 'none',
-//             background: '#1f2e5b',
-//             color: '#fff',
-//             cursor: 'pointer',
-//           }}
-//         >
-//           Visualize
-//         </button>
-//       </label>
-//       <div style={{ width: '100%', marginTop: '2rem' }}>
-//         {selectedPatientUuid ? (
-//           <MultiChartSelector patientUuid={selectedPatientUuid} />
-//         ) : (
-//           <p style={{ color: '#888', fontSize: '1.1rem', marginTop: '2rem' }}>
-//             {artId ? 'No patient found for this ART ID.' : 'Please enter an ART ID and click Visualize.'}
-//           </p>
-//         )}
-//       </div>
-//     </div>
-//   );
-// }
 
 import React, { useEffect, useState, useMemo } from 'react';
 import useSWR from 'swr';
@@ -402,55 +331,6 @@ const ClickableTextWithQR: React.FC<ClickableTextWithQRProps> = ({ text, image, 
   );
 };
 
-// ============================================================================
-// � PATIENT CONFIGURATION
-// ============================================================================
-// Configuration for allowed patients in the form interface
-// To add new patients, simply add their patient ID to this array
-// export const PATIENT_CONFIG = {
-// Patient UUIDs - representing sites in the system
-// allowedPatients: [
-//   {
-//     patientId: '04756e92-8e41-4d15-aae6-6431c5065829',
-//     description: 'Kathmandu Site',
-//   },
-//   {
-//     patientId: '019061e6-7306-4e6d-bacf-05edf852a922',
-//     description: 'Bhaktapur Site',
-//   },
-// 🚀 TO ADD MORE SITES:
-// Uncomment and modify the examples below, then add more as needed:
-//
-// {
-//   patientId: 'your-new-site-patient-id-here',
-//   description: 'Site Name'
-// },
-// {
-//   patientId: 'another-site-patient-id-here',
-//   description: 'Another Site'
-// },
-// ],
-
-// Extract just the patient IDs for easy filtering
-// get patientIdList() {
-//   return this.allowedPatients.map((p) => p.patientId);
-// },
-
-// Get description for a site
-// getDescription(patientId: string) {
-//   const patient = this.allowedPatients.find((p) => p.patientId === patientId);
-//   return patient?.description || 'Unknown site';
-// },
-// };
-
-// 💡 USAGE NOTES:
-// • These are LOCATION UUIDs, not patient UUIDs
-// • Patients from these locations will be shown in dropdown
-// • Kathmandu (6b4b134d...) and Bhaktapur (5fdefb8b...) locations
-// • Only patients associated with these locations appear in form interface
-// ============================================================================
-// import { StigmaAnnualTrendChart } from './stigma-annual-trend';
-// import { StigmaOverviewChart } from './StigmaOverviewChart'; // adjust path if needed
 // ---------------- Fetch All Patients (for all visualizations) ----------------
 async function fetchAllPatients() {
   let allPatients: any[] = [];

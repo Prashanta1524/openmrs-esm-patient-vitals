@@ -205,7 +205,7 @@ export function useCovidStigmaData(patientUuid: string) {
           stigmaScore: `${rawAS}/36`, // Show as score/total for UI
           as_score: asScore,
           dimensionType: [hivAS, mhAS, sgmAS, emAS].some((s) => s > 0) ? 'Domains' : '',
-          dimensionScore: `एचआईभी :${hivAS}/120, मानसिक स्वास्थ्य:${mhAS}/120, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmAS}/120, जातीय अल्पसङ्ख्यक/दलित:${emAS}/120`,
+          dimensionScore: `एचआईभी :${hivAS}/60, मानसिक स्वास्थ्य:${mhAS}/60, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmAS}/60, जातीय अल्पसङ्ख्यक/दलित:${emAS}/60`,
           hiv_domain_as: hivAS,
           mh_domain_as: mhAS,
           sgm_domain_as: sgmAS,
@@ -224,7 +224,7 @@ export function useCovidStigmaData(patientUuid: string) {
           stigmaScore: `${rawES}/13`, // Show as score/total for UI
           es_score: esScore,
           dimensionType: [hivES, mhES, sgmES, emES].some((s) => s > 0) ? 'Domains' : '',
-          dimensionScore: `एचआईभी:${hivES}/130, मानसिक स्वास्थ्य:${mhES}/130, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmES}/130, जातीय अल्पसङ्ख्यक/दलित:${emES}/130`,
+          dimensionScore: `एचआईभी:${hivES}/65, मानसिक स्वास्थ्य:${mhES}/65, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmES}/65, जातीय अल्पसङ्ख्यक/दलित:${emES}/65`,
           hiv_domain_es: hivES,
           mh_domain_es: mhES,
           sgm_domain_es: sgmES,
@@ -243,7 +243,7 @@ export function useCovidStigmaData(patientUuid: string) {
           stigmaScore: `${rawIS}/30`, // Show as score/total for UI
           is_score: isScore,
           dimensionType: [hivIS, mhIS, sgmIS, emIS].some((s) => s > 0) ? 'Domains' : '',
-          dimensionScore: `एचआईभी:${hivIS}/100, मानसिक स्वास्थ्य:${mhIS}/100, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmIS}/100, जातीय अल्पसङ्ख्यक/दलित:${emIS}/100`,
+          dimensionScore: `एचआईभी:${hivIS}/50, मानसिक स्वास्थ्य:${mhIS}/50, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmIS}/50, जातीय अल्पसङ्ख्यक/दलित:${emIS}/50`,
           hiv_domain_is: hivIS,
           mh_domain_is: mhIS,
           sgm_domain_is: sgmIS,
@@ -351,7 +351,7 @@ export function mapStigmaDataToVitalsFormat(
 
       // display denominators for dimensions (shown in UI)
       const dimensionDisplayDenominator =
-        d.stigmaType === 'अपेक्षित लान्छना' ? 120 : d.stigmaType === 'व्यावहारिक लान्छना' ? 130 : 100;
+        d.stigmaType === 'अपेक्षित लान्छना' ? 60 : d.stigmaType === 'व्यावहारिक लान्छना' ? 65 : 50;
 
       // Clinical cutoff values for intersectional stigma (for matching logic only)
       const intersectionalCutoff =
@@ -602,44 +602,7 @@ export function getActivitiesBasedOnStigma(stigmaData: StigmaData[] | undefined)
               कृपया सहभागीको कुरा सक्रिय रुपमा सुन्नुहोला।
             </p>
           </div>
-          {/* 👉 Render HIV Guidelines image when condition is true */}
-          {/* {showHivGuidelines && (
-            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-              <figure style={{ marginBottom: '1.5rem' }}>
-                <img
-                  src={hivGuidelinesImg}
-                  alt="National HIV Testing and Treatment Guidelines"
-                  style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                />
-                <figcaption style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#555' }}>
-                  National HIV Testing and Treatment
-                </figcaption>
-              </figure>
-              <br></br>
 
-              <figure style={{ marginBottom: '1.5rem' }}>
-                <img
-                  src={unaids}
-                  alt="UNAIDS Terminology Guidelines"
-                  style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                />
-                <figcaption style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#555' }}>
-                  UNAIDS Terminology Guidelines
-                </figcaption>s
-              </figure>
-              <br></br>
-              <figure style={{ marginBottom: '1.5rem' }}>
-                <img
-                  src={hivawareness}
-                  alt="HIV Awareness Material"
-                  style={{ maxWidth: '100%', borderRadius: '8px' }}
-                />
-                <figcaption style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#555' }}>
-                  HIV Awareness Material
-                </figcaption>
-              </figure>
-            </div>
-          )} */}
         </>
       ) : (
         <div style={cardStyle}>
@@ -819,145 +782,3 @@ function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString('default', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-
-// export function calculateStigmaTypeTrends(stigmaData: CovidStigmaData[] | undefined, periodInMonths: number = 12) {
-//   console.log('calculateStigmaTypeTrends called with:', {
-//     dataLength: stigmaData?.length,
-//     periodInMonths,
-//     sampleData: stigmaData?.slice(0, 3)
-//   });
-
-//   if (!stigmaData || stigmaData.length === 0) {
-//     console.log('No stigma data provided, returning empty chart data');
-//     return {
-//       months: [],
-//       trends: {},
-//       chartData: {
-//         labels: [],
-//         datasets: [],
-//       },
-//     };
-//   }
-
-//   // Step 1: Generate month labels for the specified period
-//   const now = new Date();
-//   const months: string[] = [];
-
-//   for (let i = periodInMonths - 1; i >= 0; i--) {
-//     const d = new Date(now);
-//     d.setMonth(d.getMonth() - i);
-//     const monthYear = `${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`;
-//     months.push(monthYear);
-//   }
-
-//   // Step 2: Initialize data structure for trends
-//   const trends = {
-//     anticipated: {} as Record<string, { count: number; sum: number; avg: number | null }>,
-//     enacted: {} as Record<string, { count: number; sum: number; avg: number | null }>,
-//     internalized: {} as Record<string, { count: number; sum: number; avg: number | null }>,
-//   };
-
-//   // Initialize each month with zero values
-//   months.forEach((month) => {
-//     trends.anticipated[month] = { count: 0, sum: 0, avg: null };
-//     trends.enacted[month] = { count: 0, sum: 0, avg: null };
-//     trends.internalized[month] = { count: 0, sum: 0, avg: null };
-//   });
-
-//   // Step 3: Process each data point
-//   let processedCount = 0;
-//   let skippedNoDate = 0;
-//   let skippedOutOfRange = 0;
-//   let dataWithScores = 0;
-
-//   stigmaData.forEach((data) => {
-//     if (!data.date) {
-//       skippedNoDate++;
-//       return;
-//     }
-
-//     const date = new Date(data.date);
-//     const monthsAgo = (now.getFullYear() - date.getFullYear()) * 12 + now.getMonth() - date.getMonth();
-
-//     // Skip data outside our time period
-//     if (monthsAgo < 0 || monthsAgo >= periodInMonths) {
-//       skippedOutOfRange++;
-//       return;
-//     }
-
-//     processedCount++;
-
-//     if (data.as_score !== undefined || data.es_score !== undefined || data.is_score !== undefined) {
-//       dataWithScores++;
-//     }
-
-//     const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
-
-//     // Update anticipated stigma data
-//     if (data.as_score !== undefined) {
-//       trends.anticipated[monthYear].count++;
-//       trends.anticipated[monthYear].sum += data.as_score;
-//       trends.anticipated[monthYear].avg = trends.anticipated[monthYear].sum / trends.anticipated[monthYear].count;
-//     }
-
-//     // Update enacted stigma data
-//     if (data.es_score !== undefined) {
-//       trends.enacted[monthYear].count++;
-//       trends.enacted[monthYear].sum += data.es_score;
-//       trends.enacted[monthYear].avg = trends.enacted[monthYear].sum / trends.enacted[monthYear].count;
-//     }
-
-//     // Update internalized stigma data
-//     if (data.is_score !== undefined) {
-//       trends.internalized[monthYear].count++;
-//       trends.internalized[monthYear].sum += data.is_score;
-//       trends.internalized[monthYear].avg = trends.internalized[monthYear].sum / trends.internalized[monthYear].count;
-//     }
-//   });
-
-//   // Step 4: Prepare chart-ready data format
-//   const chartData = {
-//     labels: months,
-//     datasets: [
-//       {
-//         label: 'Anticipated Stigma (अपेक्षित लान्छना)',
-//         data: months.map((month) => trends.anticipated[month].avg || null),
-//         borderColor: '#1f77b4', // blue
-//         backgroundColor: 'rgba(31, 119, 180, 0.2)',
-//       },
-//       {
-//         label: 'Enacted Stigma (व्यावहारिक लान्छना)',
-//         data: months.map((month) => trends.enacted[month].avg || null),
-//         borderColor: '#ff7f0e', // orange
-//         backgroundColor: 'rgba(255, 127, 14, 0.2)',
-//       },
-//       {
-//         label: 'Internalized Stigma (आत्मलान्छना)',
-//         data: months.map((month) => trends.internalized[month].avg || null),
-//         borderColor: '#2ca02c', // green
-//         backgroundColor: 'rgba(44, 160, 44, 0.2)',
-//       },
-//     ],
-//   };
-
-//   console.log('Stigma data processing summary:', {
-//     totalProcessed: processedCount,
-//     skippedNoDate,
-//     skippedOutOfRange,
-//     dataWithScores,
-//     monthsGenerated: months.length,
-//     anticipatedDataPoints: months.filter(month => trends.anticipated[month].avg !== null).length,
-//     enactedDataPoints: months.filter(month => trends.enacted[month].avg !== null).length,
-//     internalizedDataPoints: months.filter(month => trends.internalized[month].avg !== null).length,
-//     chartLabels: chartData.labels.length,
-//     anticipatedValues: chartData.datasets[0].data.filter(val => val !== null).length,
-//     enactedValues: chartData.datasets[1].data.filter(val => val !== null).length,
-//     internalizedValues: chartData.datasets[2].data.filter(val => val !== null).length
-//   });
-
-//   return {
-//     months,
-//     trends,
-//     chartData,
-//   };
-// }
