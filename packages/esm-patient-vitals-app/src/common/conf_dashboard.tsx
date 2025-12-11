@@ -1160,7 +1160,7 @@ export default function AllPatientsDashboard() {
           )}
 
           {/* ART ID panel: enter ART ID to lookup patient and show participant + counselor forms */}
-          {vizType === 'custom1' && <ArtIdPanel patients={patients} />}
+          {vizType === 'custom1' && <ArtIdPanel patients={patients} currentLocationUuid={currentLocationUuid} />}
 
           {vizType === 'stgtype' && (
             <StgTypeVisualization
@@ -1581,13 +1581,14 @@ export default function AllPatientsDashboard() {
 }
 
 // Small inline ART ID panel component that fetches form answers and displays both forms
-function ArtIdPanel({ patients }: { patients: any[] }) {
+function ArtIdPanel({ patients, currentLocationUuid }: { patients: any[]; currentLocationUuid?: string }) {
   const [artId, setArtId] = React.useState('');
   const [selectedPatientUuid, setSelectedPatientUuid] = React.useState<string | null>(null);
   const [participantAnswers, setParticipantAnswers] = React.useState<Record<string, any>>({});
   const [counselorAnswers, setCounselorAnswers] = React.useState<Record<string, any>>({});
   const [conferenceAnswers, setConferenceAnswers] = React.useState<Record<string, any>>({});
   const [loading, setLoading] = React.useState(false);
+  const [locationFilteredCount, setLocationFilteredCount] = React.useState(0);
 
   async function onSearch() {
     setSelectedPatientUuid(null);
@@ -1595,27 +1596,46 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
     setCounselorAnswers({});
     setConferenceAnswers({});
     if (!artId) return;
+    
+    // Find patient by ART ID
     const patient = patients.find(
       (p) =>
         p.identifier &&
         p.identifier.some((id: any) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
     );
+    
     if (!patient) {
       setSelectedPatientUuid(null);
       return;
     }
+    
     setSelectedPatientUuid(patient.id);
     setLoading(true);
+    
     try {
-      const [pAns, cAns, confAns] = await Promise.all([
-        fetchPatientAnswers(patient.id, participantFormJson),
-        fetchPatientAnswers(patient.id, counselorFormJson),
-        fetchPatientAnswers(patient.id, conferenceFormJson),
-      ]);
+      // Fetch patient data with location filter
+      const patientObservations = await fetchPatientStigmaData(patient.id, currentLocationUuid);
+      
+      // Count how many observations match the location
+      setLocationFilteredCount(patientObservations.length);
+      
+      // Only fetch form answers if patient has observations at this location
+      if (patientObservations.length > 0) {
+        const [pAns, cAns, confAns] = await Promise.all([
+          fetchPatientAnswers(patient.id, participantFormJson),
+          fetchPatientAnswers(patient.id, counselorFormJson),
+          fetchPatientAnswers(patient.id, conferenceFormJson),
+        ]);
 
-      setParticipantAnswers(pAns || {});
-      setCounselorAnswers(cAns || {});
-      setConferenceAnswers(confAns || {});
+        setParticipantAnswers(pAns || {});
+        setCounselorAnswers(cAns || {});
+        setConferenceAnswers(confAns || {});
+      } else {
+        // No observations at this location
+        setParticipantAnswers({});
+        setCounselorAnswers({});
+        setConferenceAnswers({});
+      }
     } catch (err) {
       // console.error('Error fetching form answers for ART ID', artId, err);
       setParticipantAnswers({});
@@ -1642,17 +1662,22 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <label style={{ fontWeight: 'bold' }}>Enter ART ID:</label>
         <input value={artId} onChange={(e) => setArtId(e.target.value)} style={{ padding: 6 }} />
         <button onClick={onSearch} style={{ padding: '6px 10px' }}>
           Search
         </button>
+        {currentLocationUuid && (
+          <span style={{ fontSize: '0.9em', color: '#666', marginLeft: '8px' }}>
+            {/* 📍 Filtering by current location */}
+          </span>
+        )}
       </div>
 
       <div style={{ marginTop: 16 }}>
         {loading && <p>Loading...</p>}
-        {!loading && selectedPatientUuid && (
+        {!loading && selectedPatientUuid && locationFilteredCount > 0 && (
           <div style={{ display: 'grid', gap: '1rem' }}>
             <div>
               {/* Per-patient stigma bar chart */}
@@ -1667,6 +1692,19 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
               <ConunselorFormDisplay formDefinition={counselorFormJson} answers={counselorAnswers} />
             </div>
             {/* Conference Form removed - it shows in Sites visualization panel instead */}
+          </div>
+        )}
+        {!loading && selectedPatientUuid && locationFilteredCount === 0 && (
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: '#fff3cd', 
+            border: '1px solid #ffc107',
+            borderRadius: '8px',
+            marginTop: '1rem'
+          }}>
+            <p style={{ margin: 0, color: '#856404' }}>
+              ⚠️ Patient found with ART ID: <strong>{artId}</strong>, but no observations recorded at the current location.
+            </p>
           </div>
         )}
         {!loading && !selectedPatientUuid && artId && <p>No patient found for ART ID: {artId}</p>}

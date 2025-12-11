@@ -1,5 +1,5 @@
 {
-  "name": "c",
+  "name": "कन्फरेन्स फारम",
   "pages": [
     {
       "label": "कुराकानीको सुरुवात",
@@ -16,7 +16,7 @@
               },
               "readonly": true,
               "id": "prompt_conference",
-              "label": "कृपया कन्फरेन्स फारम खोल्नुहोस् र बैठकको छलफल अनुरुप भर्नुहोस् ।"
+              "label": "कृपया कन्फरेन्स फारम खोल्नुहोस् र बैठकको छलफल अनुरुप भर्नुहोस् । "
             },
             {
               "type": "obs",
@@ -26,7 +26,7 @@
               },
               "id": "num_conference",
               "label": "१. बैठकको गठन गरेको  मिति",
-              "required": true,
+              "required": false,
               "datePickerFormat": "calendar"
             },
             {
@@ -121,7 +121,16 @@
                 "hideWhenExpression": "(implement_activity != 2)"
               },
               "id": "implement_no_specify",
-              "label": "३.२ यदि गर्नुभएन भने, कृपया खुलाउनुहोस्"
+              "label": "३.२ यदि गर्नुभएन भने, कृपया कारण खुलाउनुहोस्"
+            },
+            {
+              "type": "obs",
+              "questionOptions": {
+                "rendering": "textarea",
+                "concept": "694b7410-6b0d-4ac7-baaa-5479de255d92"
+              },
+              "id": "length_meeting",
+              "label": " ४. बैठकको अवधि  खुलाउनुहोस् "
             }
           ]
         }
