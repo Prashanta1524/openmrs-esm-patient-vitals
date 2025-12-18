@@ -166,7 +166,7 @@ export function MonthlyBarChart({
                   },
                   callbacks: {
                     label: function (context) {
-                      return `Patients: ${context.parsed.y}`;
+                      return `${context.parsed.y}`;
                     },
                   },
                 },

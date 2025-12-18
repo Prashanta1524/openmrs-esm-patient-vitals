@@ -1,8 +1,49 @@
 // Utility: Get or create a location patient for the current session location
 // Remove any top-level hook calls. All hooks must be inside a function component.
 // ...existing code...
-// Enacted Dimension Visualization Component
-function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
+
+// Helper interface for dimension score data with min/max
+interface DimensionScoreData {
+  scores: number[];
+  max: number;
+  min: number;
+  count: number;
+}
+
+// Calculate min, max for dimension scores
+function calculateDimensionStats(scores: number[]): DimensionScoreData {
+  if (scores.length === 0) {
+    return { scores: [], max: 0, min: 0, count: 0 };
+  }
+  const positiveScores = scores.filter((s) => s > 0);
+  const max = Math.max(...scores);
+  const min = positiveScores.length > 0 ? Math.min(...positiveScores) : 0;
+  return { scores, max, min, count: scores.length };
+}
+
+// Enacted Dimension Visualization Component with Min/Max
+function EnactedDimensionVisualization({
+  patients,
+  currentLocationUuid,
+  startDate,
+  endDate,
+}: {
+  patients: any[];
+  currentLocationUuid?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  // Helper function to check if observation date is within range
+  const isWithinDateRange = (obsDate: string | undefined): boolean => {
+    if (!obsDate) return true;
+    if (!startDate && !endDate) return true;
+
+    const date = new Date(obsDate);
+    if (startDate && date < new Date(startDate)) return false;
+    if (endDate && date > new Date(endDate + 'T23:59:59')) return false;
+    return true;
+  };
+
   const dimensionKeys = ['hiv_domain_es', 'mh_domain_es', 'sgm_domain_es', 'em_domain_es'];
   const chartLabels = ['HIV Domain (ES)', 'Mental Health Domain (ES)', 'SGM Domain (ES)', 'EM Domain (ES)'];
 
@@ -30,9 +71,16 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
   patients.forEach((observations, patientIndex) => {
     if (!Array.isArray(observations)) return;
 
+    // Filter by location and date
+    const filtered = observations.filter((obs: any) => {
+      const locationMatch = !currentLocationUuid || obs.locationUuid === currentLocationUuid;
+      const dateMatch = isWithinDateRange(obs.effectiveDateTime || obs.date);
+      return locationMatch && dateMatch;
+    });
+
     // Check each dimension for this patient
     Object.entries(DIMENSION_UUIDS).forEach(([key, uuid]) => {
-      const obs = observations.find(
+      const obs = filtered.find(
         (o: any) => o.concept?.uuid === uuid || o.code?.coding?.some((c: any) => c.code === uuid),
       );
 
@@ -47,14 +95,18 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
   });
 
   console.log('\n📈 ENACTED DIMENSION FINAL RESULTS:');
-  const maxDimensions: Record<string, number> = {};
+  const dimensionStats: Record<string, DimensionScoreData> = {};
   dimensionKeys.forEach((key) => {
-    maxDimensions[key] = dimensionScores[key].length > 0 ? Math.max(...dimensionScores[key]) : 0;
-    console.log(`${key}: Max = ${maxDimensions[key]} (from ${dimensionScores[key].length} observations)`);
+    dimensionStats[key] = calculateDimensionStats(dimensionScores[key]);
+    console.log(
+      `${key}: Max = ${dimensionStats[key].max}, Min = ${dimensionStats[key].min} (from ${dimensionStats[key].count} observations)`,
+    );
   });
   console.log('🔍 ===== ENACTED DIMENSION QA LOG END =====\n');
 
-  const chartData = dimensionKeys.map((key) => maxDimensions[key]);
+  const maxData = dimensionKeys.map((key) => dimensionStats[key].max);
+  const minData = dimensionKeys.map((key) => dimensionStats[key].min);
+
   return (
     <div
       style={{
@@ -69,26 +121,16 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
       <h3
         style={{
           margin: '0 0 1.5rem 0',
-          color: '#1e3a8a',
+          color: '#dc2626',
           fontSize: 'clamp(1.1rem, 3vw, 1.3rem)',
           textAlign: 'center',
         }}
       >
-        Enacted Dimension
+        Dimensional Enacted
       </h3>
-      {/* <div style={{ marginBottom: '2rem' }}>
-        <strong>Max Enacted Dimension Scores:</strong>
-        <ul>
-          {dimensionKeys.map((key, idx) => (
-            <li key={key}>
-              {chartLabels[idx]}: <span style={{ color: '#dc2626', fontWeight: 'bold' }}>{maxDimensions[key]}</span>
-            </li>
-          ))}
-        </ul>
-      </div> */}
       <div
         style={{
-          height: window.innerWidth <= 480 ? '250px' : window.innerWidth <= 768 ? '300px' : '350px',
+          height: window.innerWidth <= 480 ? '320px' : window.innerWidth <= 768 ? '380px' : '420px',
           width: '100%',
           position: 'relative',
         }}
@@ -100,48 +142,77 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
             datasets: [
               {
                 label: 'Max Score',
-                data: chartData,
-                backgroundColor: [
-                  'rgba(220, 38, 38, 0.7)',
-                  'rgba(251, 191, 36, 0.7)',
-                  'rgba(34, 197, 94, 0.7)',
-                  'rgba(139, 92, 246, 0.7)',
-                ],
-                borderColor: [
-                  'rgba(220, 38, 38, 1)',
-                  'rgba(251, 191, 36, 1)',
-                  'rgba(34, 197, 94, 1)',
-                  'rgba(139, 92, 246, 1)',
-                ],
+                data: maxData,
+                backgroundColor: 'rgba(220, 38, 38, 0.8)',
+                borderColor: 'rgba(220, 38, 38, 1)',
                 borderWidth: 2,
+                borderRadius: 4,
+              },
+              {
+                label: 'Min Score',
+                data: minData,
+                backgroundColor: 'rgba(79, 195, 247, 0.8)',
+                borderColor: 'rgba(79, 195, 247, 1)',
+                borderWidth: 2,
+                borderRadius: 4,
               },
             ],
           }}
+          plugins={[
+            {
+              id: 'datalabels-enacted',
+              afterDatasetsDraw: function (chart: any) {
+                const ctx = chart.ctx;
+                ctx.save();
+                const fontSize = window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 14 : 16;
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillStyle = '#333';
+                chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+                  const meta = chart.getDatasetMeta(datasetIndex);
+                  meta.data.forEach((bar: any, index: number) => {
+                    const value = dataset.data[index];
+                    ctx.fillText(value, bar.x, bar.y - 8);
+                  });
+                });
+                ctx.restore();
+              },
+            },
+          ]}
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+              padding: {
+                top: 35,
+              },
+            },
             plugins: {
-              legend: { display: false },
-              tooltip: {
-                titleFont: {
-                  size: window.innerWidth <= 480 ? 11 : 13,
-                },
-                bodyFont: {
-                  size: window.innerWidth <= 480 ? 10 : 12,
-                },
-                callbacks: {
-                  label: function (context: any) {
-                    return `Max Score: ${context.parsed.y}`;
+              legend: {
+                position: 'bottom',
+                labels: {
+                  font: {
+                    size: window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 13 : 15,
+                    weight: 600,
                   },
+                  padding: window.innerWidth <= 480 ? 15 : window.innerWidth <= 768 ? 20 : 25,
+                  boxWidth: window.innerWidth <= 480 ? 12 : 16,
                 },
               },
+              tooltip: {
+                enabled: false,
+              },
+            },
+            animation: {
+              duration: 0,
             },
             scales: {
               y: {
                 beginAtZero: true,
                 title: {
                   display: true,
-                  text: 'Max Score',
+                  text: 'Score',
                   font: {
                     size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
                     weight: 600,
@@ -169,7 +240,78 @@ function EnactedDimensionVisualization({ patients }: { patients: any[] }) {
     </div>
   );
 }
+// import MultiChartSelector from './stigma-data-aggregate';
+// // New function for ART ID visualization
+// function ArtIdVisualization({ patients }: { patients: any[] }) {
+//   const [artId, setArtId] = React.useState('');
+//   const [selectedPatientUuid, setSelectedPatientUuid] = React.useState<string | null>(null);
 
+//   return (
+//     <div
+//       style={{
+//         backgroundColor: '#fff',
+//         padding: 'clamp(1rem, 3vw, 2rem)',
+//         marginBottom: '1.5rem',
+//         borderRadius: '12px',
+//         boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+//         maxWidth: '98vw',
+//         minWidth: 0,
+//         width: '100%',
+//         minHeight: 300,
+//         margin: '0 auto',
+//         display: 'flex',
+//         flexDirection: 'column',
+//         alignItems: 'center',
+//         justifyContent: 'center',
+//         boxSizing: 'border-box',
+//       }}
+//     >
+//       <label>
+//         Enter ART ID:{' '}
+//         <input
+//           type="text"
+//           value={artId}
+//           onChange={(e) => setArtId(e.target.value)}
+//           style={{
+//             padding: '0.5rem',
+//             borderRadius: 4,
+//             border: '1px solid #ccc',
+//             marginRight: '1rem',
+//           }}
+//         />
+//         <button
+//           onClick={() => {
+//             const patient = patients.find(
+//               (p) =>
+//                 p.identifier &&
+//                 p.identifier.some((id) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
+//             );
+//             setSelectedPatientUuid(patient ? patient.id : null);
+//           }}
+//           style={{
+//             padding: '0.5rem 1rem',
+//             borderRadius: 4,
+//             border: 'none',
+//             background: '#1f2e5b',
+//             color: '#fff',
+//             cursor: 'pointer',
+//           }}
+//         >
+//           Visualize
+//         </button>
+//       </label>
+//       <div style={{ width: '100%', marginTop: '2rem' }}>
+//         {selectedPatientUuid ? (
+//           <MultiChartSelector patientUuid={selectedPatientUuid} />
+//         ) : (
+//           <p style={{ color: '#888', fontSize: '1.1rem', marginTop: '2rem' }}>
+//             {artId ? 'No patient found for this ART ID.' : 'Please enter an ART ID and click Visualize.'}
+//           </p>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
 
 import React, { useEffect, useState, useMemo } from 'react';
 import useSWR from 'swr';
@@ -331,6 +473,55 @@ const ClickableTextWithQR: React.FC<ClickableTextWithQRProps> = ({ text, image, 
   );
 };
 
+// ============================================================================
+// � PATIENT CONFIGURATION
+// ============================================================================
+// Configuration for allowed patients in the form interface
+// To add new patients, simply add their patient ID to this array
+// export const PATIENT_CONFIG = {
+// Patient UUIDs - representing sites in the system
+// allowedPatients: [
+//   {
+//     patientId: '04756e92-8e41-4d15-aae6-6431c5065829',
+//     description: 'Kathmandu Site',
+//   },
+//   {
+//     patientId: '019061e6-7306-4e6d-bacf-05edf852a922',
+//     description: 'Bhaktapur Site',
+//   },
+// 🚀 TO ADD MORE SITES:
+// Uncomment and modify the examples below, then add more as needed:
+//
+// {
+//   patientId: 'your-new-site-patient-id-here',
+//   description: 'Site Name'
+// },
+// {
+//   patientId: 'another-site-patient-id-here',
+//   description: 'Another Site'
+// },
+// ],
+
+// Extract just the patient IDs for easy filtering
+// get patientIdList() {
+//   return this.allowedPatients.map((p) => p.patientId);
+// },
+
+// Get description for a site
+// getDescription(patientId: string) {
+//   const patient = this.allowedPatients.find((p) => p.patientId === patientId);
+//   return patient?.description || 'Unknown site';
+// },
+// };
+
+// 💡 USAGE NOTES:
+// • These are LOCATION UUIDs, not patient UUIDs
+// • Patients from these locations will be shown in dropdown
+// • Kathmandu (6b4b134d...) and Bhaktapur (5fdefb8b...) locations
+// • Only patients associated with these locations appear in form interface
+// ============================================================================
+// import { StigmaAnnualTrendChart } from './stigma-annual-trend';
+// import { StigmaOverviewChart } from './StigmaOverviewChart'; // adjust path if needed
 // ---------------- Fetch All Patients (for all visualizations) ----------------
 async function fetchAllPatients() {
   let allPatients: any[] = [];
@@ -479,6 +670,118 @@ async function fetchPatientStigmaData(patientId: string, locationUuid?: string) 
 
 // MonthlyBarChart is now imported from './monthly-bar-chart' to keep a single responsive implementation.
 
+// Reusable Date Picker Controls Component
+function DatePickerControls({
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+}: {
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (val: string) => void;
+  onEndDateChange: (val: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 'clamp(6px, 1.5vw, 12px)',
+        alignItems: 'center',
+        marginBottom: 12,
+        flexWrap: 'wrap',
+        justifyContent: window.innerWidth <= 480 ? 'center' : 'flex-start',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          width: window.innerWidth <= 480 ? '100%' : 'auto',
+        }}
+      >
+        <label
+          style={{
+            color: '#444',
+            fontSize: 'clamp(12px, 2vw, 14px)',
+            minWidth: '45px',
+          }}
+        >
+          Start:
+        </label>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => onStartDateChange(e.target.value)}
+          style={{
+            padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+            fontSize: 'clamp(12px, 2vw, 14px)',
+            flex: 1,
+          }}
+        />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          width: window.innerWidth <= 480 ? '100%' : 'auto',
+        }}
+      >
+        <label
+          style={{
+            color: '#444',
+            fontSize: 'clamp(12px, 2vw, 14px)',
+            minWidth: '45px',
+          }}
+        >
+          End:
+        </label>
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => onEndDateChange(e.target.value)}
+          style={{
+            padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)',
+            fontSize: 'clamp(12px, 2vw, 14px)',
+            flex: 1,
+          }}
+        />
+      </div>
+      <button
+        onClick={() => {
+          if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+            const s = startDate;
+            onStartDateChange(endDate);
+            onEndDateChange(s);
+          }
+        }}
+        style={{
+          padding: 'clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 10px)',
+          fontSize: 'clamp(12px, 2vw, 14px)',
+          cursor: 'pointer',
+        }}
+      >
+        Apply
+      </button>
+      <button
+        onClick={() => {
+          onStartDateChange('');
+          onEndDateChange('');
+        }}
+        style={{
+          padding: 'clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 10px)',
+          fontSize: 'clamp(12px, 2vw, 14px)',
+          cursor: 'pointer',
+        }}
+      >
+        Clear
+      </button>
+    </div>
+  );
+}
+
 export function isAboveCutoff(value: number | undefined | null, cutoff: number): boolean {
   if (value == null) return false;
   return value > cutoff;
@@ -502,6 +805,19 @@ export default function AllPatientsDashboard() {
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+
+  // Date states for each visualization
+  const [summaryStartDate, setSummaryStartDate] = useState<string>('');
+  const [summaryEndDate, setSummaryEndDate] = useState<string>('');
+  const [stgTypeStartDate, setStgTypeStartDate] = useState<string>('');
+  const [stgTypeEndDate, setStgTypeEndDate] = useState<string>('');
+  const [sitesStartDate, setSitesStartDate] = useState<string>('');
+  const [sitesEndDate, setSitesEndDate] = useState<string>('');
+  const [intersectionalStartDate, setIntersectionalStartDate] = useState<string>('');
+  const [intersectionalEndDate, setIntersectionalEndDate] = useState<string>('');
+  const [dimensionStartDate, setDimensionStartDate] = useState<string>('');
+  const [dimensionEndDate, setDimensionEndDate] = useState<string>('');
+
   const [vizType, setVizType] = useState<
     'summary' | 'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Sites' | 'Intersectional' | 'Dimension'
   >('summary');
@@ -622,8 +938,8 @@ export default function AllPatientsDashboard() {
 
   // When selecting ART ID the ArtIdPanel will be shown by the conditional render below
 
-  // Test function to analyze stigma data
-  function testStigmaAnalysis(patientData: any[]) {
+  // Test function to analyze stigma data with optional date filtering
+  function testStigmaAnalysis(patientData: any[], filterStartDate?: string, filterEndDate?: string) {
     let totalPatients = 0;
     let matchedPatients = 0;
     let unmatchedPatients = 0;
@@ -632,13 +948,26 @@ export default function AllPatientsDashboard() {
       { matched: boolean; highestScores: { type: string; score: number; threshold: number }[] }
     > = {};
 
+    // Helper to check if observation date is within range
+    const isWithinDateRange = (obsDate: string | undefined): boolean => {
+      if (!obsDate) return true;
+      if (!filterStartDate && !filterEndDate) return true;
+
+      const date = new Date(obsDate);
+      if (filterStartDate && date < new Date(filterStartDate)) return false;
+      if (filterEndDate && date > new Date(filterEndDate + 'T23:59:59')) return false;
+      return true;
+    };
+
     patientData.forEach((observations, patientIndex) => {
       const patientId = String(patientIndex);
 
-      // Filter observations by current location FIRST
-      const locationFilteredObs = observations.filter(
-        (obs: any) => !currentLocationUuid || obs.locationUuid === currentLocationUuid,
-      );
+      // Filter observations by current location FIRST, then by date
+      const locationFilteredObs = observations.filter((obs: any) => {
+        const locationMatch = !currentLocationUuid || obs.locationUuid === currentLocationUuid;
+        const dateMatch = isWithinDateRange(obs.effectiveDateTime || obs.date);
+        return locationMatch && dateMatch;
+      });
 
       // Process observations to match CovidStigmaData format
       const stigmaData: CovidStigmaData[] = locationFilteredObs
@@ -790,14 +1119,17 @@ export default function AllPatientsDashboard() {
   }, [allPatientsData]);
 
   const stigmaCutoffSummary = useMemo(() => {
-    // Run the test analysis when data is available
+    // Run the test analysis when data is available with date filtering
     if (allPatientsData.length > 0) {
-      const analysisResult = testStigmaAnalysis(allPatientsData);
-      //   console.log('Stigma Analysis Test Results:', analysisResult);
+      const analysisResult = testStigmaAnalysis(
+        allPatientsData,
+        summaryStartDate || undefined,
+        summaryEndDate || undefined,
+      );
       return analysisResult;
     }
     return null;
-  }, [allPatientsData]);
+  }, [allPatientsData, summaryStartDate, summaryEndDate]);
 
   return (
     <div
@@ -962,11 +1294,20 @@ export default function AllPatientsDashboard() {
               >
                 लान्छना विश्लेषण नतिजाहरू
               </h3>
+              {/* Date Picker for Summary */}
+              <DatePickerControls
+                startDate={summaryStartDate}
+                endDate={summaryEndDate}
+                onStartDateChange={setSummaryStartDate}
+                onEndDateChange={setSummaryEndDate}
+              />
               {stigmaCutoffSummary ? (
                 <>
                   <div
                     style={{
-                      maxWidth: '500px',
+                      width: '100%',
+                      maxWidth: window.innerWidth <= 480 ? '320px' : window.innerWidth <= 768 ? '450px' : '600px',
+                      height: window.innerWidth <= 480 ? '350px' : window.innerWidth <= 768 ? '420px' : '500px',
                       margin: '20px auto',
                       WebkitFontSmoothing: 'antialiased',
                       MozOsxFontSmoothing: 'grayscale',
@@ -985,37 +1326,54 @@ export default function AllPatientsDashboard() {
                           },
                         ],
                       }}
+                      plugins={[
+                        {
+                          id: 'datalabels-pie',
+                          afterDatasetsDraw: function (chart: any) {
+                            const ctx = chart.ctx;
+                            ctx.save();
+                            const total = stigmaCutoffSummary.totalPatients;
+                            const fontSize = window.innerWidth <= 480 ? 12 : window.innerWidth <= 768 ? 15 : 18;
+                            ctx.font = `bold ${fontSize}px sans-serif`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+
+                            chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+                              const meta = chart.getDatasetMeta(datasetIndex);
+                              meta.data.forEach((element: any, index: number) => {
+                                const value = dataset.data[index];
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                const position = element.tooltipPosition();
+
+                                // Draw value and percentage
+                                ctx.fillStyle = '#000';
+                                ctx.fillText(`${value}`, position.x, position.y - 10);
+                                ctx.fillText(`(${percentage}%)`, position.x, position.y + 12);
+                              });
+                            });
+                            ctx.restore();
+                          },
+                        },
+                      ]}
                       options={{
                         responsive: true,
-                        maintainAspectRatio: window.innerWidth > 768,
-                        aspectRatio: window.innerWidth <= 480 ? 1 : window.innerWidth <= 768 ? 1.5 : 2,
+                        maintainAspectRatio: false,
+                        animation: {
+                          duration: 0,
+                        },
                         plugins: {
                           legend: {
                             position: 'bottom',
                             labels: {
                               font: {
-                                size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
-                                weight: 500,
+                                size: window.innerWidth <= 480 ? 12 : window.innerWidth <= 768 ? 14 : 16,
+                                weight: 600,
                               },
-                              padding: window.innerWidth <= 768 ? 10 : 20,
+                              padding: window.innerWidth <= 480 ? 15 : window.innerWidth <= 768 ? 20 : 25,
                             },
                           },
                           tooltip: {
-                            titleFont: {
-                              size: window.innerWidth <= 480 ? 12 : 14,
-                              weight: 600,
-                            },
-                            bodyFont: {
-                              size: window.innerWidth <= 480 ? 11 : 13,
-                            },
-                            callbacks: {
-                              label: function (context) {
-                                const total = stigmaCutoffSummary.totalPatients;
-                                const value = context.raw as number;
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${context.label}: ${percentage}% (${value} बिरामीहरू)`;
-                              },
-                            },
+                            enabled: false,
                           },
                         },
                       }}
@@ -1160,15 +1518,41 @@ export default function AllPatientsDashboard() {
           )}
 
           {/* ART ID panel: enter ART ID to lookup patient and show participant + counselor forms */}
-          {vizType === 'custom1' && <ArtIdPanel patients={patients} currentLocationUuid={currentLocationUuid} />}
+          {vizType === 'custom1' && <ArtIdPanel patients={patients} />}
 
           {vizType === 'stgtype' && (
-            <StgTypeVisualization
-              allPatientsData={allPatientsData}
-              startDate={startDate || undefined}
-              endDate={endDate || undefined}
-              currentLocationUuid={currentLocationUuid}
-            />
+            <div
+              style={{
+                backgroundColor: '#fff',
+                padding: 'clamp(1rem, 3vw, 2rem)',
+                marginBottom: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                maxWidth: '98vw',
+                minWidth: 0,
+                width: '100%',
+                minHeight: 300,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                boxSizing: 'border-box',
+              }}
+            >
+              {/* Date Picker for Stigma Type */}
+              <DatePickerControls
+                startDate={stgTypeStartDate}
+                endDate={stgTypeEndDate}
+                onStartDateChange={setStgTypeStartDate}
+                onEndDateChange={setStgTypeEndDate}
+              />
+              <StgTypeVisualization
+                allPatientsData={allPatientsData}
+                startDate={stgTypeStartDate || undefined}
+                endDate={stgTypeEndDate || undefined}
+                currentLocationUuid={currentLocationUuid}
+              />
+            </div>
           )}
 
           {vizType === 'custom2' && (
@@ -1197,17 +1581,107 @@ export default function AllPatientsDashboard() {
           )}
 
           {vizType === 'Sites' && (
-            <SitesDataVisualization
-              patients={patients}
-              refreshTrigger={sitesRefreshTrigger}
-              onRefresh={handleSitesRefresh}
-            />
+            <div
+              style={{
+                backgroundColor: '#fff',
+                padding: 'clamp(1rem, 3vw, 2rem)',
+                marginBottom: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                maxWidth: '98vw',
+                minWidth: 0,
+                width: '100%',
+                minHeight: 300,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                boxSizing: 'border-box',
+              }}
+            >
+              {/* Date Picker for Sites */}
+              <DatePickerControls
+                startDate={sitesStartDate}
+                endDate={sitesEndDate}
+                onStartDateChange={setSitesStartDate}
+                onEndDateChange={setSitesEndDate}
+              />
+              <SitesDataVisualization
+                patients={patients}
+                refreshTrigger={sitesRefreshTrigger}
+                onRefresh={handleSitesRefresh}
+                startDate={sitesStartDate || undefined}
+                endDate={sitesEndDate || undefined}
+              />
+            </div>
           )}
           {vizType === 'Intersectional' && (
-            <IntersectionalStigmaVisualization patients={allPatientsData} currentLocationUuid={currentLocationUuid} />
+            <div
+              style={{
+                backgroundColor: '#fff',
+                padding: 'clamp(1rem, 3vw, 2rem)',
+                marginBottom: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                maxWidth: '98vw',
+                minWidth: 0,
+                width: '100%',
+                minHeight: 300,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                boxSizing: 'border-box',
+              }}
+            >
+              {/* Date Picker for Intersectional */}
+              <DatePickerControls
+                startDate={intersectionalStartDate}
+                endDate={intersectionalEndDate}
+                onStartDateChange={setIntersectionalStartDate}
+                onEndDateChange={setIntersectionalEndDate}
+              />
+              <IntersectionalStigmaVisualization
+                patients={allPatientsData}
+                currentLocationUuid={currentLocationUuid}
+                startDate={intersectionalStartDate || undefined}
+                endDate={intersectionalEndDate || undefined}
+              />
+            </div>
           )}
           {vizType === 'Dimension' && (
-            <DimensionVisualization patients={allPatientsData} currentLocationUuid={currentLocationUuid} />
+            <div
+              style={{
+                backgroundColor: '#fff',
+                padding: 'clamp(1rem, 3vw, 2rem)',
+                marginBottom: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                maxWidth: '98vw',
+                minWidth: 0,
+                width: '100%',
+                minHeight: 300,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                boxSizing: 'border-box',
+              }}
+            >
+              {/* Date Picker for Dimension */}
+              <DatePickerControls
+                startDate={dimensionStartDate}
+                endDate={dimensionEndDate}
+                onStartDateChange={setDimensionStartDate}
+                onEndDateChange={setDimensionEndDate}
+              />
+              <DimensionVisualization
+                patients={allPatientsData}
+                currentLocationUuid={currentLocationUuid}
+                startDate={dimensionStartDate || undefined}
+                endDate={dimensionEndDate || undefined}
+              />
+            </div>
           )}
           {/* Optional: Stigma Overview Chart */}
           {/* <div style={{ marginTop: '2rem' }}>
@@ -1398,7 +1872,7 @@ export default function AllPatientsDashboard() {
                       कुरा गर्नुहोस्।
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
-                      o संक्षेपमा कुरा राखेर थप सामना गर्ने तरिकाहरू बारे बताउनुहोस् ।
+                      o संक्षेपमा कुरा राखेर थप सामना गर्ने तरिकाहरू बारे बताउनुहोस्।
                     </p>
                   </div>
 
@@ -1454,7 +1928,7 @@ export default function AllPatientsDashboard() {
                       fontWeight: 'bold',
                     }}
                   >
-                    गतिविधी ३: एचआईभी संक्रमित व्यक्तिहरूलाई सपोर्ट ग्रुपसँग जोडिन सहयोग गर्नुहोस् ।
+                    गतिविधी ३: एचआईभी संक्रमित व्यक्तिहरूलाई सपोर्ट ग्रुपसँग जोडिन सहयोग गर्नुहोस्।
                   </h3>
                   <div style={{ marginLeft: '1rem', marginBottom: '1rem' }}>
                     <p style={{ margin: '0.5rem 0' }}>
@@ -1462,14 +1936,14 @@ export default function AllPatientsDashboard() {
                       ।
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
-                      o उनीहरुको सपोर्ट ग्रुपसँगको पहिलेका अनुभवहरू (सकारात्मक वा नकारात्मक) बारे छलफल गर्नुहोस् ।
+                      o उनीहरुको सपोर्ट ग्रुपसँगको पहिलेका अनुभवहरू (सकारात्मक वा नकारात्मक) बारे छलफल गर्नुहोस्।
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
                       o उपयुक्त सपोर्ट ग्रुपसँग कसरी जोडिन र सहयोग लिन सकिन्छ भन्ने कुरा थप्नुहोस्।
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
                       o एचआइभी संक्रमित व्यक्तिहरूको रुचि भएमा, सपोर्ट ग्रुपहरूको बारेमा जानकारी दिनुहोस् र सम्पर्क गर्न
-                      सहयोग गर्नुहोस् ।
+                      सहयोग गर्नुहोस्।
                     </p>
                   </div>
 
@@ -1558,16 +2032,16 @@ export default function AllPatientsDashboard() {
                       o एआरटीमा भइरहेका जानेर वा अनजानमा भएका लान्छनापूर्ण अभ्यासहरूको/व्यवहारहरू के–के छन् भनेर पहिचान
                       गरेर सूची बनाउनुहोस्।
                     </p>
-                    <p style={{ margin: '0.5rem 0' }}>o लान्छनारहित सेवा दिन सहयोग हुने कार्यसूची तयार गर्नुहोस्。</p>
+                    <p style={{ margin: '0.5rem 0' }}>o लान्छनारहित सेवा दिन सहयोग हुने कार्यसूची तयार गर्नुहोस्।</p>
                     <p style={{ margin: '0.5rem 0' }}>
-                      o एआरटीका कर्मचारीहरूलाई नियमित रूपमा संवेदनशीलता सम्बन्धी तालिम प्रदान गर्नुहोस्。
+                      o एआरटीका कर्मचारीहरूलाई नियमित रूपमा संवेदनशीलता सम्बन्धी तालिम प्रदान गर्नुहोस्।
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
-                      o प्रतीक्षा गर्ने ठाउँहरूमा लान्छना कम गर्न सहयोग हुने पोस्टर र सन्देशहरू टाँस्नुहोस्。
+                      o प्रतीक्षा गर्ने ठाउँहरूमा लान्छना कम गर्न सहयोग हुने पोस्टर र सन्देशहरू टाँस्नुहोस्।
                     </p>
                     <p style={{ margin: '0.5rem 0' }}>
                       o सबै कर्मचारीहरु, रिसेप्सन र प्रशासनसहित, लाई आदरपूर्वक र बिना भेदभाव सेवा प्रदान कसरी गर्ने
-                      समन्धित तालिम दिनुहोस्。
+                      समन्धित तालिम दिनुहोस्।
                     </p>
                   </div>
                 </div>
@@ -1581,14 +2055,13 @@ export default function AllPatientsDashboard() {
 }
 
 // Small inline ART ID panel component that fetches form answers and displays both forms
-function ArtIdPanel({ patients, currentLocationUuid }: { patients: any[]; currentLocationUuid?: string }) {
+function ArtIdPanel({ patients }: { patients: any[] }) {
   const [artId, setArtId] = React.useState('');
   const [selectedPatientUuid, setSelectedPatientUuid] = React.useState<string | null>(null);
   const [participantAnswers, setParticipantAnswers] = React.useState<Record<string, any>>({});
   const [counselorAnswers, setCounselorAnswers] = React.useState<Record<string, any>>({});
   const [conferenceAnswers, setConferenceAnswers] = React.useState<Record<string, any>>({});
   const [loading, setLoading] = React.useState(false);
-  const [locationFilteredCount, setLocationFilteredCount] = React.useState(0);
 
   async function onSearch() {
     setSelectedPatientUuid(null);
@@ -1596,46 +2069,27 @@ function ArtIdPanel({ patients, currentLocationUuid }: { patients: any[]; curren
     setCounselorAnswers({});
     setConferenceAnswers({});
     if (!artId) return;
-    
-    // Find patient by ART ID
     const patient = patients.find(
       (p) =>
         p.identifier &&
         p.identifier.some((id: any) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
     );
-    
     if (!patient) {
       setSelectedPatientUuid(null);
       return;
     }
-    
     setSelectedPatientUuid(patient.id);
     setLoading(true);
-    
     try {
-      // Fetch patient data with location filter
-      const patientObservations = await fetchPatientStigmaData(patient.id, currentLocationUuid);
-      
-      // Count how many observations match the location
-      setLocationFilteredCount(patientObservations.length);
-      
-      // Only fetch form answers if patient has observations at this location
-      if (patientObservations.length > 0) {
-        const [pAns, cAns, confAns] = await Promise.all([
-          fetchPatientAnswers(patient.id, participantFormJson),
-          fetchPatientAnswers(patient.id, counselorFormJson),
-          fetchPatientAnswers(patient.id, conferenceFormJson),
-        ]);
+      const [pAns, cAns, confAns] = await Promise.all([
+        fetchPatientAnswers(patient.id, participantFormJson),
+        fetchPatientAnswers(patient.id, counselorFormJson),
+        fetchPatientAnswers(patient.id, conferenceFormJson),
+      ]);
 
-        setParticipantAnswers(pAns || {});
-        setCounselorAnswers(cAns || {});
-        setConferenceAnswers(confAns || {});
-      } else {
-        // No observations at this location
-        setParticipantAnswers({});
-        setCounselorAnswers({});
-        setConferenceAnswers({});
-      }
+      setParticipantAnswers(pAns || {});
+      setCounselorAnswers(cAns || {});
+      setConferenceAnswers(confAns || {});
     } catch (err) {
       // console.error('Error fetching form answers for ART ID', artId, err);
       setParticipantAnswers({});
@@ -1662,22 +2116,17 @@ function ArtIdPanel({ patients, currentLocationUuid }: { patients: any[]; curren
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <label style={{ fontWeight: 'bold' }}>Enter ART ID:</label>
         <input value={artId} onChange={(e) => setArtId(e.target.value)} style={{ padding: 6 }} />
         <button onClick={onSearch} style={{ padding: '6px 10px' }}>
           Search
         </button>
-        {currentLocationUuid && (
-          <span style={{ fontSize: '0.9em', color: '#666', marginLeft: '8px' }}>
-            {/* 📍 Filtering by current location */}
-          </span>
-        )}
       </div>
 
       <div style={{ marginTop: 16 }}>
         {loading && <p>Loading...</p>}
-        {!loading && selectedPatientUuid && locationFilteredCount > 0 && (
+        {!loading && selectedPatientUuid && (
           <div style={{ display: 'grid', gap: '1rem' }}>
             <div>
               {/* Per-patient stigma bar chart */}
@@ -1694,19 +2143,6 @@ function ArtIdPanel({ patients, currentLocationUuid }: { patients: any[]; curren
             {/* Conference Form removed - it shows in Sites visualization panel instead */}
           </div>
         )}
-        {!loading && selectedPatientUuid && locationFilteredCount === 0 && (
-          <div style={{ 
-            padding: '1rem', 
-            backgroundColor: '#fff3cd', 
-            border: '1px solid #ffc107',
-            borderRadius: '8px',
-            marginTop: '1rem'
-          }}>
-            <p style={{ margin: 0, color: '#856404' }}>
-              ⚠️ Patient found with ART ID: <strong>{artId}</strong>, but no observations recorded at the current location.
-            </p>
-          </div>
-        )}
         {!loading && !selectedPatientUuid && artId && <p>No patient found for ART ID: {artId}</p>}
       </div>
     </div>
@@ -1717,16 +2153,31 @@ function ArtIdPanel({ patients, currentLocationUuid }: { patients: any[]; curren
 function IntersectionalStigmaVisualization({
   patients,
   currentLocationUuid,
+  startDate,
+  endDate,
 }: {
   patients: any[];
   currentLocationUuid?: string;
+  startDate?: string;
+  endDate?: string;
 }) {
   const [loading, setLoading] = React.useState(true);
   const [intersectionalData, setIntersectionalData] = React.useState<{
-    stigma_as: { highest: any };
-    stigma_es: { highest: any };
-    stigma_is: { highest: any };
+    stigma_as: { highest: any; lowest: any };
+    stigma_es: { highest: any; lowest: any };
+    stigma_is: { highest: any; lowest: any };
   } | null>(null);
+
+  // Helper function to check if observation date is within range
+  const isWithinDateRange = (obsDate: string | undefined): boolean => {
+    if (!obsDate) return true;
+    if (!startDate && !endDate) return true;
+
+    const date = new Date(obsDate);
+    if (startDate && date < new Date(startDate)) return false;
+    if (endDate && date > new Date(endDate + 'T23:59:59')) return false;
+    return true;
+  };
 
   // Get access to all patients for ART ID lookup
   const { data } = useAllPatients();
@@ -1762,9 +2213,9 @@ function IntersectionalStigmaVisualization({
       console.log('  IS Intersectional: 54addbef-17f5-4678-988a-9d6a68ad38f7');
 
       const stigmaTypes = {
-        stigma_as: { highest: null as any, highestScore: -Infinity },
-        stigma_es: { highest: null as any, highestScore: -Infinity },
-        stigma_is: { highest: null as any, highestScore: -Infinity },
+        stigma_as: { highest: null as any, highestScore: -Infinity, lowest: null as any, lowestScore: Infinity },
+        stigma_es: { highest: null as any, highestScore: -Infinity, lowest: null as any, lowestScore: Infinity },
+        stigma_is: { highest: null as any, highestScore: -Infinity, lowest: null as any, lowestScore: Infinity },
       };
 
       // Intersectional stigma observation UUIDs (from stigma-data.resource.tsx)
@@ -1778,10 +2229,12 @@ function IntersectionalStigmaVisualization({
       patients.forEach((observations, patientIndex) => {
         if (!Array.isArray(observations) || observations.length === 0) return;
 
-        // Filter by location first
-        const locationFiltered = observations.filter(
-          (obs: any) => !currentLocationUuid || obs.locationUuid === currentLocationUuid,
-        );
+        // Filter by location first, then by date
+        const locationFiltered = observations.filter((obs: any) => {
+          const locationMatch = !currentLocationUuid || obs.locationUuid === currentLocationUuid;
+          const dateMatch = isWithinDateRange(obs.effectiveDateTime || obs.date);
+          return locationMatch && dateMatch;
+        });
 
         if (locationFiltered.length === 0) return;
 
@@ -1871,6 +2324,7 @@ function IntersectionalStigmaVisualization({
             totalObservations++;
             console.log(`  📋 AS Intersectional: ${score} | Date: ${date}`);
 
+            // Track highest (max)
             const prevHighest = stigmaTypes.stigma_as.highestScore;
             if (score > prevHighest) {
               stigmaTypes.stigma_as.highestScore = score;
@@ -1883,6 +2337,19 @@ function IntersectionalStigmaVisualization({
               console.log(`  ✅ NEW HIGHEST AS: ${score} (was ${prevHighest === -Infinity ? 'None' : prevHighest})`);
             } else {
               console.log(`  ⚪ Not higher than current: ${prevHighest}`);
+            }
+
+            // Track lowest (min)
+            const prevLowest = stigmaTypes.stigma_as.lowestScore;
+            if (score > 0 && score < prevLowest) {
+              stigmaTypes.stigma_as.lowestScore = score;
+              stigmaTypes.stigma_as.lowest = {
+                stigmaType: 'Anticipated Intersectional',
+                score,
+                date,
+                artId,
+              };
+              console.log(`  ✅ NEW LOWEST AS: ${score} (was ${prevLowest === Infinity ? 'None' : prevLowest})`);
             }
           }
         }
@@ -1901,6 +2368,7 @@ function IntersectionalStigmaVisualization({
             totalObservations++;
             console.log(`  📋 ES Intersectional: ${score} | Date: ${date} | ART ID: ${artId}`);
 
+            // Track highest (max)
             const prevHighest = stigmaTypes.stigma_es.highestScore;
             if (score > prevHighest) {
               stigmaTypes.stigma_es.highestScore = score;
@@ -1915,6 +2383,19 @@ function IntersectionalStigmaVisualization({
               );
             } else {
               console.log(`  ⚪ ES: ${score} (ART ID: ${artId}) - Not higher than current: ${prevHighest}`);
+            }
+
+            // Track lowest (min)
+            const prevLowest = stigmaTypes.stigma_es.lowestScore;
+            if (score > 0 && score < prevLowest) {
+              stigmaTypes.stigma_es.lowestScore = score;
+              stigmaTypes.stigma_es.lowest = {
+                stigmaType: 'Enacted Intersectional',
+                score,
+                date,
+                artId,
+              };
+              console.log(`  ✅ NEW LOWEST ES: ${score} (was ${prevLowest === Infinity ? 'None' : prevLowest})`);
             }
           }
         } else {
@@ -1938,6 +2419,7 @@ function IntersectionalStigmaVisualization({
             totalObservations++;
             console.log(`  📋 IS Intersectional: ${score} | Date: ${date}`);
 
+            // Track highest (max)
             const prevHighest = stigmaTypes.stigma_is.highestScore;
             if (score > prevHighest) {
               stigmaTypes.stigma_is.highestScore = score;
@@ -1951,23 +2433,39 @@ function IntersectionalStigmaVisualization({
             } else {
               console.log(`  ⚪ Not higher than current: ${prevHighest}`);
             }
+
+            // Track lowest (min)
+            const prevLowest = stigmaTypes.stigma_is.lowestScore;
+            if (score > 0 && score < prevLowest) {
+              stigmaTypes.stigma_is.lowestScore = score;
+              stigmaTypes.stigma_is.lowest = {
+                stigmaType: 'Internalized Intersectional',
+                score,
+                date,
+                artId,
+              };
+              console.log(`  ✅ NEW LOWEST IS: ${score} (was ${prevLowest === Infinity ? 'None' : prevLowest})`);
+            }
           }
         }
       });
 
       console.log('\n📈 INTERSECTIONAL STIGMA FINAL RESULTS:');
       console.log('Anticipated (AS):', {
-        score: stigmaTypes.stigma_as.highestScore,
+        max: stigmaTypes.stigma_as.highestScore,
+        min: stigmaTypes.stigma_as.lowestScore === Infinity ? 0 : stigmaTypes.stigma_as.lowestScore,
         artId: stigmaTypes.stigma_as.highest?.artId,
         date: stigmaTypes.stigma_as.highest?.date,
       });
       console.log('Enacted (ES):', {
-        score: stigmaTypes.stigma_es.highestScore,
+        max: stigmaTypes.stigma_es.highestScore,
+        min: stigmaTypes.stigma_es.lowestScore === Infinity ? 0 : stigmaTypes.stigma_es.lowestScore,
         artId: stigmaTypes.stigma_es.highest?.artId,
         date: stigmaTypes.stigma_es.highest?.date,
       });
       console.log('Internalized (IS):', {
-        score: stigmaTypes.stigma_is.highestScore,
+        max: stigmaTypes.stigma_is.highestScore,
+        min: stigmaTypes.stigma_is.lowestScore === Infinity ? 0 : stigmaTypes.stigma_is.lowestScore,
         artId: stigmaTypes.stigma_is.highest?.artId,
         date: stigmaTypes.stigma_is.highest?.date,
       });
@@ -1975,15 +2473,15 @@ function IntersectionalStigmaVisualization({
       console.log('🔍 ===== INTERSECTIONAL STIGMA QA LOG END =====\n');
 
       setIntersectionalData({
-        stigma_as: { highest: stigmaTypes.stigma_as.highest },
-        stigma_es: { highest: stigmaTypes.stigma_es.highest },
-        stigma_is: { highest: stigmaTypes.stigma_is.highest },
+        stigma_as: { highest: stigmaTypes.stigma_as.highest, lowest: stigmaTypes.stigma_as.lowest },
+        stigma_es: { highest: stigmaTypes.stigma_es.highest, lowest: stigmaTypes.stigma_es.lowest },
+        stigma_is: { highest: stigmaTypes.stigma_is.highest, lowest: stigmaTypes.stigma_is.lowest },
       });
       setLoading(false);
     };
 
     calculateExtremes();
-  }, [patients]);
+  }, [patients, currentLocationUuid, startDate, endDate, allPatients]);
 
   if (loading) {
     return (
@@ -2032,7 +2530,7 @@ function IntersectionalStigmaVisualization({
       {/* Bar Chart Visualization - Full Width */}
       <div
         style={{
-          height: window.innerWidth <= 480 ? '280px' : window.innerWidth <= 768 ? '320px' : '380px',
+          height: window.innerWidth <= 480 ? '320px' : window.innerWidth <= 768 ? '380px' : '420px',
           width: '100%',
           position: 'relative',
         }}
@@ -2043,7 +2541,7 @@ function IntersectionalStigmaVisualization({
             labels: ['Anticipated Stigma (AS)', 'Enacted Stigma (ES)', 'Internalized Stigma (IS)'],
             datasets: [
               {
-                label: 'Highest Score',
+                label: 'Max Score',
                 data: [
                   intersectionalData.stigma_as.highest?.score || 0,
                   intersectionalData.stigma_es.highest?.score || 0,
@@ -2052,43 +2550,69 @@ function IntersectionalStigmaVisualization({
                 backgroundColor: 'rgba(220, 38, 38, 0.8)',
                 borderColor: 'rgba(220, 38, 38, 1)',
                 borderWidth: 2,
+                borderRadius: 4,
+              },
+              {
+                label: 'Min Score',
+                data: [
+                  intersectionalData.stigma_as.lowest?.score || 0,
+                  intersectionalData.stigma_es.lowest?.score || 0,
+                  intersectionalData.stigma_is.lowest?.score || 0,
+                ],
+                backgroundColor: 'rgba(79, 195, 247, 0.8)',
+                borderColor: 'rgba(79, 195, 247, 1)',
+                borderWidth: 2,
+                borderRadius: 4,
               },
             ],
           }}
+          plugins={[
+            {
+              id: 'datalabels-intersectional',
+              afterDatasetsDraw: function (chart: any) {
+                const ctx = chart.ctx;
+                ctx.save();
+                const fontSize = window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 14 : 16;
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillStyle = '#333';
+                chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+                  const meta = chart.getDatasetMeta(datasetIndex);
+                  meta.data.forEach((bar: any, index: number) => {
+                    const value = dataset.data[index];
+                    ctx.fillText(value, bar.x, bar.y - 8);
+                  });
+                });
+                ctx.restore();
+              },
+            },
+          ]}
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+              padding: {
+                top: 35,
+              },
+            },
             plugins: {
               legend: {
-                position: 'top',
+                position: 'bottom',
                 labels: {
                   font: {
-                    size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
-                    weight: 500,
+                    size: window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 13 : 15,
+                    weight: 600,
                   },
-                  padding: window.innerWidth <= 480 ? 8 : 15,
+                  padding: window.innerWidth <= 480 ? 15 : window.innerWidth <= 768 ? 20 : 25,
                 },
               },
               tooltip: {
-                titleFont: {
-                  size: window.innerWidth <= 480 ? 11 : 14,
-                  weight: 600,
-                },
-                bodyFont: {
-                  size: window.innerWidth <= 480 ? 10 : 13,
-                },
-                callbacks: {
-                  afterLabel: function (context) {
-                    const stigmaType =
-                      context.dataIndex === 0 ? 'stigma_as' : context.dataIndex === 1 ? 'stigma_es' : 'stigma_is';
-                    const data = intersectionalData[stigmaType].highest;
-                    if (data) {
-                      return `ART ID: ${data.artId}\nDate: ${new Date(data.date).toLocaleDateString()}`;
-                    }
-                    return '';
-                  },
-                },
+                enabled: false,
               },
+            },
+            animation: {
+              duration: 0,
             },
             scales: {
               y: {
@@ -2124,8 +2648,29 @@ function IntersectionalStigmaVisualization({
   );
 }
 
-// Dimension Visualization Component
-function DimensionVisualization({ patients, currentLocationUuid }: { patients: any[]; currentLocationUuid?: string }) {
+// Dimension Visualization Component with Min/Max for Anticipated, Enacted, Internalized
+function DimensionVisualization({
+  patients,
+  currentLocationUuid,
+  startDate,
+  endDate,
+}: {
+  patients: any[];
+  currentLocationUuid?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  // Helper function to check if observation date is within range
+  const isWithinDateRange = (obsDate: string | undefined): boolean => {
+    if (!obsDate) return true;
+    if (!startDate && !endDate) return true;
+
+    const date = new Date(obsDate);
+    if (startDate && date < new Date(startDate)) return false;
+    if (endDate && date > new Date(endDate + 'T23:59:59')) return false;
+    return true;
+  };
+
   // Support anticipated and internalized dimensions
   // Separate keys and labels for anticipated and internalized
   const anticipatedKeys = ['hiv_domain_as', 'mh_domain_as', 'sgm_domain_as', 'em_domain_as'];
@@ -2167,10 +2712,12 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
   patients.forEach((observations, patientIndex) => {
     if (!Array.isArray(observations)) return;
 
-    // Filter by location first
-    const locationFiltered = observations.filter(
-      (obs: any) => !currentLocationUuid || obs.locationUuid === currentLocationUuid,
-    );
+    // Filter by location first, then by date
+    const locationFiltered = observations.filter((obs: any) => {
+      const locationMatch = !currentLocationUuid || obs.locationUuid === currentLocationUuid;
+      const dateMatch = isWithinDateRange(obs.effectiveDateTime || obs.date);
+      return locationMatch && dateMatch;
+    });
 
     // Check each dimension for this patient
     Object.entries(DIMENSION_UUIDS).forEach(([key, uuid]) => {
@@ -2189,10 +2736,13 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
   });
 
   console.log('\n📈 DIMENSION FINAL RESULTS:');
-  const maxDimensions: Record<string, number> = {};
+  // Calculate stats for all dimensions
+  const dimensionStats: Record<string, DimensionScoreData> = {};
   [...anticipatedKeys, ...internalizedKeys].forEach((key) => {
-    maxDimensions[key] = dimensionScores[key].length > 0 ? Math.max(...dimensionScores[key]) : 0;
-    console.log(`${key}: Max = ${maxDimensions[key]} (from ${dimensionScores[key].length} observations)`);
+    dimensionStats[key] = calculateDimensionStats(dimensionScores[key]);
+    console.log(
+      `${key}: Max = ${dimensionStats[key].max}, Min = ${dimensionStats[key].min} (from ${dimensionStats[key].count} observations)`,
+    );
   });
   console.log('🔍 ===== ANTICIPATED & INTERNALIZED DIMENSION QA LOG END =====\n');
   const [tab, setTab] = React.useState<'anticipated' | 'enacted' | 'internalized'>('anticipated');
@@ -2206,7 +2756,7 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
           onClick={() => setTab('anticipated')}
           style={{
@@ -2261,27 +2811,16 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
           <h3
             style={{
               margin: '0 0 1.5rem 0',
-              color: '#1e3a8a',
+              color: '#2563eb',
               fontSize: 'clamp(1.1rem, 3vw, 1.3rem)',
               textAlign: 'center',
             }}
           >
-            Dimension (Anticipated)
+            Dimensional Anticipated
           </h3>
-          {/* <div style={{ marginBottom: '2rem' }}>
-            <strong>Max Dimension Scores:</strong>
-            <ul>
-              {anticipatedKeys.map((key, idx) => (
-                <li key={key}>
-                  {anticipatedLabels[idx]}:{' '}
-                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>{maxDimensions[key]}</span>
-                </li>
-              ))}
-            </ul>
-          </div> */}
           <div
             style={{
-              height: window.innerWidth <= 480 ? '250px' : window.innerWidth <= 768 ? '300px' : '350px',
+              height: window.innerWidth <= 480 ? '320px' : window.innerWidth <= 768 ? '380px' : '420px',
               width: '100%',
               position: 'relative',
             }}
@@ -2293,41 +2832,75 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
                 datasets: [
                   {
                     label: 'Max Score',
-                    data: anticipatedKeys.map((key) => maxDimensions[key]),
-                    backgroundColor: [
-                      'rgba(56, 189, 248, 0.7)',
-                      'rgba(34, 197, 94, 0.7)',
-                      'rgba(139, 92, 246, 0.7)',
-                      'rgba(251, 191, 36, 0.7)',
-                    ],
-                    borderColor: [
-                      'rgba(56, 189, 248, 1)',
-                      'rgba(34, 197, 94, 1)',
-                      'rgba(139, 92, 246, 1)',
-                      'rgba(251, 191, 36, 1)',
-                    ],
+                    data: anticipatedKeys.map((key) => dimensionStats[key].max),
+                    backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                    borderColor: 'rgba(37, 99, 235, 1)',
                     borderWidth: 2,
+                    borderRadius: 4,
+                  },
+                  {
+                    label: 'Min Score',
+                    data: anticipatedKeys.map((key) => dimensionStats[key].min),
+                    backgroundColor: 'rgba(79, 195, 247, 0.8)',
+                    borderColor: 'rgba(79, 195, 247, 1)',
+                    borderWidth: 2,
+                    borderRadius: 4,
                   },
                 ],
               }}
+              plugins={[
+                {
+                  id: 'datalabels-anticipated',
+                  afterDatasetsDraw: function (chart: any) {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    const fontSize = window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 14 : 16;
+                    ctx.font = `bold ${fontSize}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillStyle = '#333';
+                    chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+                      const meta = chart.getDatasetMeta(datasetIndex);
+                      meta.data.forEach((bar: any, index: number) => {
+                        const value = dataset.data[index];
+                        ctx.fillText(value, bar.x, bar.y - 8);
+                      });
+                    });
+                    ctx.restore();
+                  },
+                },
+              ]}
               options={{
                 responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                  padding: {
+                    top: 35,
+                  },
+                },
                 plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context: any) {
-                        return `Max Score: ${context.parsed.y}`;
+                  legend: {
+                    position: 'bottom',
+                    labels: {
+                      font: {
+                        size: window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 13 : 15,
+                        weight: 600,
                       },
                     },
                   },
+                  tooltip: {
+                    enabled: false,
+                  },
+                },
+                animation: {
+                  duration: 0,
                 },
                 scales: {
                   y: {
                     beginAtZero: true,
                     title: {
                       display: true,
-                      text: 'Max Score',
+                      text: 'Score',
                       font: {
                         size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
                         weight: 600,
@@ -2354,7 +2927,14 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
           </div>
         </>
       )}
-      {tab === 'enacted' && <EnactedDimensionVisualization patients={patients} />}
+      {tab === 'enacted' && (
+        <EnactedDimensionVisualization
+          patients={patients}
+          currentLocationUuid={currentLocationUuid}
+          startDate={startDate}
+          endDate={endDate}
+        />
+      )}
       {tab === 'internalized' && (
         <>
           <h3
@@ -2365,22 +2945,11 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
               textAlign: 'center',
             }}
           >
-            Dimension (Internalized)
+            Dimensional Internalized
           </h3>
-          {/* <div style={{ marginBottom: '2rem' }}>
-            <strong>Max Dimension Scores:</strong>
-            <ul>
-              {internalizedKeys.map((key, idx) => (
-                <li key={key}>
-                  {internalizedLabels[idx]}:{' '}
-                  <span style={{ color: '#a21caf', fontWeight: 'bold' }}>{maxDimensions[key]}</span>
-                </li>
-              ))}
-            </ul>
-          </div> */}
           <div
             style={{
-              height: window.innerWidth <= 480 ? '250px' : window.innerWidth <= 768 ? '300px' : '350px',
+              height: window.innerWidth <= 480 ? '320px' : window.innerWidth <= 768 ? '380px' : '420px',
               width: '100%',
               position: 'relative',
             }}
@@ -2392,48 +2961,75 @@ function DimensionVisualization({ patients, currentLocationUuid }: { patients: a
                 datasets: [
                   {
                     label: 'Max Score',
-                    data: internalizedKeys.map((key) => maxDimensions[key]),
-                    backgroundColor: [
-                      'rgba(168, 85, 247, 0.7)',
-                      'rgba(236, 72, 153, 0.7)',
-                      'rgba(59, 130, 246, 0.7)',
-                      'rgba(251, 191, 36, 0.7)',
-                    ],
-                    borderColor: [
-                      'rgba(168, 85, 247, 1)',
-                      'rgba(236, 72, 153, 1)',
-                      'rgba(59, 130, 246, 1)',
-                      'rgba(251, 191, 36, 1)',
-                    ],
+                    data: internalizedKeys.map((key) => dimensionStats[key].max),
+                    backgroundColor: 'rgba(162, 28, 175, 0.8)',
+                    borderColor: 'rgba(162, 28, 175, 1)',
                     borderWidth: 2,
+                    borderRadius: 4,
+                  },
+                  {
+                    label: 'Min Score',
+                    data: internalizedKeys.map((key) => dimensionStats[key].min),
+                    backgroundColor: 'rgba(243, 232, 255, 0.9)',
+                    borderColor: 'rgba(162, 28, 175, 0.5)',
+                    borderWidth: 2,
+                    borderRadius: 4,
                   },
                 ],
               }}
+              plugins={[
+                {
+                  id: 'datalabels-internalized',
+                  afterDatasetsDraw: function (chart: any) {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    const fontSize = window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 14 : 16;
+                    ctx.font = `bold ${fontSize}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillStyle = '#333';
+                    chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+                      const meta = chart.getDatasetMeta(datasetIndex);
+                      meta.data.forEach((bar: any, index: number) => {
+                        const value = dataset.data[index];
+                        ctx.fillText(value, bar.x, bar.y - 8);
+                      });
+                    });
+                    ctx.restore();
+                  },
+                },
+              ]}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                  padding: {
+                    top: 35,
+                  },
+                },
                 plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    titleFont: {
-                      size: window.innerWidth <= 480 ? 11 : 13,
-                    },
-                    bodyFont: {
-                      size: window.innerWidth <= 480 ? 10 : 12,
-                    },
-                    callbacks: {
-                      label: function (context: any) {
-                        return `Max Score: ${context.parsed.y}`;
+                  legend: {
+                    position: 'bottom',
+                    labels: {
+                      font: {
+                        size: window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 13 : 15,
+                        weight: 600,
                       },
                     },
                   },
+                  tooltip: {
+                    enabled: false,
+                  },
+                },
+                animation: {
+                  duration: 0,
                 },
                 scales: {
                   y: {
                     beginAtZero: true,
                     title: {
                       display: true,
-                      text: 'Max Score',
+                      text: 'Score',
                       font: {
                         size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 12 : 14,
                         weight: 600,
@@ -2469,10 +3065,14 @@ function SitesDataVisualization({
   patients,
   refreshTrigger = 0,
   onRefresh,
+  startDate,
+  endDate,
 }: {
   patients: any[];
   refreshTrigger?: number;
   onRefresh?: () => void;
+  startDate?: string;
+  endDate?: string;
 }) {
   const session = useSession();
   React.useEffect(() => {
@@ -2605,13 +3205,25 @@ function SitesDataVisualization({
           });
         }
 
-        // Filter to only conference form related obs AND current location
+        // Helper function to check if observation date is within range
+        const isWithinDateRange = (obsDate: string | undefined): boolean => {
+          if (!obsDate) return true;
+          if (!startDate && !endDate) return true;
+
+          const date = new Date(obsDate);
+          if (startDate && date < new Date(startDate)) return false;
+          if (endDate && date > new Date(endDate + 'T23:59:59')) return false;
+          return true;
+        };
+
+        // Filter to only conference form related obs AND current location AND date range
         // This ensures Site A only sees Site A data, Site B only sees Site B data
         const conferenceObs =
           conferenceConceptUuids.size > 0
             ? allObs.filter((obs) => {
                 const matchesConcept = conferenceConceptUuids.has(obs.concept?.uuid);
                 const matchesLocation = obs.location?.uuid === defaultLocationUuid;
+                const matchesDate = isWithinDateRange(obs.obsDatetime);
 
                 // Debug logging for location mismatch
                 if (matchesConcept && !matchesLocation) {
@@ -2624,9 +3236,9 @@ function SitesDataVisualization({
                   });
                 }
 
-                return matchesConcept && matchesLocation;
+                return matchesConcept && matchesLocation && matchesDate;
               })
-            : allObs.filter((obs) => obs.location?.uuid === defaultLocationUuid);
+            : allObs.filter((obs) => obs.location?.uuid === defaultLocationUuid && isWithinDateRange(obs.obsDatetime));
 
         console.log('✅ Conference form obs for current location (' + defaultLocationName + '):', conferenceObs.length);
 
@@ -2694,7 +3306,7 @@ function SitesDataVisualization({
       }
     };
     fetchSitesData();
-  }, [defaultLocationUuid, refreshTrigger, patientUuid, conceptLabelMap]);
+  }, [defaultLocationUuid, refreshTrigger, patientUuid, conceptLabelMap, startDate, endDate]);
 
   const siteSubmissions = sitesData[defaultLocationUuid] || [];
   const selectedSiteName = defaultLocationName || 'Current Site';

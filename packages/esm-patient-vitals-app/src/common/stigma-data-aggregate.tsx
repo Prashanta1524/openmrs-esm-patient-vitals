@@ -579,16 +579,33 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
 
 /* ---------------- Wrapper ---------------- */
 // MultiChartSelector: Responsive, modern chart container for workspace
-export default function MultiChartSelector({ patientUuid }: { patientUuid: string }) {
+export default function MultiChartSelector({ 
+  patientUuid, 
+  filterByDate 
+}: { 
+  patientUuid: string;
+  filterByDate?: string;
+}) {
   // Fetch data for the patient
   const { data, isLoading, error } = useCovidStigmaData(patientUuid);
+  
+  // Filter data by date if specified
+  const filteredData = useMemo(() => {
+    if (!data || !filterByDate) return data;
+    
+    return data.filter((item) => {
+      const itemDate = new Date(item.date).toISOString().split('T')[0];
+      return itemDate === filterByDate;
+    });
+  }, [data, filterByDate]);
+  
   // Prepare chart data
-  const typeData = useMemo(() => (data ? aggregateByType(data) : []), [data]);
+  const typeData = useMemo(() => (filteredData ? aggregateByType(filteredData) : []), [filteredData]);
 
   // Loading and error states
   if (isLoading) return <p>Loading stigma data...</p>;
   if (error) return <p style={{ color: 'red' }}>Failed to load stigma data.</p>;
-  if (!data?.length) return <p>No stigma data available</p>;
+  if (!filteredData?.length) return <p>No stigma data available{filterByDate ? ' for selected visit' : ''}</p>;
 
   // Responsive, modern card container
   return (

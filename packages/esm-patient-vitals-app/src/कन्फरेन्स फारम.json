@@ -130,7 +130,8 @@
                 "concept": "694b7410-6b0d-4ac7-baaa-5479de255d92"
               },
               "id": "length_meeting",
-              "label": " ४. बैठकको अवधि  खुलाउनुहोस् "
+              "label": " ४. बैठकको अवधि  खुलाउनुहोस् ",
+              "required": false
             }
           ]
         }
