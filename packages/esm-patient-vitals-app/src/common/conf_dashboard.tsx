@@ -2130,7 +2130,7 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
           <div style={{ display: 'grid', gap: '1rem' }}>
             <div>
               {/* Per-patient stigma bar chart */}
-              <MultiChartSelector patientUuid={selectedPatientUuid} />
+              <MultiChartSelector patientUuid={selectedPatientUuid} chartType="bar" />
             </div>
             <div>
               <h4 style={{ margin: '0 0 8px 0' }}>सहभागी फारम - उत्तरहरू</h4>
@@ -2524,7 +2524,7 @@ function IntersectionalStigmaVisualization({
           textAlign: 'center',
         }}
       >
-        Intersectional
+        Intersectional Score
       </h3>
 
       {/* Bar Chart Visualization - Full Width */}
@@ -3585,6 +3585,7 @@ const FormFillingInterface = ({
   const [formSchema, setFormSchema] = React.useState<any>(null);
   const [formDefinition, setFormDefinition] = React.useState<any>(null);
   const [formData, setFormData] = React.useState<Record<string, any>>({});
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     if (formUuid === '55b82773-3cd0-4813-a38e-9d0c1ea35e45') {
@@ -3705,16 +3706,12 @@ const FormFillingInterface = ({
   // No encounter logic needed
 
   const handleSubmit = async (e: React.FormEvent) => {
-    // if (patients && patients.length > 0) {
-    //   console.log('[DEBUG] first patient object:', patients[0]);
-    // }
     e.preventDefault();
+    console.warn('🚀 Form submission started');
     try {
-      // console.log('[DEBUG] handleSubmit called');
       e.preventDefault();
-      // console.log('[DEBUG] Submit button clicked');
-      // console.log('[DEBUG] formData keys:', Object.keys(formData));
-      // console.log('[DEBUG] formData values:', formData);
+      console.log('📝 Current formData:', formData);
+      console.log('📄 formDefinition present:', !!formDefinition);
       // console.log('[DEBUG] patients array:', patients);
 
       // ===== VALIDATION: Check if form has any data =====
@@ -3738,7 +3735,7 @@ const FormFillingInterface = ({
 
       // ===== VALIDATION: Check for required fields =====
       if (formDefinition && formDefinition.pages) {
-        const emptyRequiredFields: string[] = [];
+        const emptyRequiredFields: { id: string; label: string }[] = [];
 
         formDefinition.pages.forEach((page: any) => {
           if (page.sections) {
@@ -3746,7 +3743,9 @@ const FormFillingInterface = ({
               if (section.questions) {
                 section.questions.forEach((question: any) => {
                   // Check if field is required and should be shown
-                  if (question.required && shouldShowField(question)) {
+                  // Treat as required by default UNLESS explicitly set to false, and ignore readonly prompts
+                  const isFieldRequired = question.required !== false && !question.readonly;
+                  if (isFieldRequired && shouldShowField(question)) {
                     const value = formData[question.id];
                     const isEmpty =
                       value === undefined ||
@@ -3755,7 +3754,10 @@ const FormFillingInterface = ({
                       (Array.isArray(value) && value.length === 0);
 
                     if (isEmpty) {
-                      emptyRequiredFields.push(question.label || question.id);
+                      emptyRequiredFields.push({
+                        id: question.id,
+                        label: question.label || question.id,
+                      });
                     }
                   }
                 });
@@ -3765,12 +3767,33 @@ const FormFillingInterface = ({
         });
 
         if (emptyRequiredFields.length > 0) {
+          // Set errors in state for visual highlighting
+          const errors: Record<string, boolean> = {};
+          emptyRequiredFields.forEach((f) => {
+            errors[f.id] = true;
+          });
+          setFieldErrors(errors);
+
           showSnackbar({
             title: 'आवश्यक क्षेत्रहरू छुटेका छन् / Required Fields Missing',
             kind: 'warning',
-            subtitle: `कृपया यी क्षेत्रहरू भर्नुहोस्: ${emptyRequiredFields.join(', ')} / Please fill: ${emptyRequiredFields.join(', ')}`,
+            subtitle: `कृपया यी क्षेत्रहरू भर्नुहोस्: ${emptyRequiredFields.map((f) => f.label).join(', ')} / Please fill missing fields.`,
           });
+
+          // Fallback to the first missing field
+          setTimeout(() => {
+            const firstId = emptyRequiredFields[0].id;
+            const firstEl = document.getElementById(firstId);
+
+            console.warn(`🔍 Targeting missing field: ${firstId}`);
+            if (firstEl) {
+              firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+
           return;
+        } else {
+          setFieldErrors({}); // Clear errors if validation passes
         }
       }
 
@@ -4231,27 +4254,42 @@ const FormFillingInterface = ({
                                 {/* Render different input types based on question type */}
                                 {question.questionOptions?.rendering === 'textarea' ? (
                                   <textarea
+                                    id={question.id}
                                     value={formData[question.id] || ''}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
                                       setFormData({
                                         ...formData,
                                         [question.id]: e.target.value,
-                                      })
-                                    }
+                                      });
+                                      if (fieldErrors[question.id]) {
+                                        setFieldErrors((prev) => ({ ...prev, [question.id]: false }));
+                                      }
+                                    }}
                                     rows={question.questionOptions?.rows || 4}
-                                    // placeholder={`${question.label || question.id}...`}
                                     style={{
                                       width: '100%',
                                       padding: 'clamp(0.4rem, 1.5vw, 0.5rem)',
-                                      border: '1px solid #ccc',
+                                      border: fieldErrors[question.id] ? '2px solid #ff4d4f' : '1px solid #ccc',
+                                      backgroundColor: fieldErrors[question.id] ? '#fff1f0' : 'white',
+                                      boxShadow: fieldErrors[question.id] ? '0 0 8px rgba(255, 77, 79, 0.2)' : 'none',
                                       borderRadius: '4px',
                                       resize: 'vertical',
                                       fontSize: 'clamp(0.875rem, 2vw, 1rem)',
                                       boxSizing: 'border-box',
+                                      transition: 'all 0.3s ease',
                                     }}
                                   />
                                 ) : question.questionOptions?.rendering === 'checkbox' ? (
-                                  <div>
+                                  <div
+                                    id={question.id}
+                                    style={{
+                                      border: fieldErrors[question.id] ? '2px solid #ff4d4f' : 'none',
+                                      backgroundColor: fieldErrors[question.id] ? '#fff1f0' : 'transparent',
+                                      padding: fieldErrors[question.id] ? '8px' : '0',
+                                      borderRadius: '4px',
+                                      transition: 'all 0.3s ease',
+                                    }}
+                                  >
                                     {question.questionOptions.answers &&
                                       question.questionOptions.answers.map((answer: any, answerIndex: number) => (
                                         <label key={answerIndex} style={{ display: 'block', marginBottom: '0.3rem' }}>
@@ -4267,6 +4305,9 @@ const FormFillingInterface = ({
                                                 ...formData,
                                                 [question.id]: newValues,
                                               });
+                                              if (fieldErrors[question.id]) {
+                                                setFieldErrors((prev) => ({ ...prev, [question.id]: false }));
+                                              }
                                             }}
                                             style={{ marginRight: '0.5rem' }}
                                           />
@@ -4276,25 +4317,40 @@ const FormFillingInterface = ({
                                   </div>
                                 ) : question.questionOptions?.rendering === 'date' ? (
                                   <input
+                                    id={question.id}
                                     type="date"
                                     value={formData[question.id] || ''}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
                                       setFormData({
                                         ...formData,
                                         [question.id]: e.target.value,
-                                      })
-                                    }
+                                      });
+                                      if (fieldErrors[question.id]) {
+                                        setFieldErrors((prev) => ({ ...prev, [question.id]: false }));
+                                      }
+                                    }}
                                     style={{
                                       width: '100%',
                                       padding: 'clamp(0.4rem, 1.5vw, 0.5rem)',
-                                      border: '1px solid #ccc',
+                                      border: fieldErrors[question.id] ? '2px solid #ff4d4f' : '1px solid #ccc',
+                                      backgroundColor: fieldErrors[question.id] ? '#fff1f0' : 'white',
                                       borderRadius: '4px',
                                       fontSize: 'clamp(0.875rem, 2vw, 1rem)',
                                       boxSizing: 'border-box',
+                                      transition: 'all 0.3s ease',
                                     }}
                                   />
                                 ) : question.questionOptions?.rendering === 'radio' ? (
-                                  <div>
+                                  <div
+                                    id={question.id}
+                                    style={{
+                                      padding: '8px',
+                                      borderRadius: '4px',
+                                      border: fieldErrors[question.id] ? '2px solid #ff4d4f' : '1px solid transparent',
+                                      backgroundColor: fieldErrors[question.id] ? '#fff1f0' : 'transparent',
+                                      transition: 'all 0.3s ease',
+                                    }}
+                                  >
                                     {question.questionOptions.answers &&
                                       question.questionOptions.answers.map((answer: any, answerIndex: number) => (
                                         <label
@@ -4316,6 +4372,9 @@ const FormFillingInterface = ({
                                                 ...formData,
                                                 [question.id]: value,
                                               });
+                                              if (fieldErrors[question.id]) {
+                                                setFieldErrors((prev) => ({ ...prev, [question.id]: false }));
+                                              }
                                               // Update conditional values for radio buttons
                                               if (question.id === 'decide_to_implement') {
                                                 setConditionalValues({
@@ -4340,6 +4399,7 @@ const FormFillingInterface = ({
                                   question.readonly &&
                                   question.id !== 'prompt_conference' ? (
                                   <div
+                                    id={question.id}
                                     style={{
                                       padding: '0.5rem',
                                       background: '#f5f5f5',

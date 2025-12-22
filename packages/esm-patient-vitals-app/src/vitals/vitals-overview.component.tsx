@@ -157,9 +157,14 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
         .map((d, idx) => ({
           id: String(idx),
           date: d.date ?? '',
-          dateRender: d.date
-            ? `${new Date(d.date).toLocaleDateString()}\n${new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-            : '',
+          dateRender: d.date ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.4' }}>
+              <span>{new Date(d.date).toLocaleDateString('en-US')}</span>
+              <span>{new Date(d.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          ) : (
+            ''
+          ),
           timeRender: d.date ? new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
           temperatureRender: d.temperature ?? '',
           bloodPressureRender: d.bloodPressureRenderInterpretation ?? '',

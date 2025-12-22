@@ -358,7 +358,7 @@ export function ArtIdVisualization({ patients }: { patients: any[] }) {
   );
 }
 import { useCovidStigmaData } from './stigma-data.resource';
-import { Line } from 'react-chartjs-2'; // Switched from Bar to Line
+import { Bar, Line } from 'react-chartjs-2'; // Switched from Bar to Line
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -396,7 +396,7 @@ function parseDimensionScore(scoreStr: string) {
   ];
 
   mappings.forEach(({ key, label }) => {
-    const regex = new RegExp(`${label}\\s*:?\\s*(\\d+)`);
+    const regex = new RegExp(`${label}\\s*:?\\s*(\\d+(?:\\.\\d+)?)`);
     const match = scoreStr.match(regex);
     if (match) domainMap[key] = Number(match[1]);
   });
@@ -467,17 +467,67 @@ const aggregateByDate = (data: CovidStigmaData[]) => {
         ? parseDimensionScore(String(d.dimensionScore))
         : { hiv: 0, mh: 0, sgm: 0, em: 0, intersectional: 0 };
 
-      // Use the intersectionalScore property directly
       if (d.intersectionalScore) {
         parsed.intersectional = Number(d.intersectionalScore);
       }
 
+      const overall = d.as_score ?? d.es_score ?? d.is_score ?? 0;
+      (parsed as any).overall = overall;
+
       return {
         date: d.date,
-        totals: parsed, // 👈 no forced sum
+        totals: parsed,
       };
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+};
+
+const aggregateByDateGrouped = (data: CovidStigmaData[]) => {
+  const grouped: Record<string, { date: string; records: any[] }> = {};
+
+  const safeNum = (v: any): number => {
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') return v;
+    const s = String(v).trim();
+    const match = s.match(/-?\d+(?:\.\d+)?/);
+    if (!match) return 0;
+    const n = parseFloat(match[0]);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  data.forEach((d) => {
+    const dDate = new Date(d.date);
+    const dateStr = `${dDate.getFullYear()}-${String(dDate.getMonth() + 1).padStart(2, '0')}-${String(dDate.getDate()).padStart(2, '0')}`;
+
+    if (!grouped[dateStr]) {
+      grouped[dateStr] = { date: d.date, records: [] };
+    }
+
+    const parsed = d.dimensionScore
+      ? parseDimensionScore(String(d.dimensionScore))
+      : { hiv: 0, mh: 0, sgm: 0, em: 0, intersectional: 0 };
+
+    const totals: Record<string, number> = {
+      hiv: d.hiv_domain_as ?? d.hiv_domain_es ?? d.hiv_domain_is ?? parsed.hiv,
+      mh: d.mh_domain_as ?? d.mh_domain_es ?? d.mh_domain_is ?? parsed.mh,
+      sgm: d.sgm_domain_as ?? d.sgm_domain_es ?? d.sgm_domain_is ?? parsed.sgm,
+      em: d.em_domain_as ?? d.em_domain_es ?? d.em_domain_is ?? parsed.em,
+      intersectional:
+        d.intersectional_stigma_as ??
+        d.intersectional_stigma_es ??
+        d.intersectional_stigma_is ??
+        safeNum(d.intersectionalScore),
+      overall: d.as_score ?? d.es_score ?? d.is_score ?? safeNum(d.stigmaScore),
+    };
+
+    grouped[dateStr].records.push({
+      type: d.stigmaType || 'Unknown',
+      totals,
+    });
+  });
+
+  const result = Object.values(grouped).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  return result;
 };
 /* ---------------- Chart Components ---------------- */
 // Responsive Bar chart for stigma data
@@ -520,6 +570,78 @@ function TypeDimensionBarChart({ data }: { data: ReturnType<typeof aggregateByTy
 }
 */
 
+function LatestStigmaBarChart({ latestRecord }: { latestRecord: ReturnType<typeof aggregateByDateGrouped>[0] }) {
+  if (!latestRecord || !latestRecord.records.length) return null;
+
+  const domains = [
+    { key: 'hiv', label: 'एचआईभी', color: DOMAIN_COLORS.hiv },
+    { key: 'mh', label: 'मानसिक स्वास्थ्य', color: DOMAIN_COLORS.mh },
+    { key: 'sgm', label: 'लैङ्गिक तथा यौनिक अल्पसङ्ख्यक', color: DOMAIN_COLORS.sgm },
+    { key: 'em', label: 'जातीय अल्पसङ्ख्यक/दलित', color: DOMAIN_COLORS.em },
+    { key: 'intersectional', label: 'इण्टरसेक्सनल', color: DOMAIN_COLORS.intersectional },
+    { key: 'overall', label: 'कुल स्कोर', color: '#1f2e5b' },
+  ];
+
+  const labels = latestRecord.records.map((record) => record.type);
+
+  const datasets = domains.map((domain) => ({
+    label: domain.label,
+    data: latestRecord.records.map((record) => (record.totals as any)[domain.key] || 0),
+    backgroundColor: domain.color,
+    borderRadius: 4,
+  }));
+
+  const dateStr = new Date(latestRecord.date).toLocaleDateString('default', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  return (
+    <Bar
+      data={{
+        labels,
+        datasets,
+      }}
+      plugins={[
+        {
+          id: 'datalabels-bar',
+          afterDatasetsDraw: (chart: any) => {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+              const meta = chart.getDatasetMeta(datasetIndex);
+              meta.data.forEach((bar: any, index: number) => {
+                const value = dataset.data[index];
+                if (value !== 0) {
+                  ctx.fillStyle = dataset.backgroundColor;
+                  ctx.fillText(value, bar.x, bar.y - 5);
+                }
+              });
+            });
+            ctx.restore();
+          },
+        },
+      ]}
+      options={{
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: `Latest Stigma Scores (${dateStr})`, font: { size: 16 } },
+          legend: { display: true, position: 'bottom' },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Score' } },
+        },
+      }}
+    />
+  );
+}
+
 function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> }) {
   // Format labels as Day Month Year
   const labels = data.map((d) => {
@@ -537,7 +659,7 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
 
   const datasets = Object.keys(DOMAIN_COLORS).map((key) => ({
     label: domainLabels[key as keyof typeof domainLabels],
-    data: data.map((d) => d.totals[key]),
+    data: data.map((d) => (d.totals as any)[key]),
     borderColor: DOMAIN_COLORS[key as keyof typeof DOMAIN_COLORS],
     backgroundColor: DOMAIN_COLORS[key as keyof typeof DOMAIN_COLORS],
     fill: false,
@@ -547,6 +669,29 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
   return (
     <Line
       data={{ labels, datasets }}
+      plugins={[
+        {
+          id: 'datalabels-line',
+          afterDatasetsDraw: (chart: any) => {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+              const meta = chart.getDatasetMeta(datasetIndex);
+              ctx.fillStyle = dataset.borderColor;
+              meta.data.forEach((point: any, index: number) => {
+                const value = dataset.data[index];
+                if (value !== null) {
+                  ctx.fillText(value, point.x, point.y - 8);
+                }
+              });
+            });
+            ctx.restore();
+          },
+        },
+      ]}
       options={{
         responsive: true,
         maintainAspectRatio: false,
@@ -554,13 +699,7 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
           title: { display: true, text: 'Stigma Scores Trends' },
           legend: { position: 'bottom' },
           tooltip: {
-            callbacks: {
-              label: function (context) {
-                const index = context.dataIndex;
-                const d = data[index];
-                return `${context.dataset.label}: ${context.parsed.y} (Date: ${new Date(d.date).toLocaleDateString()})`;
-              },
-            },
+            enabled: false,
           },
         },
         scales: {
@@ -577,9 +716,11 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
 export default function MultiChartSelector({
   patientUuid,
   filterByDate,
+  chartType = 'line',
 }: {
   patientUuid: string;
   filterByDate?: string;
+  chartType?: 'line' | 'bar';
 }) {
   // Fetch data for the patient
   const { data, isLoading, error } = useCovidStigmaData(patientUuid);
@@ -595,7 +736,11 @@ export default function MultiChartSelector({
   }, [data, filterByDate]);
 
   // Prepare chart data
-  const dateData = useMemo(() => (filteredData ? aggregateByDate(filteredData) : []), [filteredData]);
+  const dateDataLine = useMemo(() => (filteredData ? aggregateByDate(filteredData) : []), [filteredData]);
+  const dateDataGrouped = useMemo(
+    () => (filteredData ? aggregateByDateGrouped(filteredData) : []),
+    [filteredData],
+  );
 
   // Loading and error states
   if (isLoading) return <p>Loading stigma data...</p>;
@@ -622,7 +767,11 @@ export default function MultiChartSelector({
     >
       {/* Responsive chart area: fills card, not congested */}
       <div style={{ width: '100%', minHeight: 400, height: '50vw', maxHeight: 600 }}>
-        <StigmaLineChart data={dateData} />
+        {chartType === 'bar' ? (
+          <LatestStigmaBarChart latestRecord={dateDataGrouped[dateDataGrouped.length - 1]} />
+        ) : (
+          <StigmaLineChart data={dateDataLine} />
+        )}
       </div>
     </div>
   );
