@@ -4252,7 +4252,91 @@ const FormFillingInterface = ({
                                 })()}
 
                                 {/* Render different input types based on question type */}
-                                {question.questionOptions?.rendering === 'textarea' ? (
+                                {question.id === 'length_meeting' || question.questionOptions?.rendering === 'duration' ? (
+                                  <div
+                                    id={question.id}
+                                    style={{
+                                      display: 'flex',
+                                      gap: '1rem',
+                                      alignItems: 'center',
+                                      padding: '8px',
+                                      borderRadius: '4px',
+                                      border: fieldErrors[question.id] ? '2px solid #ff4d4f' : '1px solid transparent',
+                                      backgroundColor: fieldErrors[question.id] ? '#fff1f0' : 'transparent',
+                                      transition: 'all 0.3s ease',
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <select
+                                        value={(() => {
+                                          const val = formData[question.id] || '';
+                                          const match = val.match(/(\d+)\s*hr/);
+                                          return match ? match[1] : '0';
+                                        })()}
+                                        onChange={(e) => {
+                                          const currentVal = formData[question.id] || '0 hr 0 min';
+                                          const minsMatch = currentVal.match(/(\d+)\s*min/);
+                                          const mins = minsMatch ? minsMatch[1] : '0';
+                                          const newVal = `${e.target.value} hr ${mins} min`;
+                                          setFormData({
+                                            ...formData,
+                                            [question.id]: newVal,
+                                          });
+                                          if (fieldErrors[question.id]) {
+                                            setFieldErrors((prev) => ({ ...prev, [question.id]: false }));
+                                          }
+                                        }}
+                                        style={{
+                                          padding: '0.4rem',
+                                          borderRadius: '4px',
+                                          border: '1px solid #ccc',
+                                          fontSize: '0.9rem',
+                                        }}
+                                      >
+                                        {[...Array(13)].map((_, i) => (
+                                          <option key={i} value={i}>
+                                            {i} Hour{i !== 1 ? 's' : ''}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div style={{ fontWeight: 'bold' }}>:</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <select
+                                        value={(() => {
+                                          const val = formData[question.id] || '';
+                                          const match = val.match(/(\d+)\s*min/);
+                                          return match ? match[1] : '0';
+                                        })()}
+                                        onChange={(e) => {
+                                          const currentVal = formData[question.id] || '0 hr 0 min';
+                                          const hrsMatch = currentVal.match(/(\d+)\s*hr/);
+                                          const hrs = hrsMatch ? hrsMatch[1] : '0';
+                                          const newVal = `${hrs} hr ${e.target.value} min`;
+                                          setFormData({
+                                            ...formData,
+                                            [question.id]: newVal,
+                                          });
+                                          if (fieldErrors[question.id]) {
+                                            setFieldErrors((prev) => ({ ...prev, [question.id]: false }));
+                                          }
+                                        }}
+                                        style={{
+                                          padding: '0.4rem',
+                                          borderRadius: '4px',
+                                          border: '1px solid #ccc',
+                                          fontSize: '0.9rem',
+                                        }}
+                                      >
+                                        {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                                          <option key={m} value={m}>
+                                            {m} Min{m !== 1 ? 's' : ''}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                ) : question.questionOptions?.rendering === 'textarea' ? (
                                   <textarea
                                     id={question.id}
                                     value={formData[question.id] || ''}
