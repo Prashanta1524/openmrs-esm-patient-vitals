@@ -358,7 +358,7 @@ export function ArtIdVisualization({ patients }: { patients: any[] }) {
   );
 }
 import { useCovidStigmaData } from './stigma-data.resource';
-import { Bar } from 'react-chartjs-2'; // Removed Line import since we're not using it
+import { Line } from 'react-chartjs-2'; // Switched from Bar to Line
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -460,7 +460,6 @@ const aggregateByType = (data: CovidStigmaData[]) => {
   });
 };
 
-/* Commenting out aggregateByDate since we're not using the line chart
 const aggregateByDate = (data: CovidStigmaData[]) => {
   return data
     .map((d) => {
@@ -480,9 +479,9 @@ const aggregateByDate = (data: CovidStigmaData[]) => {
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 };
-*/
 /* ---------------- Chart Components ---------------- */
 // Responsive Bar chart for stigma data
+/* Commenting out the Bar Chart as requested
 function TypeDimensionBarChart({ data }: { data: ReturnType<typeof aggregateByType> }) {
   // Define the domains and their labels
   const domainKeys = ['hiv', 'mh', 'sgm', 'em', 'intersectional'] as const;
@@ -519,13 +518,13 @@ function TypeDimensionBarChart({ data }: { data: ReturnType<typeof aggregateByTy
     />
   );
 }
+*/
 
-/* Commenting out the StigmaLineChart component since we're only using the TypeDimensionBarChart
 function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> }) {
-  // Format labels as YYYY-MM
+  // Format labels as Day Month Year
   const labels = data.map((d) => {
     const date = new Date(d.date);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return date.toLocaleDateString('default', { day: '2-digit', month: 'short', year: 'numeric' });
   });
 
   const domainLabels = {
@@ -550,6 +549,7 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
       data={{ labels, datasets }}
       options={{
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           title: { display: true, text: 'Stigma Scores Trends' },
           legend: { position: 'bottom' },
@@ -562,45 +562,40 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
               },
             },
           },
-          zoom: {
-            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' },
-            pan: { enabled: true, mode: 'x' },
-          },
         },
         scales: {
-          x: { title: { display: true, text: 'Year-Month' } },
-          y: { title: { display: true, text: 'Score' } },
+          x: { title: { display: true, text: 'Date' } },
+          y: { title: { display: true, text: 'Score' }, beginAtZero: true },
         },
       }}
     />
   );
 }
-*/
 
 /* ---------------- Wrapper ---------------- */
 // MultiChartSelector: Responsive, modern chart container for workspace
-export default function MultiChartSelector({ 
-  patientUuid, 
-  filterByDate 
-}: { 
+export default function MultiChartSelector({
+  patientUuid,
+  filterByDate,
+}: {
   patientUuid: string;
   filterByDate?: string;
 }) {
   // Fetch data for the patient
   const { data, isLoading, error } = useCovidStigmaData(patientUuid);
-  
+
   // Filter data by date if specified
   const filteredData = useMemo(() => {
     if (!data || !filterByDate) return data;
-    
+
     return data.filter((item) => {
       const itemDate = new Date(item.date).toISOString().split('T')[0];
       return itemDate === filterByDate;
     });
   }, [data, filterByDate]);
-  
+
   // Prepare chart data
-  const typeData = useMemo(() => (filteredData ? aggregateByType(filteredData) : []), [filteredData]);
+  const dateData = useMemo(() => (filteredData ? aggregateByDate(filteredData) : []), [filteredData]);
 
   // Loading and error states
   if (isLoading) return <p>Loading stigma data...</p>;
@@ -626,8 +621,8 @@ export default function MultiChartSelector({
       }}
     >
       {/* Responsive chart area: fills card, not congested */}
-      <div style={{ width: '100%', minHeight: 350, height: '50vw', maxHeight: 500 }}>
-        <TypeDimensionBarChart data={typeData} />
+      <div style={{ width: '100%', minHeight: 400, height: '50vw', maxHeight: 600 }}>
+        <StigmaLineChart data={dateData} />
       </div>
     </div>
   );

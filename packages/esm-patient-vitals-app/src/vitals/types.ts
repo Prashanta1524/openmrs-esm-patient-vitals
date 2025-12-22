@@ -4,6 +4,7 @@ import type React from 'react';
 export interface VitalsTableRow extends PatientVitalsAndBiometrics {
   id: string;
   dateRender: string;
+  timeRender: string;
   bloodPressureRender: string | number | React.ReactNode;
   bloodPressureRenderInterpretation?: ObservationInterpretation;
   pulseRender: string | number;
@@ -19,6 +20,7 @@ export interface VitalsTableRow extends PatientVitalsAndBiometrics {
 export interface VitalsTableHeader {
   key:
     | 'dateRender'
+    | 'timeRender'
     | 'temperatureRender'
     | 'bloodPressureRender'
     | 'pulseRender'

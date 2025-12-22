@@ -92,6 +92,14 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
 
   const tableHeaders: Array<VitalsTableHeader> = [
     {
+      key: 'dateRender',
+      header: 'Date and Time\n\n(मिति र समय)',
+      style: { width: '160px', minWidth: '160px' },
+      isSortable: true,
+      sortFunc: (valueA, valueB) =>
+        valueA.date && valueB.date ? new Date(valueA.date).getTime() - new Date(valueB.date).getTime() : 0,
+    },
+    {
       key: 'temperatureRender',
       header: 'Type of Stigma\n\n(लान्छनाको प्रकार)',
       style: { width: '200px', minWidth: '200px' },
@@ -149,7 +157,10 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
         .map((d, idx) => ({
           id: String(idx),
           date: d.date ?? '',
-          dateRender: d.date ? new Date(d.date).toLocaleDateString() : '',
+          dateRender: d.date
+            ? `${new Date(d.date).toLocaleDateString()}\n${new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            : '',
+          timeRender: d.date ? new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
           temperatureRender: d.temperature ?? '',
           bloodPressureRender: d.bloodPressureRenderInterpretation ?? '',
           pulseRender: d.pulse ?? '',

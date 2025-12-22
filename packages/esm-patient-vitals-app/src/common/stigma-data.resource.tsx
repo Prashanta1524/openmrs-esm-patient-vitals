@@ -426,7 +426,10 @@ export function mapStigmaDataToVitalsFormat(
         pulseRender: d.dimensionType || '',
         respiratoryRateRender: dimensionScoreRender,
         spo2Render: intersectionalRender,
-        dateRender: d.date ? new Date(d.date).toLocaleDateString() : '',
+        dateRender: d.date
+          ? `${new Date(d.date).toLocaleDateString()}\n${new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : '',
+        timeRender: d.date ? new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
         temperatureRenderInterpretation: undefined,
         bloodPressureRenderInterpretation: undefined,
         pulseRenderInterpretation: undefined,
