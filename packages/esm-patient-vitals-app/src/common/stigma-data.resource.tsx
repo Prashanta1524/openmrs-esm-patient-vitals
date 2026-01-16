@@ -10,6 +10,53 @@ import qr2tpo from '../common/img/QR2_TPO_Managing fear.png';
 import qr3bds from '../common/img/QR3_BDS_Ideal World.png';
 import qr4artadherence from '../common/img/QR4_Treatment adherence video(उपचार पालना)_NCASC.png';
 
+/**
+ * STIGMA-DATA.RESOURCE.TSX (in common)
+ * ====================================
+ *
+ * Purpose: Handles fetching and processing stigma data from OpenMRS encounters.
+ * Defines the StigmaData interface and provides hooks/functions to map stigma data
+ * to vitals table rows for display alongside traditional vitals data.
+ *
+ * Key Functions:
+ * - useCovidStigmaData(patientUuid: string): SWR hook that fetches encounter data
+ *   for a patient, parses observations into StigmaData[] (anticipated, enacted,
+ *   internalized stigma scores with domain breakdowns)
+ *
+ * - mapStigmaDataToVitalsFormat(stigmaData: StigmaData[], type: string): Maps stigma
+ *   data to VitalsTableRow[] for display in the vitals table. Includes logic to sort
+ *   encounters by date/time and assign visit labels (e.g., "1st Visit") in dateRender field
+ *
+ * - getActivitiesBasedOnStigma(stigmaData): Clinical decision support - evaluates latest
+ *   encounter against thresholds and returns counseling recommendations with QR codes
+ *
+ * - computeStigmaMatch_LatestOnly(stigmaData): Evaluates clinical thresholds for intervention
+ *
+ * Helper Functions:
+ * - renderColoredValue, renderScoreOnly, renderIntersectionalScore: Styling functions
+ *   for displaying scores with clinical color coding (red = high risk, blue = low risk)
+ *
+ * Data Flow:
+ * 1. useCovidStigmaData → Fetches from /encounter?patient=${patientUuid}&v=full&limit=100
+ * 2. Parses observations using concept UUIDs (e.g., 'b5be0487-ef8e-4c39-ad86-39dd341cf0a7' for AS)
+ * 3. Creates StigmaData[] with normalized numeric fields and Nepali labels
+ * 4. mapStigmaDataToVitalsFormat → Converts to VitalsTableRow[] with visit numbering
+ * 5. VitalsOverview combines with traditional vitals → PaginatedVitals → DataTable rendering
+ * 6. getActivitiesBasedOnStigma → Generates clinical recommendations based on thresholds
+ *
+ * Clinical Logic:
+ * - Anticipated Stigma (अपेक्षित लान्छना): Fear of future discrimination (score ≥12 = high risk)
+ * - Enacted Stigma (व्यावहारिक लान्छना): Experienced discrimination (score ≥4 = high risk)
+ * - Internalized Stigma (आत्मलान्छना): Self-stigmatization (score ≥10 = high risk)
+ * - Domains: HIV, Mental Health, SGM, Ethnic Minority with specific thresholds
+ * - Intersectional: Combined stigma effects with elevated thresholds
+ *
+ * Integration Points:
+ * - vitals-overview.component.tsx: Calls useCovidStigmaData and mapStigmaDataToVitalsFormat
+ * - paginated-vitals.component.tsx: Renders the combined table rows
+ * - biometrics-base.component.tsx: Displays clinical activities via getActivitiesBasedOnStigma
+ */
+
 /* ---------------- Image Modal Component ---------------- */
 interface ImageModalProps {
   imageUrl: string;
@@ -108,6 +155,26 @@ const QRCodeWithPopup: React.FC<QRCodeWithPopupProps> = ({ image, alt }) => {
 };
 
 /* ---------------- Types ---------------- */
+/**
+ * StigmaData Interface - Data structure for processed stigma assessment results
+ *
+ * Purpose: Defines the complete data model for stigma assessment data extracted from encounters.
+ * Each StigmaData object represents one stigma type measurement from a single encounter.
+ *
+ * Key Fields:
+ * - id: Unique identifier combining encounter UUID and stigma type
+ * - date: ISO timestamp from encounter.encounterDatetime
+ * - stigmaType: Nepali labels ('अपेक्षित लान्छना', 'व्यावहारिक लान्छना', 'आत्मलान्छना')
+ * - stigmaScore: Formatted display score (e.g., "31/36") or raw number
+ * - dimensionScore: Breakdown by domains (HIV, Mental Health, SGM, Ethnic Minority)
+ * - intersectionalScore: Combined stigma effects across multiple domains
+ * - encounterUuid: Links back to source encounter for traceability
+ * - Normalized numeric fields: as_score, es_score, is_score for programmatic use
+ * - Domain-specific fields: hiv_domain_*, mh_domain_*, etc. for detailed analysis
+ *
+ * What happens after: This structured data is passed to mapStigmaDataToVitalsFormat()
+ * for conversion to table rows, or to getActivitiesBasedOnStigma() for clinical decision support.
+ */
 export interface StigmaData {
   [x: string]: any;
   id: string;
@@ -115,7 +182,7 @@ export interface StigmaData {
   stigmaType: string; // 'एन्टिसिपेटेड Stigma' | 'व्यावहारिक लान्छना ' | 'आत्मलान्छना '
   stigmaScore: string | number;
   dimensionType: string;
-  dimensionScore: string | number | string[]; // e.g. "HIV:86, MH:0, SGM:0, EM:0"
+  dimensionScore: string | number | string[];
   intersectionalScore: string | number;
   encounterUuid: string;
 
@@ -141,6 +208,37 @@ export interface StigmaData {
 }
 
 /* ---------------- Hook ---------------- */
+/**
+ * useCovidStigmaData(patientUuid: string) - Main data fetching hook
+ *
+ * Purpose: Fetches and processes stigma assessment data from OpenMRS encounters.
+ * Uses SWR for caching and automatic revalidation.
+ *
+ * API Call: GET /ws/rest/v1/encounter?patient=${patientUuid}&v=full&limit=100
+ * - Fetches 100 most recent encounters with full observation data
+ * - v=full ensures complete observation details are included
+ *
+ * Processing Logic:
+ * 1. Fetches encounter data via REST API
+ * 2. Iterates through each encounter's observations
+ * 3. Extracts stigma-related observations using specific concept UUIDs
+ * 4. Parses raw values into normalized numeric scores
+ * 5. Creates StigmaData objects for each stigma type found
+ * 6. Applies Nepali labels and clinical formatting
+ *
+ * Concept UUIDs Used:
+ * - Anticipated Stigma: 'b5be0487-ef8e-4c39-ad86-39dd341cf0a7'
+ * - Enacted Stigma: '367a6a1f-b951-4eac-8068-a5f0801d6aff'
+ * - Internalized Stigma: '3f318839-599e-47d7-96f5-4c81ca64dfc3'
+ * - Domain scores: Separate UUIDs for HIV, MH, SGM, Ethnic Minority domains
+ * - Intersectional scores: Additional UUIDs for combined stigma effects
+ *
+ * What happens after:
+ * - Returns StigmaData[] to vitals-overview.component.tsx
+ * - Data gets passed to mapStigmaDataToVitalsFormat() for table rendering
+ * - Also used by getActivitiesBasedOnStigma() for clinical recommendations
+ * - Cached by SWR, automatically refreshed on mutations
+ */
 export function useCovidStigmaData(patientUuid: string) {
   const swrKey = patientUuid ? `${restBaseUrl}/encounter?patient=${patientUuid}&v=full&limit=100` : null;
 
@@ -191,7 +289,7 @@ export function useCovidStigmaData(patientUuid: string) {
       const hivIS = num(getObsVal(enc, 'ea081a06-b663-40f0-b74c-ede85468ed89'));
       const mhIS = num(getObsVal(enc, 'ef14a69f-b4fa-4fcd-8699-6b827bb67525'));
       const sgmIS = num(getObsVal(enc, '79c9043f-3cb6-41b2-b189-6018cb9b2bde'));
-      const emIS = num(getObsVal(enc, '373eca5f-bc30-4b5e-a799-c50931731209')); 
+      const emIS = num(getObsVal(enc, '373eca5f-bc30-4b5e-a799-c50931731209'));
 
       const asScore = num(rawAS);
       const esScore = num(rawES);
@@ -202,7 +300,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-एन्टिसिपेटेड`,
           date: enc.encounterDatetime,
           stigmaType: 'अपेक्षित लान्छना',
-          stigmaScore: `${rawAS}/36`, 
+          stigmaScore: `${rawAS}/36`,
           as_score: asScore,
           dimensionType: [hivAS, mhAS, sgmAS, emAS].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी :${hivAS}/60, मानसिक स्वास्थ्य:${mhAS}/60, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmAS}/60, जातीय अल्पसङ्ख्यक/दलित:${emAS}/60`,
@@ -221,7 +319,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-enacted`,
           date: enc.encounterDatetime,
           stigmaType: 'व्यावहारिक लान्छना',
-          stigmaScore: `${rawES}/13`, 
+          stigmaScore: `${rawES}/13`,
           es_score: esScore,
           dimensionType: [hivES, mhES, sgmES, emES].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी:${hivES}/65, मानसिक स्वास्थ्य:${mhES}/65, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmES}/65, जातीय अल्पसङ्ख्यक/दलित:${emES}/65`,
@@ -240,7 +338,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-internalized`,
           date: enc.encounterDatetime,
           stigmaType: 'आत्मलान्छना',
-          stigmaScore: `${rawIS}/30`, 
+          stigmaScore: `${rawIS}/30`,
           is_score: isScore,
           dimensionType: [hivIS, mhIS, sgmIS, emIS].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी:${hivIS}/50, मानसिक स्वास्थ्य:${mhIS}/50, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmIS}/50, जातीय अल्पसङ्ख्यक/दलित:${emIS}/50`,
@@ -310,7 +408,7 @@ function renderScoreOnly(
 }
 
 // helper for rendering intersectional score - shows the value with conditional color
-// Always displays the number/denominator. Uses display denominator for UI (120/130/100) 
+// Always displays the number/denominator. Uses display denominator for UI (120/130/100)
 // but compares against clinical cutoff (40/43/33) for color (blue if below, red if above)
 function renderIntersectionalScore(value: number | undefined, clinicalCutoff: number, displayDenominator: number) {
   if (value == null) return null;
@@ -328,6 +426,27 @@ export function mapStigmaDataToVitalsFormat(
 ): VitalsTableRow[] {
   const seen = new Set<string>();
 
+  // Helper function to get ordinal suffix
+  const getOrdinal = (n: number): string => {
+    const j = n % 10;
+    const k = n % 100;
+    if (j === 1 && k !== 11) return n + 'st';
+    if (j === 2 && k !== 12) return n + 'nd';
+    if (j === 3 && k !== 13) return n + 'rd';
+    return n + 'th';
+  };
+
+  // Sort unique encounters by date to assign visit numbers
+  const sortedEncounters = [...new Set(stigmaData.map((d) => d.encounterUuid))].sort((a, b) => {
+    const dateA = stigmaData.find((d) => d.encounterUuid === a)?.date;
+    const dateB = stigmaData.find((d) => d.encounterUuid === b)?.date;
+    return new Date(dateA || '').getTime() - new Date(dateB || '').getTime();
+  });
+
+  // Create a map from encounterUuid to visit number
+  const visitMap = new Map<string, number>();
+  sortedEncounters.forEach((uuid, index) => visitMap.set(uuid, index + 1));
+
   return stigmaData
     .filter((d) => {
       const key = `${d.encounterUuid}-${d.stigmaType}`;
@@ -338,13 +457,17 @@ export function mapStigmaDataToVitalsFormat(
       return false;
     })
     .map((d) => {
+      // Get the visit number
+      const visitNumber = visitMap.get(d.encounterUuid) || 0;
+      const visitLabel = `${getOrdinal(visitNumber)} Visit`;
+
       // Get the right stigma score cutoff based on type
       const stigmaScoreCutoff =
         d.stigmaType === 'अपेक्षित लान्छना'
           ? 12 // as_score >= 12
           : d.stigmaType === 'व्यावहारिक लान्छना'
             ? 4 // es_score >= 4
-            : 10; // is_score >= 10 (for आत्मलान्छना)
+            : 10; // is_score >= 10 (for आत्मलान्छना)s
 
       // cutoff values for dimensions (clinical thresholds for color)
       const dimensionClinicalCutoff =
@@ -426,14 +549,7 @@ export function mapStigmaDataToVitalsFormat(
         pulseRender: d.dimensionType || '',
         respiratoryRateRender: dimensionScoreRender,
         spo2Render: intersectionalRender,
-        dateRender: d.date ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.4' }}>
-            <span>{new Date(d.date).toLocaleDateString('en-US')}</span>
-            <span>{new Date(d.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-        ) : (
-          ''
-        ),
+        dateRender: visitLabel,
         timeRender: d.date ? new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
         temperatureRenderInterpretation: undefined,
         bloodPressureRenderInterpretation: undefined,
@@ -611,7 +727,6 @@ export function getActivitiesBasedOnStigma(stigmaData: StigmaData[] | undefined)
               कृपया सहभागीको कुरा सक्रिय रुपमा सुन्नुहोला।
             </p>
           </div>
-
         </>
       ) : (
         <div style={cardStyle}>
@@ -678,6 +793,7 @@ function parseDimensionString(dimScore: string | number | string[] | undefined |
  * - collect all stigma rows with that same encounterUuid
  * - check thresholds on those rows only
  */
+
 export function computeStigmaMatch_LatestOnly(stigmaData: StigmaData[] | undefined): {
   matched: boolean;
   latestEncounterUuid?: string;

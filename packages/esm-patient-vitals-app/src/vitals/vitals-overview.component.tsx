@@ -13,7 +13,8 @@ import {
   parseDate,
   useConfig,
   useLayoutType,
- useSession } from '@openmrs/esm-framework';
+  useSession,
+} from '@openmrs/esm-framework';
 import type { ConfigObject } from '../config-schema';
 import type { VitalsTableHeader, VitalsTableRow } from './types';
 import { useLaunchVitalsAndBiometricsForm } from '../utils';
@@ -93,8 +94,8 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
   const tableHeaders: Array<VitalsTableHeader> = [
     {
       key: 'dateRender',
-      header: 'Date and Time\n\n(मिति र समय)',
-      style: { width: '160px', minWidth: '160px' },
+      header: 'Date\n\n(मिति)',
+      style: { width: '120px', minWidth: '120px' },
       isSortable: true,
       sortFunc: (valueA, valueB) =>
         valueA.date && valueB.date ? new Date(valueA.date).getTime() - new Date(valueB.date).getTime() : 0,
@@ -150,6 +151,7 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
         ...row,
         id: String(idx),
         date: row.date ?? '',
+        timeRender: row.date ? new Date(row.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
       }));
     } else if (vitals && vitals.length > 0) {
       return vitals
@@ -157,14 +159,7 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
         .map((d, idx) => ({
           id: String(idx),
           date: d.date ?? '',
-          dateRender: d.date ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.4' }}>
-              <span>{new Date(d.date).toLocaleDateString('en-US')}</span>
-              <span>{new Date(d.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          ) : (
-            ''
-          ),
+          dateRender: d.date ? new Date(d.date).toLocaleDateString() : '',
           timeRender: d.date ? new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
           temperatureRender: d.temperature ?? '',
           bloodPressureRender: d.bloodPressureRenderInterpretation ?? '',

@@ -7,11 +7,7 @@ interface StigmaMonthlyViewProps {
   endDate: Date;
 }
 
-export function StigmaMonthlyView({
-  stigmaData,
-  startDate,
-  endDate,
-}: StigmaMonthlyViewProps) {
+export function StigmaMonthlyView({ stigmaData, startDate, endDate }: StigmaMonthlyViewProps) {
   const metrics = aggregateStigmaByMonth(stigmaData, startDate, endDate);
 
   if (metrics.length === 0) {
@@ -89,19 +85,11 @@ export function StigmaMonthlyView({
               <td style={cellStyle}>{m.enactedCount}</td>
               <td style={cellStyle}>{m.internalizedCount}</td>
               {/* Dimensions */}
-              <td style={{ ...cellStyle, color: '#dc2626', fontWeight: 'bold' }}>
-                {m.dimensionsAboveCutoff}
-              </td>
-              <td style={{ ...cellStyle, color: '#2563eb', fontWeight: 'bold' }}>
-                {m.dimensionsBelowCutoff}
-              </td>
+              <td style={{ ...cellStyle, color: '#dc2626', fontWeight: 'bold' }}>{m.dimensionsAboveCutoff}</td>
+              <td style={{ ...cellStyle, color: '#2563eb', fontWeight: 'bold' }}>{m.dimensionsBelowCutoff}</td>
               {/* Intersectional */}
-              <td style={{ ...cellStyle, color: '#dc2626', fontWeight: 'bold' }}>
-                {m.intersectionalAboveCutoff}
-              </td>
-              <td style={{ ...cellStyle, color: '#2563eb', fontWeight: 'bold' }}>
-                {m.intersectionalBelowCutoff}
-              </td>
+              <td style={{ ...cellStyle, color: '#dc2626', fontWeight: 'bold' }}>{m.intersectionalAboveCutoff}</td>
+              <td style={{ ...cellStyle, color: '#2563eb', fontWeight: 'bold' }}>{m.intersectionalBelowCutoff}</td>
               {/* Dimension Details */}
               <td style={cellStyle}>{m.hivAboveCutoff}</td>
               <td style={cellStyle}>{m.mhAboveCutoff}</td>
@@ -143,7 +131,14 @@ export function StigmaMonthlyView({
       {/* Legend */}
       <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', color: '#374151' }}>📖 Legend:</h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0.5rem', fontSize: '0.85rem' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '0.5rem',
+            fontSize: '0.85rem',
+          }}
+        >
           <div>
             <strong>AS:</strong> Anticipated Stigma (अपेक्षित लान्छना)
           </div>

@@ -737,10 +737,7 @@ export default function MultiChartSelector({
 
   // Prepare chart data
   const dateDataLine = useMemo(() => (filteredData ? aggregateByDate(filteredData) : []), [filteredData]);
-  const dateDataGrouped = useMemo(
-    () => (filteredData ? aggregateByDateGrouped(filteredData) : []),
-    [filteredData],
-  );
+  const dateDataGrouped = useMemo(() => (filteredData ? aggregateByDateGrouped(filteredData) : []), [filteredData]);
 
   // Loading and error states
   if (isLoading) return <p>Loading stigma data...</p>;
