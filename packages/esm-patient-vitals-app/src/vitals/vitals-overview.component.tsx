@@ -44,6 +44,7 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
   const headerTitle = t('vitals', 'Stigma Score');
   const [chartView, setChartView] = useState(false);
   const [showStigmaChart, setShowStigmaChart] = useState(false);
+  const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set());
   const isTablet = useLayoutType() === 'tablet';
   const [isPrinting, setIsPrinting] = useState(false);
   const contentToPrintRef = useRef(null);
@@ -176,6 +177,32 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
     return [];
   }, [covidStigmaData, vitals]);
 
+  // Group rows by visit
+  const groupedByVisit = useMemo(() => {
+    const groups = new Map<string, VitalsTableRow[]>();
+    tableRows.forEach((row) => {
+      const visitLabel =
+        typeof row.dateRender === 'string' ? row.dateRender : String(row.dateRender || 'Unknown Visit');
+      if (!groups.has(visitLabel)) {
+        groups.set(visitLabel, []);
+      }
+      groups.get(visitLabel)!.push(row);
+    });
+    return Array.from(groups.entries()).map(([visit, rows]) => ({ visit, rows }));
+  }, [tableRows]);
+
+  const toggleVisit = (visitLabel: string) => {
+    setExpandedVisits((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(visitLabel)) {
+        newSet.delete(visitLabel);
+      } else {
+        newSet.add(visitLabel);
+      }
+      return newSet;
+    });
+  };
+
   const onBeforeGetContentResolve = useRef(null);
 
   useEffect(() => {
@@ -243,14 +270,69 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
               ) : (
                 <div ref={contentToPrintRef}>
                   <PrintComponent subheader={headerTitle} patientDetails={patientDetails} />
-                  <PaginatedVitals
-                    isPrinting={isPrinting}
-                    pageSize={pageSize}
-                    pageUrl={pageUrl}
-                    tableHeaders={tableHeaders}
-                    tableRows={tableRows}
-                    urlLabel={urlLabel}
-                  />
+                  {groupedByVisit.length > 0 && covidStigmaData && covidStigmaData.length > 0 ? (
+                    <div style={{ padding: '1rem' }}>
+                      {groupedByVisit.map((group, index) => {
+                        const isRecent = index === 0;
+                        const isExpanded = isRecent || expandedVisits.has(group.visit);
+                        return (
+                          <div
+                            key={group.visit}
+                            style={{ marginBottom: '1rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}
+                          >
+                            <div
+                              style={{
+                                padding: '0.75rem 1rem',
+                                backgroundColor: '#f4f4f4',
+                                cursor: isRecent ? 'default' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontWeight: 'bold',
+                              }}
+                              onClick={() => !isRecent && toggleVisit(group.visit)}
+                            >
+                              <span>
+                                {!isRecent && <span style={{ marginRight: '0.5rem' }}>{isExpanded ? '▼' : '▶'}</span>}
+                                {group.visit} ({group.rows.length})
+                              </span>
+                              {!isRecent && (
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleVisit(group.visit);
+                                  }}
+                                >
+                                  {isExpanded ? 'Hide' : 'Show'}
+                                </Button>
+                              )}
+                            </div>
+                            {isExpanded && (
+                              <PaginatedVitals
+                                isPrinting={isPrinting}
+                                pageSize={pageSize}
+                                pageUrl={pageUrl}
+                                tableHeaders={tableHeaders}
+                                tableRows={group.rows}
+                                urlLabel={urlLabel}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <PaginatedVitals
+                      isPrinting={isPrinting}
+                      pageSize={pageSize}
+                      pageUrl={pageUrl}
+                      tableHeaders={tableHeaders}
+                      tableRows={tableRows}
+                      urlLabel={urlLabel}
+                    />
+                  )}
                 </div>
               )}
 
@@ -258,6 +340,7 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
             </div>
           );
         }
+
         return (
           <div className={styles.widgetCard}>
             <CardHeader title={headerTitle} children={''} />
