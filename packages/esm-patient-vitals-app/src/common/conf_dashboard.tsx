@@ -91,6 +91,7 @@ import counselorFormJson from '../काउन्सिलर फारम.json'
 import conferenceFormJson from '../कन्फरेन्स फारम.json';
 import { MonthlyBarChart } from './monthly-bar-chart';
 import StgTypeVisualization from './stg_type';
+import { DimensionVisualization } from './dimension-visualization';
 import { CovidStigmaData } from './types';
 
 // QR Code imports
@@ -359,8 +360,9 @@ export function isBelowCutoff(value: number | undefined | null, cutoff: number):
   return value < cutoff;
 }
 
-// ---------------- Main Dashboard ----------------
+// ---------------- Main Dashboard ----------------s
 export default function AllPatientsDashboard() {
+  const session = useSession();
   const { data, isLoading, error } = useAllPatients();
   const patients = data?.patients || [];
   const [allPatientsData, setAllPatientsData] = useState<any[]>([]);
@@ -368,9 +370,12 @@ export default function AllPatientsDashboard() {
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [vizType, setVizType] = useState<'summary' | 'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Sites'>(
-    'summary',
-  );
+  const [vizType, setVizType] = useState<
+    'summary' | 'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Location' | 'dimensions'
+  >('summary');
+
+  // Get current location UUID for filtering
+  const currentLocationUuid = session?.sessionLocation?.uuid;
 
   useEffect(() => {
     if (!patients?.length) return;
@@ -652,7 +657,8 @@ export default function AllPatientsDashboard() {
               <option value="monthly">Patient Participation</option>
               <option value="custom1">ART ID</option>
               <option value="stgtype"> Stigma Type</option>
-              <option value="Sites">Sites</option>
+              <option value="dimensions">Dimensions</option>
+              <option value="Location">Location</option>
             </select>
           </div>
 
@@ -835,7 +841,12 @@ export default function AllPatientsDashboard() {
               allPatientsData={allPatientsData}
               startDate={startDate || undefined}
               endDate={endDate || undefined}
+              currentLocationUuid={currentLocationUuid}
             />
+          )}
+
+          {vizType === 'dimensions' && (
+            <DimensionVisualization allPatientsData={allPatientsData} currentLocationUuid={currentLocationUuid} />
           )}
 
           {vizType === 'custom2' && (
@@ -863,7 +874,7 @@ export default function AllPatientsDashboard() {
             </div>
           )}
 
-          {vizType === 'Sites' && (
+          {vizType === 'Location' && (
             <div
               style={{
                 backgroundColor: '#fff',
@@ -2515,7 +2526,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
 //           padding: '0.5rem',
 //           border: '1px solid #ccc',
 //           borderRadius: '4px',
-//           fontFamily: 'inherit',
+//           fontFamily: 'inherit',didnt
 //           resize: 'vertical',
 //         }}
 //       />
