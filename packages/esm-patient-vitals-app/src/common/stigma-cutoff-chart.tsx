@@ -151,10 +151,10 @@ function calculateStigmaThresholdCounts(patientsData: any[], stigmaScoreLabel: s
   let aboveThresholdCount = 0;
   let belowThresholdCount = 0;
 
-  patientsData.forEach((patient) => {
+  patientsData.forEach((patient: any[]) => {
     // Find the most recent stigma score for each patient
-    let mostRecent = null;
-    let mostRecentDate = null;
+    let mostRecent: any = null;
+    let mostRecentDate: Date | null = null;
 
     patient.forEach((obs: any) => {
       if (obs.display?.includes(stigmaScoreLabel)) {

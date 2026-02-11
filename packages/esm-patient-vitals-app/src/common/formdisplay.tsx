@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
 // answers: { [questionId]: selectedValue }
 export function FormDisplay({ formDefinition, answers }: { formDefinition: any; answers: Record<string, any> }) {
   // Flatten all questions from all sections/pages, filter out domain/total score questions
-  const questions = [];
+  const questions: any[] = [];
   const hiddenLabels = [
     'Internalized stigma score',
     'HIV domain total score-Internalized stigma',
@@ -26,9 +26,9 @@ export function FormDisplay({ formDefinition, answers }: { formDefinition: any; 
     'Ethnic Minorities domain score- Anticipated stigma score',
     'Intersectional stigma score for Anticipated stigma',
   ];
-  formDefinition.pages.forEach((page) => {
-    page.sections.forEach((section) => {
-      section.questions.forEach((q) => {
+  formDefinition.pages.forEach((page: any) => {
+    page.sections.forEach((section: any) => {
+      section.questions.forEach((q: any) => {
         if (!hiddenLabels.includes(q.label)) {
           questions.push(q);
         }

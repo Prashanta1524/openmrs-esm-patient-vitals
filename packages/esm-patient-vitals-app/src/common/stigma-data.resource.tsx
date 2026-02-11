@@ -868,7 +868,7 @@ export function computeStigmaMatch_LatestOnly(stigmaData: StigmaData[] | undefin
  */
 
 type StigmaRecord = {
-  date: string; // e.g. "2025-09-14"
+  date: string;
   as_score?: number;
   es_score?: number;
   is_score?: number;
@@ -893,8 +893,7 @@ export function preprocessStigmaTrendsAll(data: StigmaRecord[]) {
   const internalized: (number | null)[] = [];
 
   sorted.forEach((item) => {
-    labels.push(formatDate(item.date)); // nice label like 14 Sep 2025
-
+    labels.push(formatDate(item.date));
     anticipated.push(item.as_score ?? null);
     enacted.push(item.es_score ?? null);
     internalized.push(item.is_score ?? null);

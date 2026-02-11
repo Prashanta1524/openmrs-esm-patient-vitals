@@ -6,6 +6,8 @@ import { useSession } from '@openmrs/esm-framework';
 interface DimensionVisualizationProps {
   allPatientsData: any[];
   currentLocationUuid?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 // Domain labels in Nepali
@@ -50,8 +52,14 @@ function extractDimensionScores(
     patientObservations.forEach((obs: any) => {
       totalObs++;
 
-      // Filter by location - check both locationUuid and location.uuid
-      const obsLocationUuid = obs.locationUuid || obs.location?.uuid;
+      // Filter by location - check multiple possible location fields in FHIR/REST data
+      const obsLocationUuid =
+        obs.locationUuid ||
+        obs.location?.uuid ||
+        obs.location?.reference?.split('/').pop() ||
+        obs.encounter?.location?.[0]?.location?.reference?.split('/').pop();
+
+      // Skip location filter if observation doesn't have location data
       if (currentLocationUuid && obsLocationUuid && obsLocationUuid !== currentLocationUuid) {
         return;
       }
@@ -60,17 +68,43 @@ function extractDimensionScores(
       const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
       const stigmaType = raw.toLowerCase();
 
-      // Match stigma type (AS, ES, IS)
+      // Match stigma type (AS, ES, IS) with expanded patterns
       let isMatchingType = false;
       let typeLabel = '';
 
-      if (selectedType === 'as' && (stigmaType.includes('anticipated') || stigmaType.includes('अपेक्षित'))) {
+      if (
+        selectedType === 'as' &&
+        (stigmaType.includes('anticipated') ||
+          stigmaType.includes('अपेक्षित') ||
+          stigmaType.includes('concern') ||
+          stigmaType.includes('fear') ||
+          stigmaType.includes('worry') ||
+          stigmaType.includes('expect'))
+      ) {
         isMatchingType = true;
         typeLabel = 'Anticipated (AS)';
-      } else if (selectedType === 'es' && (stigmaType.includes('enacted') || stigmaType.includes('व्यावहारिक'))) {
+      } else if (
+        selectedType === 'es' &&
+        (stigmaType.includes('enacted') ||
+          stigmaType.includes('व्यावहारिक') ||
+          stigmaType.includes('verbal abuse') ||
+          stigmaType.includes('mistreatment') ||
+          stigmaType.includes('discriminat') ||
+          stigmaType.includes('reject') ||
+          stigmaType.includes('avoid'))
+      ) {
         isMatchingType = true;
         typeLabel = 'Enacted (ES)';
-      } else if (selectedType === 'is' && (stigmaType.includes('internalized') || stigmaType.includes('आत्म'))) {
+      } else if (
+        selectedType === 'is' &&
+        (stigmaType.includes('internalized') ||
+          stigmaType.includes('आत्म') ||
+          stigmaType.includes('self-disgust') ||
+          stigmaType.includes('self disgust') ||
+          stigmaType.includes('shame') ||
+          stigmaType.includes('self-blame') ||
+          stigmaType.includes('self blame'))
+      ) {
         isMatchingType = true;
         typeLabel = 'Internalized (IS)';
       }
@@ -210,7 +244,12 @@ function calculateMinMax(domainScores: Record<string, number[]>) {
   return result;
 }
 
-export function DimensionVisualization({ allPatientsData, currentLocationUuid }: DimensionVisualizationProps) {
+export function DimensionVisualization({
+  allPatientsData,
+  currentLocationUuid,
+  startDate,
+  endDate,
+}: DimensionVisualizationProps) {
   const session = useSession();
   const [selectedType, setSelectedType] = useState<'as' | 'es' | 'is'>('as');
 
@@ -219,13 +258,29 @@ export function DimensionVisualization({ allPatientsData, currentLocationUuid }:
   const locationName = session?.sessionLocation?.display || 'Current Site';
 
   const dimensionData = useMemo(() => {
-    const domainScores = extractDimensionScores(allPatientsData, selectedType, locationUuid);
+    // Filter by date range if provided
+    let filteredData = allPatientsData;
+    if (startDate || endDate) {
+      const s = startDate ? new Date(startDate) : null;
+      const e = endDate ? new Date(endDate) : null;
+      filteredData = allPatientsData.map((patientObservations) =>
+        patientObservations.filter((obs: any) => {
+          const ds = obs.effectiveDateTime || obs.date;
+          if (!ds) return false;
+          const d = new Date(ds);
+          if (s && d < s) return false;
+          if (e && d > e) return false;
+          return true;
+        }),
+      );
+    }
+    const domainScores = extractDimensionScores(filteredData, selectedType, locationUuid);
     return calculateMinMax(domainScores);
-  }, [allPatientsData, selectedType, locationUuid]);
+  }, [allPatientsData, selectedType, locationUuid, startDate, endDate]);
 
   // Prepare chart data with new colors
   const chartData = {
-    labels: Object.keys(DOMAIN_LABELS).map((key) => DOMAIN_LABELS[key]),
+    labels: Object.keys(DOMAIN_LABELS).map((key) => DOMAIN_LABELS[key as keyof typeof DOMAIN_LABELS]),
     datasets: [
       {
         label: 'Max Score',

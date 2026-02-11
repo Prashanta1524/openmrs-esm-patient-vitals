@@ -12,26 +12,184 @@ export interface StgTypeProps {
   currentLocationUuid?: string;
 }
 
-function normalizeStigmaType(raw: string | undefined): string {
+// Concept UUIDs for stigma types (from stigma-data.resource.tsx)
+const STIGMA_CONCEPT_UUIDS = {
+  // Main stigma type scores - ONLY match these for the main visualization
+  anticipated: 'b5be0487-ef8e-4c39-ad86-39dd341cf0a7',
+  enacted: '367a6a1f-b951-4eac-8068-a5f0801d6aff',
+  internalized: '3f318839-599e-47d7-96f5-4c81ca64dfc3',
+  // Intersectional scores - include these as well
+  anticipated_inter: '260b7159-9cc9-442d-b641-133b5dbbce06',
+  enacted_inter: 'fb3a85e9-5154-46f7-8c00-54cce586332c',
+  internalized_inter: '54addbef-17f5-4678-988a-9d6a68ad38f7',
+};
+
+// All valid stigma concept UUIDs (for quick lookup)
+const ALL_STIGMA_UUIDS = new Set([
+  STIGMA_CONCEPT_UUIDS.anticipated,
+  STIGMA_CONCEPT_UUIDS.enacted,
+  STIGMA_CONCEPT_UUIDS.internalized,
+  STIGMA_CONCEPT_UUIDS.anticipated_inter,
+  STIGMA_CONCEPT_UUIDS.enacted_inter,
+  STIGMA_CONCEPT_UUIDS.internalized_inter,
+]);
+
+function normalizeStigmaType(raw: string | undefined, conceptUuid?: string): string {
+  // First check by concept UUID (most reliable)
+  if (conceptUuid && ALL_STIGMA_UUIDS.has(conceptUuid)) {
+    if (conceptUuid === STIGMA_CONCEPT_UUIDS.internalized || conceptUuid === STIGMA_CONCEPT_UUIDS.internalized_inter) {
+      return 'आत्मलान्छना';
+    }
+    if (conceptUuid === STIGMA_CONCEPT_UUIDS.anticipated || conceptUuid === STIGMA_CONCEPT_UUIDS.anticipated_inter) {
+      return 'अपेक्षित लान्छना';
+    }
+    if (conceptUuid === STIGMA_CONCEPT_UUIDS.enacted || conceptUuid === STIGMA_CONCEPT_UUIDS.enacted_inter) {
+      return 'व्यावहारिक लान्छना';
+    }
+  }
+
+  // Fallback: check by text patterns - but be STRICT to avoid matching individual questions
   const s = (raw || '').toLowerCase();
   if (!s) return '';
-  if (s.includes('internal') || s.includes('internalized') || s.includes('आत्म')) return 'आत्मलान्छना';
-  if (s.includes('anticip') || s.includes('anticipated') || s.includes('अपेक्षित')) return 'अपेक्षित लान्छना';
-  if (s.includes('enact') || s.includes('enacted') || s.includes('व्यावहारिक')) return 'व्यावहारिक लान्छना';
+
+  // INCLUDE intersectional stigma scores - these are the aggregated scores we want
+  if (s.includes('intersectional stigma score')) {
+    if (s.includes('internalized')) return 'आत्मलान्छना';
+    if (s.includes('anticipated')) return 'अपेक्षित लान्छना';
+    if (s.includes('enacted')) return 'व्यावहारिक लान्छना';
+    return '';
+  }
+
+  // EXCLUDE domain scores - these contain "domain" in the text (individual domain scores, not main scores)
+  if (s.includes('domain score')) {
+    return ''; // Skip domain scores - they are not the main stigma type total scores
+  }
+
+  // Match EXACT Nepali stigma type names (these are the main scores)
+  if (s === 'आत्मलान्छना' || s.includes('आत्मलान्छना')) {
+    return 'आत्मलान्छना';
+  }
+  if (s === 'अपेक्षित लान्छना' || s.includes('अपेक्षित लान्छना')) {
+    return 'अपेक्षित लान्छना';
+  }
+  if (s === 'व्यावहारिक लान्छना' || s.includes('व्यावहारिक लान्छना')) {
+    return 'व्यावहारिक लान्छना';
+  }
+
+  // Match English names for main stigma type scores (not domain scores)
+  if (s === 'internalized stigma' || s === 'internalized' || s.includes('internalized stigma score')) {
+    return 'आत्मलान्छना';
+  }
+  if (s === 'anticipated stigma' || s === 'anticipated' || s.includes('anticipated stigma score')) {
+    return 'अपेक्षित लान्छना';
+  }
+  if (s === 'enacted stigma' || s === 'enacted' || s.includes('enacted stigma score')) {
+    return 'व्यावहारिक लान्छना';
+  }
+
   return '';
 }
 
-function getNumericValueFromObservation(obs: any): number | null {
+function getNumericValueFromObservation(obs: any, debug = false): number | null {
   if (!obs) return null;
-  const vq = obs.valueQuantity?.value;
-  if (typeof vq === 'number') return vq;
-  if (typeof obs.valueNumber === 'number') return obs.valueNumber;
-  if (typeof obs.value === 'number') return obs.value;
 
+  // Helper to parse a value that might be in "X/Y" format (e.g., "31/36")
+  const parseNumericValue = (v: any): number | null => {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return v;
+
+    const s = String(v).trim();
+
+    // Handle "X/Y" format - extract the first number (the score)
+    const slashMatch = s.match(/^(-?\d+(?:\.\d+)?)\s*\/\s*\d+/);
+    if (slashMatch) {
+      const n = parseFloat(slashMatch[1]);
+      if (debug) console.log(`  Parsed from "X/Y" format: ${s} → ${n}`);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    // Handle regular numeric string
+    const match = s.match(/-?\d+(?:\.\d+)?/);
+    if (match) {
+      const n = parseFloat(match[0]);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    return null;
+  };
+
+  // Try multiple possible value locations
+  const vq = obs.valueQuantity?.value;
+  if (typeof vq === 'number') {
+    if (debug) console.log('  Value found in valueQuantity.value:', vq);
+    return vq;
+  }
+
+  if (typeof obs.valueNumber === 'number') {
+    if (debug) console.log('  Value found in valueNumber:', obs.valueNumber);
+    return obs.valueNumber;
+  }
+
+  if (typeof obs.value === 'number') {
+    if (debug) console.log('  Value found in value:', obs.value);
+    return obs.value;
+  }
+
+  // Try parsing value if it's a string (handles "31/36" format)
+  if (typeof obs.value === 'string') {
+    const parsed = parseNumericValue(obs.value);
+    if (parsed !== null) {
+      if (debug) console.log('  Value parsed from string value:', parsed);
+      return parsed;
+    }
+  }
+
+  // Try value.display (common in REST API responses)
+  if (obs.value?.display) {
+    const parsed = parseNumericValue(obs.value.display);
+    if (parsed !== null) {
+      if (debug) console.log('  Value parsed from value.display:', parsed);
+      return parsed;
+    }
+  }
+
+  // Try valueString as number
+  if (typeof obs.valueString === 'string') {
+    const parsed = parseNumericValue(obs.valueString);
+    if (parsed !== null) {
+      if (debug) console.log('  Value parsed from valueString:', parsed);
+      return parsed;
+    }
+  }
+
+  // Try valueInteger
+  if (typeof obs.valueInteger === 'number') {
+    if (debug) console.log('  Value found in valueInteger:', obs.valueInteger);
+    return obs.valueInteger;
+  }
+
+  // Try valueDecimal
+  if (typeof obs.valueDecimal === 'number') {
+    if (debug) console.log('  Value found in valueDecimal:', obs.valueDecimal);
+    return obs.valueDecimal;
+  }
+
+  // Try component array
   if (Array.isArray(obs.component)) {
     for (const c of obs.component) {
-      const cv = c.valueQuantity?.value ?? c.valueNumber ?? c.value;
-      if (typeof cv === 'number') return cv;
+      const cv = c.valueQuantity?.value ?? c.valueNumber ?? c.value ?? c.valueInteger ?? c.valueDecimal;
+      if (typeof cv === 'number') {
+        if (debug) console.log('  Value found in component:', cv);
+        return cv;
+      }
+      // Try parsing component value string
+      if (typeof c.value === 'string') {
+        const parsed = parseNumericValue(c.value);
+        if (parsed !== null) {
+          if (debug) console.log('  Value parsed from component string:', parsed);
+          return parsed;
+        }
+      }
     }
   }
 
@@ -86,7 +244,14 @@ function computeTimeSeriesData(
 
   (allPatientsData || []).forEach((patientObs) => {
     (patientObs || []).forEach((obs: any) => {
-      if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) return;
+      // Check multiple possible location fields in FHIR/REST data
+      const obsLocationUuid =
+        obs.locationUuid ||
+        obs.location?.uuid ||
+        obs.location?.reference?.split('/').pop() ||
+        obs.encounter?.location?.[0]?.location?.reference?.split('/').pop();
+
+      if (currentLocationUuid && obsLocationUuid && obsLocationUuid !== currentLocationUuid) return;
 
       const ds = obs.effectiveDateTime || obs.date;
       if (!ds) return;
@@ -95,7 +260,8 @@ function computeTimeSeriesData(
       if (end && d > end) return;
 
       const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
-      const norm = normalizeStigmaType(raw);
+      const conceptUuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
+      const norm = normalizeStigmaType(raw, conceptUuid);
       if (!norm) return;
 
       const value = getNumericValueFromObservation(obs);
@@ -126,23 +292,9 @@ function computeTimeSeriesData(
   // Convert map to sorted array with computed min/max
   const sortedKeys = Array.from(dataMap.keys()).sort();
 
-  // If no data, generate dummy data
+  // If no data, return empty array instead of dummy data
   if (sortedKeys.length === 0) {
-    const dummyData: TimeSeriesDataPoint[] = [];
-    const today = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateKey = formatDateKey(date);
-      dummyData.push({
-        date: dateKey,
-        timestamp: date.getTime(),
-        internalized: { min: 30 + Math.random() * 20, max: 150 + Math.random() * 50, values: [] },
-        anticipated: { min: 40 + Math.random() * 15, max: 120 + Math.random() * 40, values: [] },
-        enacted: { min: 35 + Math.random() * 10, max: 80 + Math.random() * 25, values: [] },
-      });
-    }
-    return dummyData;
+    return [];
   }
 
   return sortedKeys.map((dateKey) => {
@@ -185,41 +337,144 @@ function computeMinMax(
   let hasData = false;
 
   // Debug: track all values found
-  const allValues: { type: string; value: number }[] = [];
+  const allValues: { type: string; value: number; raw: string; conceptUuid: string }[] = [];
+  let totalObs = 0;
+  let skippedLocation = 0;
+  let skippedDate = 0;
+  let skippedNoDate = 0;
+  let skippedNoType = 0;
+  let skippedNoValue = 0;
 
-  (allPatientsData || []).forEach((patientObs) => {
-    (patientObs || []).forEach((obs: any) => {
-      if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) return;
+  console.log('🔍 computeMinMax DEBUG START');
+  console.log('📊 Total patients:', allPatientsData?.length || 0);
+  console.log('📍 Location filter:', currentLocationUuid || 'NONE');
+  console.log('📅 Date range:', startDate || 'no start', 'to', endDate || 'no end');
+
+  (allPatientsData || []).forEach((patientObs, patientIndex) => {
+    (patientObs || []).forEach((obs: any, obsIndex: number) => {
+      totalObs++;
+
+      // Track all unique concept UUIDs for debugging
+      const conceptUuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
+      if (conceptUuid && totalObs <= 30) {
+        console.log(
+          `🔑 Obs #${totalObs} conceptUuid: ${conceptUuid}, display: ${obs.code?.coding?.[0]?.display || obs.concept?.display}`,
+        );
+      }
+
+      // Check if this is one of our target stigma concepts
+      if (ALL_STIGMA_UUIDS.has(conceptUuid)) {
+        console.log(`🎯 FOUND STIGMA CONCEPT: ${conceptUuid}, value:`, obs.valueQuantity?.value ?? obs.value);
+      }
+
+      // Log first 3 observations to see structure
+      if (totalObs <= 3) {
+        console.log(`📋 Sample obs #${totalObs}:`, {
+          conceptUuid: obs.code?.coding?.[0]?.code || obs.concept?.uuid,
+          locationUuid: obs.locationUuid,
+          location: obs.location,
+          encounterLocation: obs.encounter?.location,
+          effectiveDateTime: obs.effectiveDateTime,
+          date: obs.date,
+          stigmaType: obs.stigmaType,
+          codeDisplay: obs.code?.coding?.[0]?.display,
+          codeText: obs.code?.text,
+          valueQuantity: obs.valueQuantity,
+          valueNumber: obs.valueNumber,
+          value: obs.value,
+          fullObs: obs,
+        });
+      }
+
+      // Check multiple possible location fields in FHIR/REST data
+      const obsLocationUuid =
+        obs.locationUuid ||
+        obs.location?.uuid ||
+        obs.location?.reference?.split('/').pop() ||
+        obs.encounter?.location?.[0]?.location?.reference?.split('/').pop();
+
+      // Location filtering is now done in conf_dashboard.tsx before data is passed here
+      // This is just an extra safety check - if currentLocationUuid is set and observation
+      // has a different location, skip it
+      if (currentLocationUuid && obsLocationUuid && obsLocationUuid !== currentLocationUuid) {
+        skippedLocation++;
+        if (skippedLocation <= 3) {
+          console.log(`📍 Skipped location mismatch: obs=${obsLocationUuid}, filter=${currentLocationUuid}`);
+        }
+        return;
+      }
+
+      // Note: If observation has no locationUuid, it will still be processed
+      // The main filtering happens in conf_dashboard.tsx
 
       const ds = obs.effectiveDateTime || obs.date;
-      if (!ds) return;
+      if (!ds) {
+        skippedNoDate++;
+        return;
+      }
       const d = new Date(ds);
-      if (start && d < start) return;
-      if (end && d > end) return;
+      if (start && d < start) {
+        skippedDate++;
+        return;
+      }
+      if (end && d > end) {
+        skippedDate++;
+        return;
+      }
 
       const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
-      const norm = normalizeStigmaType(raw);
-      if (!norm) return;
+      const conceptUuidInner = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
+      const norm = normalizeStigmaType(raw, conceptUuidInner);
 
-      const value = getNumericValueFromObservation(obs);
-      if (value === null || Number.isNaN(value)) return;
+      if (!norm) {
+        skippedNoType++;
+        if (skippedNoType <= 5) {
+          console.log(`⚠️ No stigma type match for raw: "${raw}", conceptUuid: "${conceptUuidInner}"`);
+        }
+        return;
+      }
+
+      const value = getNumericValueFromObservation(obs, skippedNoValue < 3);
+      if (value === null || Number.isNaN(value)) {
+        skippedNoValue++;
+        if (skippedNoValue <= 5) {
+          console.log(`⚠️ No numeric value found for obs with type: "${norm}"`);
+          console.log(`   Obs value fields:`, {
+            valueQuantity: obs.valueQuantity,
+            valueNumber: obs.valueNumber,
+            value: obs.value,
+            valueString: obs.valueString,
+            valueInteger: obs.valueInteger,
+            valueDecimal: obs.valueDecimal,
+            component: obs.component,
+          });
+        }
+        return;
+      }
 
       hasData = true;
-      allValues.push({ type: norm, value });
+      allValues.push({ type: norm, value, raw, conceptUuid: conceptUuidInner });
+
+      // Log matched values for debugging
+      if (allValues.length <= 10) {
+        console.log(
+          `✅ Matched: conceptUuid="${conceptUuidInner}", raw="${raw.substring(0, 50)}" → ${norm} = ${value}`,
+        );
+      }
 
       if (norm === 'आत्मलान्छना') {
-        // Only use value > 0 for min calculation
-        if (value > 0) {
+        // Include 0 values in min calculation as they are valid scores
+        if (value !== null && value !== undefined && !Number.isNaN(value)) {
           result.internalized.min = Math.min(result.internalized.min, value);
         }
         result.internalized.max = Math.max(result.internalized.max, value);
       } else if (norm === 'अपेक्षित लान्छना') {
-        if (value > 0) {
+        if (value !== null && value !== undefined && !Number.isNaN(value)) {
           result.anticipated.min = Math.min(result.anticipated.min, value);
         }
         result.anticipated.max = Math.max(result.anticipated.max, value);
       } else if (norm === 'व्यावहारिक लान्छना') {
-        if (value > 0) {
+        if (value !== null && value !== undefined && !Number.isNaN(value)) {
           result.enacted.min = Math.min(result.enacted.min, value);
         }
         result.enacted.max = Math.max(result.enacted.max, value);
@@ -227,30 +482,16 @@ function computeMinMax(
     });
   });
 
-  // Debug logging
-  console.log('🔍 STG_TYPE DEBUG - All values found:', allValues);
-  console.log(
-    '🔍 STG_TYPE DEBUG - आत्मलान्छना values:',
-    allValues.filter((v) => v.type === 'आत्मलान्छना'),
-  );
-  console.log(
-    '🔍 STG_TYPE DEBUG - अपेक्षित लान्छना values:',
-    allValues.filter((v) => v.type === 'अपेक्षित लान्छना'),
-  );
-  console.log(
-    '🔍 STG_TYPE DEBUG - व्यावहारिक लान्छना values:',
-    allValues.filter((v) => v.type === 'व्यावहारिक लान्छना'),
-  );
-  console.log('🔍 STG_TYPE DEBUG - Result before cleanup:', JSON.stringify(result));
-
-  // If no data, use dummy data for visualization
-  if (!hasData) {
-    return {
-      internalized: { min: 30, max: 200 },
-      anticipated: { min: 40, max: 160 },
-      enacted: { min: 40, max: 105 },
-    };
-  }
+  // Debug summary
+  console.log('📈 computeMinMax DEBUG SUMMARY:');
+  console.log('   Total observations:', totalObs);
+  console.log('   Skipped (location):', skippedLocation);
+  console.log('   Skipped (no date):', skippedNoDate);
+  console.log('   Skipped (date range):', skippedDate);
+  console.log('   Skipped (no type match):', skippedNoType);
+  console.log('   Skipped (no value):', skippedNoValue);
+  console.log('   ✅ Valid values found:', allValues.length);
+  console.log('   All values:', allValues);
 
   // Replace Infinity with 0 for types with no positive min values
   if (result.internalized.min === Infinity) result.internalized.min = 0;
@@ -260,7 +501,8 @@ function computeMinMax(
   if (result.enacted.min === Infinity) result.enacted.min = 0;
   if (result.enacted.max === -Infinity) result.enacted.max = 0;
 
-  console.log('🔍 STG_TYPE DEBUG - Final result:', JSON.stringify(result));
+  console.log('📊 Final result:', result);
+  console.log('🔍 computeMinMax DEBUG END');
 
   return result;
 }

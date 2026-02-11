@@ -1,12 +1,12 @@
 // Async function to fetch and map patient answers by concept UUID
-export async function fetchPatientAnswers(patientUuid, formJson) {
+export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
   // Flatten all questions
-  const questions = [];
-  formJson.pages.forEach((page) =>
-    page.sections.forEach((section) => section.questions.forEach((q) => questions.push(q))),
+  const questions: any[] = [];
+  formJson.pages.forEach((page: any) =>
+    page.sections.forEach((section: any) => section.questions.forEach((q: any) => questions.push(q))),
   );
   // Get all concept UUIDs - both question concepts and answer option concepts
-  const conceptUuids = [];
+  const conceptUuids: string[] = [];
   questions.forEach((q) => {
     // Add main question concept
     if (q.questionOptions?.concept) {
@@ -14,7 +14,7 @@ export async function fetchPatientAnswers(patientUuid, formJson) {
     }
     // For checkbox questions, also add all answer option concepts
     if (q.questionOptions?.rendering === 'checkbox' && q.questionOptions?.answers) {
-      q.questionOptions.answers.forEach((answer) => {
+      q.questionOptions.answers.forEach((answer: any) => {
         if (answer.concept) {
           conceptUuids.push(answer.concept);
         }
@@ -36,7 +36,7 @@ export async function fetchPatientAnswers(patientUuid, formJson) {
   // );
 
   // Fetch all obs for patient, handling pagination
-  let obsArray = [];
+  let obsArray: any[] = [];
   let nextUrl = `/openmrs/ws/rest/v1/obs?patient=${patientUuid}&v=full`;
   try {
     while (nextUrl) {
@@ -50,7 +50,7 @@ export async function fetchPatientAnswers(patientUuid, formJson) {
         obsArray = obsArray.concat(data.results || []);
         // Check for next page
         nextUrl =
-          data.links && Array.isArray(data.links) ? data.links.find((l) => l.rel === 'next')?.uri || null : null;
+          data.links && Array.isArray(data.links) ? data.links.find((l: any) => l.rel === 'next')?.uri || null : null;
       } else {
         console.error('API error', response.status, nextUrl);
         break;
@@ -98,7 +98,7 @@ export async function fetchPatientAnswers(patientUuid, formJson) {
   // console.log('Form questions count:', questions.length);
 
   // Map answers
-  const answers = {};
+  const answers: Record<string, any> = {};
   questions.forEach((q) => {
     const concept = q.questionOptions?.concept;
     if (!concept) {
@@ -315,7 +315,7 @@ export function ArtIdVisualization({ patients }: { patients: any[] }) {
             const patient = patients.find(
               (p) =>
                 p.identifier &&
-                p.identifier.some((id) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
+                p.identifier.some((id: any) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
             );
             setSelectedPatientUuid(patient ? patient.id : null);
           }}
@@ -405,14 +405,14 @@ function parseDimensionScore(scoreStr: string) {
 }
 
 // Utility to map obs to answers for form questions
-function mapObsToAnswers(obsArray, questions) {
+function mapObsToAnswers(obsArray: any[], questions: any[]) {
   // console.log('DEBUG: mapObsToAnswers called');
   // console.log('DEBUG: obsArray', obsArray);
   // console.log(
   //   'DEBUG: questions',
   //   questions.map((q) => ({ id: q.id, concept: q.questionOptions?.concept, answers: q.questionOptions?.answers })),
   // );
-  const answers = {};
+  const answers: Record<string, any> = {};
   questions.forEach((q) => {
     // Match obs by concept UUID
     const concept = q.questionOptions?.concept;
@@ -430,7 +430,7 @@ function mapObsToAnswers(obsArray, questions) {
       // console.log('DEBUG: possibleAnswers for', q.id, possibleAnswers);
       // Try to match by concept or value
       const selected = possibleAnswers.find(
-        (a) => a.concept === obsMatch.valueCoded || a.value === obsMatch.value || a.concept === obsMatch.value,
+        (a: any) => a.concept === obsMatch.valueCoded || a.value === obsMatch.value || a.concept === obsMatch.value,
       );
       // console.log('DEBUG: selected answer for', q.id, selected);
       answers[q.id] = selected ? selected.value : obsMatch.value || obsMatch.valueCoded || 'Not answered';
@@ -479,7 +479,7 @@ const aggregateByDate = (data: CovidStigmaData[]) => {
         totals: parsed,
       };
     })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => new Date(a.date ?? '').getTime() - new Date(b.date ?? '').getTime());
 };
 
 const aggregateByDateGrouped = (data: CovidStigmaData[]) => {
@@ -496,11 +496,11 @@ const aggregateByDateGrouped = (data: CovidStigmaData[]) => {
   };
 
   data.forEach((d) => {
-    const dDate = new Date(d.date);
+    const dDate = d.date ? new Date(d.date) : new Date(0);
     const dateStr = `${dDate.getFullYear()}-${String(dDate.getMonth() + 1).padStart(2, '0')}-${String(dDate.getDate()).padStart(2, '0')}`;
 
     if (!grouped[dateStr]) {
-      grouped[dateStr] = { date: d.date, records: [] };
+      grouped[dateStr] = { date: d.date ?? '', records: [] };
     }
 
     const parsed = d.dimensionScore
@@ -645,7 +645,7 @@ function LatestStigmaBarChart({ latestRecord }: { latestRecord: ReturnType<typeo
 function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> }) {
   // Format labels as Day Month Year
   const labels = data.map((d) => {
-    const date = new Date(d.date);
+    const date = new Date(d.date ?? '');
     return date.toLocaleDateString('default', { day: '2-digit', month: 'short', year: 'numeric' });
   });
 

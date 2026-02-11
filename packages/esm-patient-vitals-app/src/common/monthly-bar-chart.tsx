@@ -48,12 +48,25 @@ export function MonthlyBarChart({
     return counts;
   }, [allPatientsData, selectedYear, month, currentLocationUuid]);
 
+  // const dynamic = useMemo(() => {
+  //   if (!startDate || !endDate) return null;
+  //   const s = new Date(startDate);
+  //   const e = new Date(endDate);
+  //   const level = getAggregationLevel(s, e);
+  //   return aggregateData(allPatientsData, s, e, level);
+  // }, [allPatientsData, startDate, endDate]);
+
   const dynamic = useMemo(() => {
-    if (!startDate || !endDate) return null;
-    const s = new Date(startDate);
-    const e = new Date(endDate);
-    const level = getAggregationLevel(s, e);
-    return aggregateData(allPatientsData, s, e, level);
+    if (!startDate && !endDate) return null;
+    const rawStart = startDate ?? endDate;
+    const rawEnd = endDate ?? startDate;
+    const s = rawStart ? new Date(rawStart) : null;
+    const e = rawEnd ? new Date(rawEnd) : null;
+    if (!s || !e || isNaN(s.getTime()) || isNaN(e.getTime())) return null;
+    const rangeStart = s <= e ? s : e;
+    const rangeEnd = s <= e ? e : s;
+    const level = getAggregationLevel(rangeStart, rangeEnd);
+    return aggregateData(allPatientsData, rangeStart, rangeEnd, level);
   }, [allPatientsData, startDate, endDate]);
 
   const monthCounts = useMemo(
@@ -88,7 +101,7 @@ export function MonthlyBarChart({
             },
             borderRadius: 8,
             borderSkipped: false,
-            hoverBackgroundColor: '#2b21bfff', 
+            hoverBackgroundColor: '#2b21bfff',
           },
         ],
       }
@@ -247,7 +260,7 @@ function aggregateYearMonthPatientCount(allPatientsData: any[], selectedYear: st
       const offsetInMs = 5 * 60 * 60 * 1000 + 45 * 60 * 1000;
       const nepaliDate = new Date(date.getTime() + offsetInMs);
       const year = nepaliDate.getFullYear().toString();
-      const month = nepaliDate.getMonth(); 
+      const month = nepaliDate.getMonth();
       if (year === selectedYear) {
         monthPatientSets[month].add(String(patientIdx));
       }

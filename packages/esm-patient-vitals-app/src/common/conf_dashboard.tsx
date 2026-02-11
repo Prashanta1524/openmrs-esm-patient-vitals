@@ -1,76 +1,3 @@
-// import MultiChartSelector from './stigma-data-aggregate';
-// // New function for ART ID visualization
-// function ArtIdVisualization({ patients }: { patients: any[] }) {
-//   const [artId, setArtId] = React.useState('');
-//   const [selectedPatientUuid, setSelectedPatientUuid] = React.useState<string | null>(null);
-
-//   return (
-//     <div
-//       style={{
-//         backgroundColor: '#fff',
-//         padding: 'clamp(1rem, 3vw, 2rem)',
-//         marginBottom: '1.5rem',
-//         borderRadius: '12px',
-//         boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-//         maxWidth: '98vw',
-//         minWidth: 0,
-//         width: '100%',
-//         minHeight: 300,
-//         margin: '0 auto',
-//         display: 'flex',
-//         flexDirection: 'column',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         boxSizing: 'border-box',
-//       }}
-//     >
-//       <label>
-//         Enter ART ID:{' '}
-//         <input
-//           type="text"
-//           value={artId}
-//           onChange={(e) => setArtId(e.target.value)}
-//           style={{
-//             padding: '0.5rem',
-//             borderRadius: 4,
-//             border: '1px solid #ccc',
-//             marginRight: '1rem',
-//           }}
-//         />
-//         <button
-//           onClick={() => {
-//             const patient = patients.find(
-//               (p) =>
-//                 p.identifier &&
-//                 p.identifier.some((id) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
-//             );
-//             setSelectedPatientUuid(patient ? patient.id : null);
-//           }}
-//           style={{
-//             padding: '0.5rem 1rem',
-//             borderRadius: 4,
-//             border: 'none',
-//             background: '#1f2e5b',
-//             color: '#fff',
-//             cursor: 'pointer',
-//           }}
-//         >
-//           Visualize
-//         </button>
-//       </label>
-//       <div style={{ width: '100%', marginTop: '2rem' }}>
-//         {selectedPatientUuid ? (
-//           <MultiChartSelector patientUuid={selectedPatientUuid} />
-//         ) : (
-//           <p style={{ color: '#888', fontSize: '1.1rem', marginTop: '2rem' }}>
-//             {artId ? 'No patient found for this ART ID.' : 'Please enter an ART ID and click Visualize.'}
-//           </p>
-//         )}
-//       </div>
-//     </div>
-//   );
-// }
-
 import React, { useEffect, useState, useMemo } from 'react';
 import useSWR from 'swr';
 import { fhirBaseUrl, openmrsFetch, showSnackbar, useSession } from '@openmrs/esm-framework';
@@ -232,11 +159,6 @@ const ClickableTextWithQR: React.FC<ClickableTextWithQRProps> = ({ text, image, 
   );
 };
 
-// ============================================================================
-// � PATIENT CONFIGURATION
-// ============================================================================
-// Configuration for allowed patients in the form interface
-// To add new patients, simply add their patient ID to this array
 export const PATIENT_CONFIG = {
   // Patient UUIDs - representing sites in the system
   allowedPatients: [
@@ -273,7 +195,7 @@ export const PATIENT_CONFIG = {
   },
 };
 
-// 💡 USAGE NOTES:
+// 💡 USllPGE NOTES:
 // • These are LOCATION UUIDs, not patient UUIDs
 // • Patients from these locations will be shown in dropdown
 // • Kathmandu (6b4b134d...) and Bhaktapur (5fdefb8b...) locations
@@ -281,11 +203,10 @@ export const PATIENT_CONFIG = {
 // ============================================================================
 // import { StigmaAnnualTrendChart } from './stigma-annual-trend';
 // import { StigmaOverviewChart } from './StigmaOverviewChart'; // adjust path if needed
-// ---------------- Fetch All Patients (for all visualizations) ----------------
+// ---------------- Fetch ll Patients (for all visualizations) ----------------
 async function fetchAllPatients() {
   let allPatients: any[] = [];
 
-  // Method 1: Try FHIR API
   try {
     let offset = 0;
     while (true) {
@@ -303,7 +224,6 @@ async function fetchAllPatients() {
     // FHIR API failed, continue to next method
   }
 
-  // Method 2: Try REST API (v1/patient)
   try {
     const restUrl = '/ws/rest/v1/patient?v=full&limit=100';
     const { data } = await openmrsFetch(restUrl);
@@ -320,9 +240,11 @@ async function fetchAllPatients() {
 
   return { patients: allPatients, total: allPatients.length };
 }
+
 export function useAllPatients() {
   return useSWR('allPatients', fetchAllPatients);
 }
+
 export function checkCutoff(
   value: number | undefined | null,
   cutoff: number,
@@ -342,8 +264,76 @@ async function fetchPatientStigmaData(patientId: string) {
     if (!data?.entry) return [];
     return data.entry.map((e: any) => e.resource);
   } catch (error) {
-    // console.error(`Error fetc
-    //   hing stigma data for patient ${patientId}:`, error);
+    // console.error(`Error fetching stigma data for patient ${patientId}:`, error);
+    return [];
+  }
+}
+
+// ---------------- Fetch Stigma Data with Location Info (from RESTPI encounters) ----------------
+async function fetchPatientStigmaDataWithLocation(patientId: string): Promise<any[]> {
+  try {
+    // Use REST PI to get encounters with location info
+    const url = `/ws/rest/v1/encounter?patient=${patientId}&v=full&limit=100`;
+    const { data } = await openmrsFetch(url);
+    if (!data?.results) return [];
+
+    const observations: any[] = [];
+
+    // Extract observations from encounters with location info
+    for (const encounter of data.results) {
+      const encounterLocationUuid = encounter.location?.uuid;
+      const encounterDate = encounter.encounterDatetime;
+
+      if (encounter.obs && Array.isArray(encounter.obs)) {
+        for (const obs of encounter.obs) {
+          // Parse value - handle "X/Y" format (e.g., "31/36")
+          const rawValue = obs.value?.display ?? obs.value;
+          let numericValue: number | undefined;
+
+          if (typeof rawValue === 'number') {
+            numericValue = rawValue;
+          } else if (typeof rawValue === 'string') {
+            // Try "X/Y" format first
+            const slashMatch = rawValue.match(/^(-?\d+(?:\.\d+)?)\s*\/\s*\d+/);
+            if (slashMatch) {
+              numericValue = parseFloat(slashMatch[1]);
+            } else {
+              // Try regular number
+              const match = rawValue.match(/-?\d+(?:\.\d+)?/);
+              if (match) {
+                numericValue = parseFloat(match[0]);
+              }
+            }
+          }
+
+          // Attach location and date info to each observation
+          observations.push({
+            ...obs,
+            locationUuid: encounterLocationUuid,
+            effectiveDateTime: encounterDate,
+            date: encounterDate,
+            // Map REST API format to match FHIR-like structure for compatibility
+            code: {
+              coding: [
+                {
+                  code: obs.concept?.uuid,
+                  display: obs.concept?.display,
+                },
+              ],
+              text: obs.concept?.display,
+            },
+            valueQuantity: {
+              value: numericValue,
+            },
+            value: rawValue,
+          });
+        }
+      }
+    }
+
+    return observations;
+  } catch (error) {
+    console.error(`Error fetching stigma data with location for patient ${patientId}:`, error);
     return [];
   }
 }
@@ -366,6 +356,7 @@ export default function AllPatientsDashboard() {
   const { data, isLoading, error } = useAllPatients();
   const patients = data?.patients || [];
   const [allPatientsData, setAllPatientsData] = useState<any[]>([]);
+  const [locationFilteredData, setLocationFilteredData] = useState<any[]>([]); // Data filtered by current location
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>('');
@@ -376,7 +367,19 @@ export default function AllPatientsDashboard() {
 
   // Get current location UUID for filtering
   const currentLocationUuid = session?.sessionLocation?.uuid;
+  const currentLocationName = session?.sessionLocation?.display;
 
+  // Debug: Log session location on component mount/update
+  useEffect(() => {
+    console.log('🔐 Session info:', {
+      authenticated: session?.authenticated,
+      sessionLocationUuid: currentLocationUuid,
+      sessionLocationName: currentLocationName,
+      user: session?.user?.display,
+    });
+  }, [session, currentLocationUuid, currentLocationName]);
+
+  // Fetch all patient data (for summary/monthly views that show all data)
   useEffect(() => {
     if (!patients?.length) return;
     Promise.all(patients.map((p) => fetchPatientStigmaData(p.id))).then((results) => {
@@ -400,6 +403,67 @@ export default function AllPatientsDashboard() {
     });
   }, [patients]);
 
+  // Fetch location-filtered data (for stgtype, dimensions, cutoff, Location, patient-participation)
+  useEffect(() => {
+    if (!patients?.length) {
+      console.log('⚠️ No patients to fetch location-filtered data');
+      setLocationFilteredData([]);
+      return;
+    }
+
+    if (!currentLocationUuid) {
+      console.log('⚠️ No currentLocationUuid set - location filtering disabled');
+      // Still fetch data but don't filter by location if no location is set
+      Promise.all(patients.map((p) => fetchPatientStigmaDataWithLocation(p.id))).then((results) => {
+        console.log(
+          '📊 Fetched all data without location filter:',
+          results.reduce((sum, arr) => sum + arr.length, 0),
+          'obs',
+        );
+        setLocationFilteredData(results);
+      });
+      return;
+    }
+
+    console.log('🏥 Fetching location-filtered data for:', currentLocationName, '(', currentLocationUuid, ')');
+
+    Promise.all(patients.map((p) => fetchPatientStigmaDataWithLocation(p.id))).then((results) => {
+      // Debug: show unique locations in data
+      const locationSet = new Set<string>();
+      results.forEach((patientObs) => {
+        patientObs.forEach((obs: any) => {
+          if (obs.locationUuid) locationSet.add(obs.locationUuid);
+        });
+      });
+      console.log('📍 Unique locations in data:', Array.from(locationSet));
+      console.log('📍 Current location UUID:', currentLocationUuid);
+
+      // Filter observations by current location
+      const filteredResults = results.map((patientObs) =>
+        patientObs.filter((obs: any) => {
+          // Only include observations from the current location
+          const matches = obs.locationUuid === currentLocationUuid;
+          return matches;
+        }),
+      );
+
+      const totalObs = results.reduce((sum, arr) => sum + arr.length, 0);
+      const filteredObs = filteredResults.reduce((sum, arr) => sum + arr.length, 0);
+      console.log(`📊 Location filtering: ${filteredObs}/${totalObs} observations from ${currentLocationName}`);
+
+      // If no observations match the location, log a warning
+      if (filteredObs === 0 && totalObs > 0) {
+        console.warn('⚠️ NO OBSERVATIONS MATCH THE CURRENT LOCATION! Check if location UUIDs match.');
+        console.log(
+          'First few obs locationUuids:',
+          results.slice(0, 3).flatMap((arr) => arr.slice(0, 3).map((o: any) => o.locationUuid)),
+        );
+      }
+
+      setLocationFilteredData(filteredResults);
+    });
+  }, [patients, currentLocationUuid, currentLocationName]);
+
   // Debug: Log allPatientsData and extracted stigma types when user selects the Stigma Type viz
   useEffect(() => {
     if (vizType !== 'stgtype') return;
@@ -408,7 +472,7 @@ export default function AllPatientsDashboard() {
       // console.log('No patient observations loaded yet (allPatientsData is empty)');
       return;
     }
-    const summary: Record<string, number> = { आत्मलान्छना: 0, 'अपेक्षित लान्छना': 0, 'व्यावहारिक लान्छना': 0 };
+    const summary: Record<string, number> = {};
     allPatientsData.forEach((patientObs) => {
       patientObs.forEach((obs: any) => {
         const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
@@ -421,7 +485,10 @@ export default function AllPatientsDashboard() {
         else if (s.includes('enact') || s.includes('enacted') || s.includes('व्यावहारिक')) type = 'व्यावहारिक लान्छना';
         else type = raw; // keep raw if it doesn't match
 
-        if (summary[type] !== undefined) summary[type]++;
+        if (type) {
+          if (summary[type] === undefined) summary[type] = 0;
+          summary[type]++;
+        }
       });
     });
     // console.log('Stigma Type Summary (debug):', summary);
@@ -430,7 +497,7 @@ export default function AllPatientsDashboard() {
   // When selecting ART ID the ArtIdPanel will be shown by the conditional render below
 
   // Test function to analyze stigma data
-  function testStigmaAnalysis(patientData: any[]) {
+  function testStigmaAnalysis(patientData: any[], startDate?: string, endDate?: string) {
     let totalPatients = 0;
     let matchedPatients = 0;
     let unmatchedPatients = 0;
@@ -439,18 +506,32 @@ export default function AllPatientsDashboard() {
       { matched: boolean; highestScores: { type: string; score: number; threshold: number }[] }
     > = {};
 
+    // Parse date range if provided
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+
     patientData.forEach((observations, patientIndex) => {
       const patientId = String(patientIndex);
 
       // Process observations to match CovidStigmaData format
       const stigmaData: CovidStigmaData[] = observations
-        .filter((obs: any) =>
+        .filter((obs: any) => {
           // Filter only stigma-related observations
-          obs.code?.coding?.some(
+          const isStigma = obs.code?.coding?.some(
             (coding: any) =>
               coding.display?.toLowerCase().includes('stigma') || coding.code?.toLowerCase().includes('stigma'),
-          ),
-        )
+          );
+          if (!isStigma) return false;
+          // Date filter
+          if (start || end) {
+            const obsDate = obs.effectiveDateTime || obs.date;
+            if (!obsDate) return false;
+            const d = new Date(obsDate);
+            if (start && d < start) return false;
+            if (end && d > end) return false;
+          }
+          return true;
+        })
         .map((obs: any) => ({
           id: obs.id,
           date: obs.effectiveDateTime || obs.date,
@@ -467,8 +548,6 @@ export default function AllPatientsDashboard() {
 
       // Only count patients who have stigma data
       if (stigmaData.length > 0) {
-        // console.log(`\n📊 Analyzing Patient ${patientId}:`);
-
         // Use a Set to track unique score types for this patient
         const uniqueScoreTypes = new Set();
 
@@ -546,21 +625,10 @@ export default function AllPatientsDashboard() {
         patientMatches[patientId] = { matched: hasHighScore, highestScores: highScores };
 
         if (hasHighScore) {
-          //   console.log('⚠️ HIGH STIGMA DETECTED:');
-          highScores.forEach((s) => {
-            // console.log(`  → ${s.type}: ${s.score} (threshold: ${s.threshold})`);
-          });
           matchedPatients++;
         } else {
-          //   console.log('✓ All scores below thresholds');
           unmatchedPatients++;
         }
-
-        // console.log('Running Totals:', {
-        //   total: totalPatients,
-        //   high: matchedPatients,
-        //   low: unmatchedPatients,
-        // });
       }
     });
 
@@ -590,15 +658,16 @@ export default function AllPatientsDashboard() {
     }
   }, [allPatientsData]);
 
+  // Summary cutoff analysis uses location-filtered data
   const stigmaCutoffSummary = useMemo(() => {
-    // Run the test analysis when data is available
-    if (allPatientsData.length > 0) {
-      const analysisResult = testStigmaAnalysis(allPatientsData);
-      //   console.log('Stigma Analysis Test Results:', analysisResult);
+    // Use location-filtered data for cutoff analysis
+    const dataToUse = locationFilteredData.length > 0 ? locationFilteredData : [];
+    if (dataToUse.length > 0) {
+      const analysisResult = testStigmaAnalysis(dataToUse, startDate || undefined, endDate || undefined);
       return analysisResult;
     }
     return null;
-  }, [allPatientsData]);
+  }, [locationFilteredData, startDate, endDate]);
 
   return (
     <div
@@ -658,9 +727,64 @@ export default function AllPatientsDashboard() {
               <option value="custom1">ART ID</option>
               <option value="stgtype"> Stigma Type</option>
               <option value="dimensions">Dimensions</option>
-              <option value="Location">Location</option>
+              <option value="Location">Conference Meeting</option>
             </select>
           </div>
+
+          {/* Date filter UI only for non-ART ID and non-Location visualizations */}
+          {vizType !== 'custom1' && vizType !== 'Location' && (
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                marginBottom: 12,
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ color: '#444', fontSize: 14 }}>Start:</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  style={{ padding: '6px 8px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ color: '#444', fontSize: 14 }}>End:</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={{ padding: '6px 8px' }}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  // If both dates present but out of order, swap them
+                  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+                    const s = startDate;
+                    setStartDate(endDate);
+                    setEndDate(s);
+                  }
+                }}
+                style={{ padding: '6px 10px' }}
+              >
+                Apply
+              </button>
+              <button
+                onClick={() => {
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                style={{ padding: '6px 10px' }}
+              >
+                Clear
+              </button>
+            </div>
+          )}
 
           {/* All visualizations now contained within the right column */}
           {isLoading && <p>Loading patient data...</p>}
@@ -668,185 +792,209 @@ export default function AllPatientsDashboard() {
           {!isLoading && !patients?.length && <p>No patients found</p>}
 
           {/* Display Stigma Analysis Results if data is available and summary selected */}
-          {vizType === 'summary' && allPatientsData.length > 0 && (
-            <div
-              style={{
-                backgroundColor: '#fff',
-                padding: '1rem',
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-                width: '100%',
-                minHeight: 300,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                boxSizing: 'border-box',
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: '1.2rem',
-                  fontWeight: '600',
-                  color: '#333',
-                  marginBottom: '1rem',
-                }}
-              >
-                लान्छना विश्लेषण नतिजाहरू
-              </h3>
-              {stigmaCutoffSummary ? (
-                <>
-                  <div
+          {vizType === 'summary' && (
+            <>
+              {!currentLocationUuid && (
+                <div
+                  style={{
+                    color: '#d9534f',
+                    padding: '1rem',
+                    marginBottom: '1rem',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                  }}
+                >
+                  ⚠️ कुनै स्थान छानिएको छैन। कृपया सत्र स्थान सेट गर्नुहोस्।
+                </div>
+              )}
+              {locationFilteredData.length > 0 && (
+                <div
+                  style={{
+                    backgroundColor: '#fff',
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                    width: '100%',
+                    minHeight: 300,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <h3
                     style={{
-                      maxWidth: '500px',
-                      margin: '20px auto',
-                      WebkitFontSmoothing: 'antialiased',
-                      MozOsxFontSmoothing: 'grayscale',
+                      fontSize: '1.2rem',
+                      fontWeight: '600',
+                      color: '#333',
+                      marginBottom: '1rem',
                     }}
                   >
-                    <Chart
-                      type="pie"
-                      data={{
-                        labels: ['उच्च लान्छना स्कोर', 'न्यून लान्छना स्कोर'],
-                        datasets: [
-                          {
-                            data: [stigmaCutoffSummary.matchedPatients, stigmaCutoffSummary.unmatchedPatients],
-                            backgroundColor: ['#FFA500', '#87CEEB'],
-                            borderColor: ['#fff', '#fff'],
-                            borderWidth: 2,
-                          },
-                        ],
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                            labels: {
-                              font: {
-                                size: 14,
-                                weight: 500,
+                    लान्छना विश्लेषण नतिजाहरू
+                  </h3>
+                  {stigmaCutoffSummary ? (
+                    <>
+                      <div
+                        style={{
+                          maxWidth: '500px',
+                          margin: '20px auto',
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                        }}
+                      >
+                        <Chart
+                          type="pie"
+                          data={{
+                            labels: ['उच्च लान्छना स्कोर', 'न्यून लान्छना स्कोर'],
+                            datasets: [
+                              {
+                                data: [stigmaCutoffSummary.matchedPatients, stigmaCutoffSummary.unmatchedPatients],
+                                backgroundColor: ['#FFA500', '#87CEEB'],
+                                borderColor: ['#fff', '#fff'],
+                                borderWidth: 2,
                               },
-                              padding: 20,
-                            },
-                          },
-                          tooltip: {
-                            titleFont: {
-                              size: 14,
-                              weight: 600,
-                            },
-                            bodyFont: {
-                              size: 13,
-                            },
-                            callbacks: {
-                              label: function (context) {
-                                const total = stigmaCutoffSummary.totalPatients;
-                                const value = context.raw as number;
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${context.label}: ${percentage}% (${value} बिरामीहरू)`;
+                            ],
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                              legend: {
+                                position: 'bottom',
+                                labels: {
+                                  font: {
+                                    size: 14,
+                                    weight: 500,
+                                  },
+                                  padding: 20,
+                                },
+                              },
+                              tooltip: {
+                                titleFont: {
+                                  size: 14,
+                                  weight: 600,
+                                },
+                                bodyFont: {
+                                  size: 13,
+                                },
+                                callbacks: {
+                                  label: function (context) {
+                                    const total = stigmaCutoffSummary.totalPatients;
+                                    const value = context.raw as number;
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${context.label}: ${percentage}% (${value} बिरामीहरू)`;
+                                  },
+                                },
                               },
                             },
-                          },
-                        },
-                      }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <p>तथ्यांक विश्लेषण गर्दै...</p>
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <p>तथ्यांक विश्लेषण गर्दै...</p>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
 
           {vizType === 'monthly' && patients.length > 0 && selectedYear && (
-            <div
-              style={{
-                backgroundColor: '#fff',
-                padding: 'clamp(1rem, 3vw, 2rem)',
-                marginBottom: '1.5rem',
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-                maxWidth: '98vw',
-                minWidth: 0,
-                width: '100%',
-                minHeight: 300,
-                margin: '0 auto',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                boxSizing: 'border-box',
-              }}
-            >
-              <div style={{ width: '100%', padding: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <label style={{ color: '#444', fontSize: 14 }}>Start:</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      style={{ padding: '6px 8px' }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <label style={{ color: '#444', fontSize: 14 }}>End:</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      style={{ padding: '6px 8px' }}
-                    />
-                  </div>
-                  <button
-                    onClick={() => {
-                      // If both dates present but out of order, swap them
-                      if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-                        const s = startDate;
-                        setStartDate(endDate);
-                        setEndDate(s);
-                      }
-                    }}
-                    style={{ padding: '6px 10px' }}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    onClick={() => {
-                      setStartDate('');
-                      setEndDate('');
-                    }}
-                    style={{ padding: '6px 10px' }}
-                  >
-                    Clear
-                  </button>
+            <>
+              {!currentLocationUuid && (
+                <div
+                  style={{
+                    color: '#d9534f',
+                    padding: '1rem',
+                    marginBottom: '1rem',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                  }}
+                >
+                  ⚠️ कुनै स्थान छानिएको छैन। कृपया सत्र स्थान सेट गर्नुहोस्।
                 </div>
-
-                <MonthlyBarChart
-                  allPatientsData={allPatientsData}
-                  selectedYear={selectedYear}
-                  onYearChange={setSelectedYear}
-                  availableYears={availableYears}
-                  startDate={startDate || undefined}
-                  endDate={endDate || undefined}
-                />
+              )}
+              <div
+                style={{
+                  backgroundColor: '#fff',
+                  padding: 'clamp(1rem, 3vw, 2rem)',
+                  marginBottom: '1.5rem',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                  maxWidth: '98vw',
+                  minWidth: 0,
+                  width: '100%',
+                  minHeight: 300,
+                  margin: '0 auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div style={{ width: '100%', padding: 8 }}>
+                  <MonthlyBarChart
+                    allPatientsData={locationFilteredData}
+                    selectedYear={selectedYear}
+                    onYearChange={setSelectedYear}
+                    availableYears={availableYears}
+                    startDate={startDate || undefined}
+                    endDate={endDate || undefined}
+                  />
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* ART ID panel: enter ART ID to lookup patient and show participant + counselor forms */}
           {vizType === 'custom1' && <ArtIdPanel patients={patients} />}
 
           {vizType === 'stgtype' && (
-            <StgTypeVisualization
-              allPatientsData={allPatientsData}
-              startDate={startDate || undefined}
-              endDate={endDate || undefined}
-              currentLocationUuid={currentLocationUuid}
-            />
+            <>
+              {!currentLocationUuid && (
+                <div
+                  style={{
+                    color: '#d9534f',
+                    padding: '1rem',
+                    marginBottom: '1rem',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                  }}
+                >
+                  ⚠️ कुनै स्थान छानिएको छैन। कृपया सत्र स्थान सेट गर्नुहोस्।
+                </div>
+              )}
+              <StgTypeVisualization
+                allPatientsData={locationFilteredData}
+                startDate={startDate || undefined}
+                endDate={endDate || undefined}
+                currentLocationUuid={currentLocationUuid}
+              />
+            </>
           )}
 
           {vizType === 'dimensions' && (
-            <DimensionVisualization allPatientsData={allPatientsData} currentLocationUuid={currentLocationUuid} />
+            <>
+              {!currentLocationUuid && (
+                <div
+                  style={{
+                    color: '#d9534f',
+                    padding: '1rem',
+                    marginBottom: '1rem',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                  }}
+                >
+                  ⚠️ कुनै स्थान छानिएको छैन। कृपया सत्र स्थान सेट गर्नुहोस्।
+                </div>
+              )}
+              <DimensionVisualization
+                allPatientsData={locationFilteredData}
+                currentLocationUuid={currentLocationUuid}
+                startDate={startDate || undefined}
+                endDate={endDate || undefined}
+              />
+            </>
           )}
 
           {vizType === 'custom2' && (
@@ -875,26 +1023,41 @@ export default function AllPatientsDashboard() {
           )}
 
           {vizType === 'Location' && (
-            <div
-              style={{
-                backgroundColor: '#fff',
-                padding: 'clamp(1rem, 3vw, 2rem)',
-                marginBottom: '1.5rem',
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-                maxWidth: '98vw',
-                minWidth: 0,
-                width: '100%',
-                minHeight: 300,
-                margin: '0 auto',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                boxSizing: 'border-box',
-              }}
-            >
-              <SitesDataVisualization patients={patients} />
-            </div>
+            <>
+              {!currentLocationUuid && (
+                <div
+                  style={{
+                    color: '#d9534f',
+                    padding: '1rem',
+                    marginBottom: '1rem',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                  }}
+                >
+                  ⚠️ कुनै स्थान छानिएको छैन। कृपया सत्र स्थान सेट गर्नुहोस्।
+                </div>
+              )}
+              <div
+                style={{
+                  backgroundColor: '#fff',
+                  padding: 'clamp(1rem, 3vw, 2rem)',
+                  marginBottom: '1.5rem',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                  maxWidth: '98vw',
+                  minWidth: 0,
+                  width: '100%',
+                  minHeight: 300,
+                  margin: '0 auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <SitesDataVisualization patients={patients} />
+              </div>
+            </>
           )}
           {/* Optional: Stigma Overview Chart */}
           {/* <div style={{ marginTop: '2rem' }}>
@@ -966,8 +1129,7 @@ export default function AllPatientsDashboard() {
           )}
         />
       </div> */}
-        </div>{' '}
-        {/* Close right column */}
+        </div>
       </div>{' '}
       {/* Close two-column layout */}
       {/* New div below right column */}
@@ -1255,14 +1417,12 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
   const [selectedPatientUuid, setSelectedPatientUuid] = React.useState<string | null>(null);
   const [participantAnswers, setParticipantAnswers] = React.useState<Record<string, any>>({});
   const [counselorAnswers, setCounselorAnswers] = React.useState<Record<string, any>>({});
-  const [conferenceAnswers, setConferenceAnswers] = React.useState<Record<string, any>>({});
   const [loading, setLoading] = React.useState(false);
 
   async function onSearch() {
     setSelectedPatientUuid(null);
     setParticipantAnswers({});
     setCounselorAnswers({});
-    setConferenceAnswers({});
     if (!artId) return;
     const patient = patients.find(
       (p) =>
@@ -1276,20 +1436,17 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
     setSelectedPatientUuid(patient.id);
     setLoading(true);
     try {
-      const [pAns, cAns, confAns] = await Promise.all([
+      const [pAns, cAns] = await Promise.all([
         fetchPatientAnswers(patient.id, participantFormJson),
         fetchPatientAnswers(patient.id, counselorFormJson),
-        fetchPatientAnswers(patient.id, conferenceFormJson),
       ]);
 
       setParticipantAnswers(pAns || {});
       setCounselorAnswers(cAns || {});
-      setConferenceAnswers(confAns || {});
     } catch (err) {
       console.error('Error fetching form answers for ART ID', artId, err);
       setParticipantAnswers({});
       setCounselorAnswers({});
-      setConferenceAnswers({});
     } finally {
       setLoading(false);
     }
@@ -1334,10 +1491,6 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
             <div>
               {/* <h4 style={{ margin: '0 0 8px 0' }}>Counselor Form</h4> */}
               <ConunselorFormDisplay formDefinition={counselorFormJson} answers={counselorAnswers} />
-            </div>
-            <div>
-              {/* <h4 style={{ margin: '0 0 8px 0' }}>Conference Form</h4> */}
-              <ConferenceFormDisplay formDefinition={conferenceFormJson} answers={conferenceAnswers} />
             </div>
           </div>
         )}
@@ -1495,7 +1648,8 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
     fetchSitesData();
   }, [defaultLocationUuid, patientUuid, conceptLabelMap]);
 
-  const siteSubmissions = sitesData[defaultLocationUuid] || [];
+  const siteSubmissions =
+    defaultLocationUuid !== undefined && defaultLocationUuid !== null ? sitesData[defaultLocationUuid] || [] : [];
   const selectedSiteName = defaultLocationName || 'Current Site';
 
   return (
@@ -1566,63 +1720,72 @@ function SitesDataVisualization({ patients }: { patients: any[] }) {
               </tr>
             </thead>
             <tbody>
-              {siteSubmissions.map((submission, index) => {
-                // Fields to hide (date and main radio questions)
-                const hideKeys = [
-                  '१. आज मिति',
-                  '२. कन्फरेन्स बैठक भयो / भएन ?',
-                  '३. कन्फरेन्स बैठकको सारांश तयार गरियो / गरिएन ?',
-                ];
+              {siteSubmissions.map(
+                (
+                  submission: {
+                    id: React.Key | null | undefined;
+                    date: string | number | Date;
+                    data: { [s: string]: unknown } | ArrayLike<unknown>;
+                  },
+                  index: number,
+                ) => {
+                  // Fields to hide (date and main radio questions)
+                  const hideKeys = [
+                    '१. आज मिति',
+                    '२. कन्फरेन्स बैठक भयो / भएन ?',
+                    '३. कन्फरेन्स बैठकको सारांश तयार गरियो / गरिएन ?',
+                  ];
 
-                return (
-                  <tr
-                    key={submission.id}
-                    style={{
-                      background: index % 2 === 0 ? '#f9fafb' : '#ffffff',
-                      borderBottom: '1px solid #e5e7eb',
-                    }}
-                  >
-                    <td
+                  return (
+                    <tr
+                      key={submission.id}
                       style={{
-                        padding: '0.75rem',
-                        fontWeight: '500',
-                        color: '#374151',
+                        background: index % 2 === 0 ? '#f9fafb' : '#ffffff',
+                        borderBottom: '1px solid #e5e7eb',
                       }}
                     >
-                      {index + 1}
-                    </td>
-                    <td style={{ padding: '0.75rem', color: '#6b7280' }}>
-                      {new Date(submission.date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </td>
-                    <td style={{ padding: '0.75rem', color: '#374151', fontWeight: '500' }}>{selectedSiteName}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {Object.entries(submission.data)
-                          .filter(([key]) => !hideKeys.includes(key))
-                          .map(([key, value]) => (
-                            <div
-                              key={key}
-                              style={{
-                                fontSize: window.innerWidth < 768 ? '0.8rem' : '0.9rem',
-                                lineHeight: '1.5',
-                              }}
-                            >
-                              <strong style={{ color: '#1f2937' }}>
-                                {key}
-                                {key.endsWith('?') || key.endsWith(':') || key.endsWith('।') ? '' : ':'}
-                              </strong>{' '}
-                              <span style={{ color: '#4b5563' }}>{String(value)}</span>
-                            </div>
-                          ))}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      <td
+                        style={{
+                          padding: '0.75rem',
+                          fontWeight: '500',
+                          color: '#374151',
+                        }}
+                      >
+                        {index + 1}
+                      </td>
+                      <td style={{ padding: '0.75rem', color: '#6b7280' }}>
+                        {new Date(submission.date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </td>
+                      <td style={{ padding: '0.75rem', color: '#374151', fontWeight: '500' }}>{selectedSiteName}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {Object.entries(submission.data)
+                            .filter(([key]) => !hideKeys.includes(key))
+                            .map(([key, value]) => (
+                              <div
+                                key={key}
+                                style={{
+                                  fontSize: window.innerWidth < 768 ? '0.8rem' : '0.9rem',
+                                  lineHeight: '1.5',
+                                }}
+                              >
+                                <strong style={{ color: '#1f2937' }}>
+                                  {key}
+                                  {key.endsWith('?') || key.endsWith(':') || key.endsWith('।') ? '' : ':'}
+                                </strong>{' '}
+                                <span style={{ color: '#4b5563' }}>{String(value)}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                },
+              )}
             </tbody>
           </table>
         </div>
@@ -1705,7 +1868,7 @@ function ConceptValidationTool() {
           exists: false,
           name: concept.name,
           type: concept.type,
-          error: error.message,
+          // error: error.message,
           status: concept.type === 'answer' ? '❌ ANSWER ERROR' : '❌ ERROR',
         };
       }

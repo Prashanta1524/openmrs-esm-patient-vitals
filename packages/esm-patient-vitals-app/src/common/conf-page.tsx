@@ -51,8 +51,7 @@ const ConfPage: React.FC = () => {
             <div className={styles.spinner} aria-hidden="true" />
           </div>
         )}
-
-        {/* Load the AllPatientsDashboard from patient-vitals app */}
+        w{/* Load the AllPatientsDashboard from patient-vitals app */}
         <Suspense
           fallback={
             <div className={styles.spinnerContainer}>

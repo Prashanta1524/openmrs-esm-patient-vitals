@@ -33,29 +33,29 @@ export function ConferenceFormDisplay({
     return value;
   }
 
-  function handleDownloadPDF() {
-    const doc = new jsPDF();
-    let y = 20;
-    doc.setFontSize(16);
-    doc.text('कन्फरेन्स फारम - उत्तरहरू', 15, y);
-    y += 10;
-    doc.setFontSize(12);
-    doc.text('प्रश्न', 15, y);
-    doc.text('उत्तर', 100, y);
-    y += 8;
-    questions.forEach((q) => {
-      const question = String(q.label);
-      const answer = String(getAnswerLabel(q, answers[q.id]));
-      doc.text(question, 15, y);
-      doc.text(answer, 100, y);
-      y += 8;
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
-      }
-    });
-    doc.save('conference-form-responses.pdf');
-  }
+  // function handleDownloadPDF() {
+  //   const doc = new jsPDF();
+  //   let y = 20;
+  //   doc.setFontSize(16);
+  //   doc.text('कन्फरेन्स फारम - उत्तरहरू', 15, y);
+  //   y += 10;
+  //   doc.setFontSize(12);
+  //   doc.text('प्रश्न', 15, y);
+  //   doc.text('उत्तर', 100, y);
+  //   y += 8;
+  //   questions.forEach((q) => {
+  //     const question = String(q.label);
+  //     const answer = String(getAnswerLabel(q, answers[q.id]));
+  //     doc.text(question, 15, y);
+  //     doc.text(answer, 100, y);
+  //     y += 8;
+  //     if (y > 280) {
+  //       doc.addPage();
+  //       y = 20;
+  //     }
+  //   });
+  //   doc.save('conference-form-responses.pdf');
+  // }
 
   return (
     <div style={{ padding: '16px' }}>
