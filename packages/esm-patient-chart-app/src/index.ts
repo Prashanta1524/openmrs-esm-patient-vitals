@@ -35,7 +35,8 @@ function useIsRestrictedUser() {
   const roles = user?.roles?.map((r) => r.display?.toLowerCase()) || [];
 
   // If user has either restricted role → restrict
-  return roles.includes('self registration') || roles.includes('include_hcw');
+  // return roles.includes('self registration') || roles.includes('include_hcw');
+  return roles.includes('self registration');
 }
 
 export const root = getSyncLifecycle(patientChartPageComponent, {
