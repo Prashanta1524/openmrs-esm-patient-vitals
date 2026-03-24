@@ -13,12 +13,13 @@ import MultiChartSelector from './stigma-data-aggregate';
 import { FormDisplay } from './formdisplay';
 import ConunselorFormDisplay from './conunselorformdisplay';
 import ConferenceFormDisplay from './conferenceformdisplay';
-import participantFormJson from '../सहभागी फारम.json';
+import participantFormJson from '../participate.json';
 import counselorFormJson from '../काउन्सिलर फारम.json';
 import conferenceFormJson from '../कन्फरेन्स फारम.json';
 import { MonthlyBarChart } from './monthly-bar-chart';
 import StgTypeVisualization from './stg_type';
 import { DimensionVisualization } from './dimension-visualization';
+import { IntersectionalVisualization } from './intersectional-visualization';
 import { CovidStigmaData } from './types';
 
 // QR Code imports
@@ -245,6 +246,7 @@ export function useAllPatients() {
   return useSWR('allPatients', fetchAllPatients);
 }
 
+//not used now
 export function checkCutoff(
   value: number | undefined | null,
   cutoff: number,
@@ -312,7 +314,7 @@ async function fetchPatientStigmaDataWithLocation(patientId: string): Promise<an
             locationUuid: encounterLocationUuid,
             effectiveDateTime: encounterDate,
             date: encounterDate,
-            // Map REST API format to match FHIR-like structure for compatibility
+
             code: {
               coding: [
                 {
@@ -369,7 +371,7 @@ export default function AllPatientsDashboard() {
   const currentLocationUuid = session?.sessionLocation?.uuid;
   const currentLocationName = session?.sessionLocation?.display;
 
-  // Debug: Log session location on component mount/update
+  // Debug: Log session location on component mount/updates
   useEffect(() => {
     console.log('🔐 Session info:', {
       authenticated: session?.authenticated,
@@ -727,11 +729,11 @@ export default function AllPatientsDashboard() {
               <option value="custom1">ART ID</option>
               <option value="stgtype"> Stigma Type</option>
               <option value="dimensions">Dimensions</option>
+              <option value="custom2">Intersectional Score</option>
               <option value="Location">Conference Meeting</option>
             </select>
           </div>
 
-          {/* Date filter UI only for non-ART ID and non-Location visualizations */}
           {vizType !== 'custom1' && vizType !== 'Location' && (
             <div
               style={{
@@ -998,28 +1000,27 @@ export default function AllPatientsDashboard() {
           )}
 
           {vizType === 'custom2' && (
-            <div
-              style={{
-                backgroundColor: '#fff',
-                padding: 'clamp(1rem, 3vw, 2rem)',
-                marginBottom: '1.5rem',
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-                maxWidth: '98vw',
-                minWidth: 0,
-                width: '100%',
-                minHeight: 300,
-                margin: '0 auto',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxSizing: 'border-box',
-              }}
-            >
-              <p style={{ color: '#888', fontSize: '1.2rem' }}>ART ID</p>
-              {/* Later: Replace this with your new chart/component */}
-            </div>
+            <>
+              {!currentLocationUuid && (
+                <div
+                  style={{
+                    color: '#d9534f',
+                    padding: '1rem',
+                    marginBottom: '1rem',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                  }}
+                >
+                  ⚠️ कुनै स्थान छानिएको छैन। कृपया सत्र स्थान सेट गर्नुहोस्।
+                </div>
+              )}
+              <IntersectionalVisualization
+                allPatientsData={locationFilteredData}
+                currentLocationUuid={currentLocationUuid}
+                startDate={startDate || undefined}
+                endDate={endDate || undefined}
+              />
+            </>
           )}
 
           {vizType === 'Location' && (
@@ -1486,7 +1487,7 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
             </div>
             <div>
               <h4 style={{ margin: '0 0 8px 0' }}>सहभागी फारम - उत्तरहरू</h4>
-              <FormDisplay formDefinition={participantFormJson} answers={participantAnswers} />
+              <FormDisplay formDefinition={participantFormJson} answers={participantAnswers} showAllQuestions />
             </div>
             <div>
               {/* <h4 style={{ margin: '0 0 8px 0' }}>Counselor Form</h4> */}

@@ -22,19 +22,6 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
     }
   });
 
-  // console.log('DEBUG: Total concept UUIDs to fetch:', conceptUuids.length);
-  // console.log('DEBUG: Sample concept UUIDs:', conceptUuids.slice(0, 10));
-  // console.log(
-  //   'DEBUG: Checkbox answer concepts included:',
-  //   conceptUuids.filter(
-  //     (uuid) =>
-  //       uuid === '884AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' ||
-  //       uuid === '3cd7f7cd-8996-4695-8074-a22c2242d1ea' ||
-  //       uuid === 'd36a20a7-cc83-41db-ac63-a0e49aca38ae' ||
-  //       uuid === '50508043-1d71-4f34-8933-e77dd6471387',
-  //   ),
-  // );
-
   // Fetch all obs for patient, handling pagination
   let obsArray: any[] = [];
   let nextUrl = `/openmrs/ws/rest/v1/obs?patient=${patientUuid}&v=full`;
@@ -60,24 +47,6 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
     console.error('Fetch error', err, nextUrl);
   }
 
-  // console.log('Total obs fetched before filtering:', obsArray.length);
-  // if (obsArray.length > 0) {
-  //   console.log(
-  //     'Sample obs concept UUIDs:',
-  //     obsArray.slice(0, 5).map((obs) => obs.concept?.uuid || obs.concept),
-  //   );
-  // }
-
-  // console.log('DEBUG: All concept UUIDs we are looking for:', conceptUuids);
-  // console.log(
-  //   'DEBUG: Sample of all fetched obs concepts:',
-  //   obsArray.slice(0, 10).map((obs) => ({
-  //     concept: typeof obs.concept === 'string' ? obs.concept : obs.concept?.uuid,
-  //     display: obs.display,
-  //     value: obs.value,
-  //   })),
-  // );
-
   // Only keep obs matching our concepts
   obsArray = obsArray.filter((obs) => {
     if (!obs.concept) return false;
@@ -86,162 +55,99 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
     return false;
   });
 
-  // console.log('Obs after concept filtering:', obsArray.length);
-  // console.log(
-  //   'DEBUG: Filtered obs sample:',
-  //   obsArray.slice(0, 5).map((obs) => ({
-  //     concept: typeof obs.concept === 'string' ? obs.concept : obs.concept?.uuid,
-  //     display: obs.display,
-  //     value: obs.value,
-  //   })),
-  // );
-  // console.log('Form questions count:', questions.length);
+  // Helpers for strict concept-based mapping
+  const getConceptUuid = (obs: any) => {
+    if (!obs?.concept) return undefined;
+    if (typeof obs.concept === 'string') return obs.concept;
+    return obs.concept.uuid;
+  };
+
+  const getObsTime = (o: any) => {
+    return (
+      (o.obsDatetime && new Date(o.obsDatetime).getTime()) ||
+      (o.auditInfo?.dateCreated && new Date(o.auditInfo.dateCreated).getTime()) ||
+      (o.dateCreated && new Date(o.dateCreated).getTime()) ||
+      0
+    );
+  };
+
+  const getCodedValueUuid = (obs: any) => {
+    const directValue = obs?.value;
+    if (typeof directValue === 'string') return directValue;
+    if (directValue && typeof directValue === 'object' && directValue.uuid) return directValue.uuid;
+    if (obs?.valueCoded && typeof obs.valueCoded === 'object' && obs.valueCoded.uuid) return obs.valueCoded.uuid;
+    return undefined;
+  };
+
+  const extractSingleValue = (obs: any) => {
+    const codedUuid = getCodedValueUuid(obs);
+    if (codedUuid !== undefined && codedUuid !== null) return codedUuid;
+    if (obs?.valueNumeric !== undefined && obs?.valueNumeric !== null) return obs.valueNumeric;
+    if (obs?.valueQuantity?.value !== undefined && obs?.valueQuantity?.value !== null) return obs.valueQuantity.value;
+    if (obs?.valueText !== undefined && obs?.valueText !== null) return obs.valueText;
+    if (obs?.value !== undefined && obs?.value !== null) {
+      if (typeof obs.value === 'object' && obs.value.display) return obs.value.display;
+      return obs.value;
+    }
+    if (obs?.display) {
+      const match = String(obs.display).match(/:\s*(.+)$/);
+      return match ? match[1].trim() : obs.display;
+    }
+    return undefined;
+  };
 
   // Map answers
   const answers: Record<string, any> = {};
   questions.forEach((q) => {
-    const concept = q.questionOptions?.concept;
-    if (!concept) {
+    const questionConcept = q.questionOptions?.concept;
+    if (!questionConcept) {
       answers[q.id] = undefined;
       return;
     }
 
-    // Find all observations that match this concept (checkboxes may produce multiple obs)
-    const matches = obsArray.filter((obs) => {
-      if (!obs.concept) return false;
-      if (typeof obs.concept === 'string') return obs.concept === concept;
-      if (obs.concept.uuid) return obs.concept.uuid === concept;
-      return false;
-    });
+    const rendering = q.questionOptions?.rendering;
+    const optionConcepts: string[] = (q.questionOptions?.answers || [])
+      .map((a: any) => a?.concept)
+      .filter((c: any) => typeof c === 'string');
 
-    if (!matches || matches.length === 0) {
+    const matchesByQuestionConcept = obsArray.filter((obs) => getConceptUuid(obs) === questionConcept);
+
+    if (rendering === 'checkbox') {
+      // Handle both OpenMRS patterns:
+      // 1) obs concept == question concept, value/valueCoded == option concept
+      // 2) obs concept == option concept (group member obs)
+      const selectedOptionConcepts = new Set<string>();
+
+      const matchesByOptionConcept = obsArray.filter((obs) => optionConcepts.includes(getConceptUuid(obs) || ''));
+      matchesByOptionConcept.forEach((obs) => {
+        const c = getConceptUuid(obs);
+        if (c && optionConcepts.includes(c)) selectedOptionConcepts.add(c);
+      });
+
+      matchesByQuestionConcept.forEach((obs) => {
+        const coded = getCodedValueUuid(obs);
+        if (coded && optionConcepts.includes(coded)) selectedOptionConcepts.add(coded);
+      });
+
+      answers[q.id] = selectedOptionConcepts.size > 0 ? Array.from(selectedOptionConcepts) : undefined;
+      return;
+    }
+
+    if (matchesByQuestionConcept.length === 0) {
       answers[q.id] = undefined;
       return;
     }
 
-    // Helper to extract a human-friendly value from an observation
-    const extractObsValue = (obs: any) => {
-      // First try to get the display value (like "HIV Impact Rating: 9")
-      if (obs.display) {
-        // For checkbox selections like "Factors Affecting Your Concern: Mental Health"
-        // Extract the part after the colon
-        const match = obs.display.match(/:\s*(.+)$/);
-        if (match) return match[1].trim();
-        return obs.display;
-      }
-
-      // For coded values, get the display of the coded value
-      if (obs.valueCoded && typeof obs.valueCoded === 'object' && obs.valueCoded.display) {
-        return obs.valueCoded.display;
-      }
-
-      // For direct values
-      if (obs.value !== undefined && obs.value !== null) {
-        if (typeof obs.value === 'object' && obs.value.display) return obs.value.display;
-        return obs.value;
-      }
-
-      // Other value types
-      if (obs.valueText) return obs.valueText;
-      if (obs.valueNumeric !== undefined && obs.valueNumeric !== null) return obs.valueNumeric;
-      if (obs.valueQuantity && obs.valueQuantity.value !== undefined) return obs.valueQuantity.value;
-      if (obs.valueCoded) return obs.valueCoded;
-
-      return undefined;
-    };
-
-    // Build pairs { value, time } so we can choose the most recent observation for single-value questions
-    const getObsTime = (o: any) => {
-      // prefer obsDatetime, fall back to auditInfo.dateCreated or resource date
-      return (
-        (o.obsDatetime && new Date(o.obsDatetime).getTime()) ||
-        (o.auditInfo?.dateCreated && new Date(o.auditInfo.dateCreated).getTime()) ||
-        (o.dateCreated && new Date(o.dateCreated).getTime()) ||
-        0
-      );
-    };
-
-    const extractedPairs = matches
-      .map((m) => {
-        const val = extractObsValue(m);
-        return { value: val, time: getObsTime(m) };
-      })
-      .filter((p) => p.value !== undefined && p.value !== null);
-
-    if (extractedPairs.length === 0) {
-      answers[q.id] = undefined;
-    } else {
-      const rendering = q.questionOptions?.rendering;
-      if (rendering === 'checkbox') {
-        // For checkbox questions, we need to look for observations where the obs concept UUID
-        // matches one of the ANSWER OPTION concept UUIDs, not the main question concept
-        const selectedLabels = [];
-
-        // console.log('DEBUG:', q.id, 'checkbox question:');
-        // console.log('- Question concept:', concept);
-        // console.log(
-        //   '- Answer options:',
-        //   q.questionOptions?.answers?.map((a) => `${a.concept}: ${a.label}`),
-        // );
-        // console.log('- Found observations:', matches.length);
-
-        // // DEBUG: Show what's actually in the question concept observations
-        // if (matches.length > 0 && q.id === 'as_domain') {
-        //   console.log('- Sample question concept observations for as_domain:');
-        //   matches.slice(0, 3).forEach((obs, i) => {
-        //     console.log(`  [${i}] concept: ${typeof obs.concept === 'string' ? obs.concept : obs.concept?.uuid}`);
-        //     console.log(`  [${i}] display: ${obs.display}`);
-        //     console.log(`  [${i}] value: ${obs.value}`);
-        //     console.log(`  [${i}] valueText: ${obs.valueText}`);
-        //     console.log(`  [${i}] valueCoded: ${obs.valueCoded ? JSON.stringify(obs.valueCoded) : 'null'}`);
-        //     console.log(`  [${i}] obsDatetime: ${obs.obsDatetime}`);
-        //   });
-        // }        // Simple approach: use the most recent observation's display/value from the 49 matching observations
-        const recentObs = matches.sort(
-          (a, b) => new Date(b.obsDatetime || 0).getTime() - new Date(a.obsDatetime || 0).getTime(),
-        )[0];
-
-        let observationValue = '';
-        if (recentObs.display) observationValue = recentObs.display;
-        else if (recentObs.value) observationValue = String(recentObs.value);
-        else if (recentObs.valueText) observationValue = recentObs.valueText;
-
-        // console.log('- Recent observation value:', observationValue);
-
-        // Map English strings to Nepali labels (simple and direct)
-        if (observationValue.includes('Mental Health')) selectedLabels.push('मानसिक स्वास्थ्य');
-        if (observationValue.includes('Sexual') && observationValue.includes('Gender'))
-          selectedLabels.push('लैङ्गिक तथा यौनिक अल्पसङ्ख्यक');
-        if (observationValue.includes('immunodeficiency') || observationValue.includes('HIV'))
-          selectedLabels.push('एचआईभी');
-        if (observationValue.includes('Ethnic') && observationValue.includes('Minorities'))
-          selectedLabels.push('जातीय अल्पसङ्ख्यक/दलित');
-
-        answers[q.id] = selectedLabels.length > 0 ? selectedLabels : undefined;
-        answers[q.id] = selectedLabels.length > 0 ? [...new Set(selectedLabels)] : undefined;
-      } else {
-        // Single-value question (radio/number/text): pick the most recent observation
-        extractedPairs.sort((a, b) => b.time - a.time);
-        // If multiple values exist, you can choose other strategies (max, average) — here we pick the latest
-        answers[q.id] = extractedPairs[0].value;
-      }
-    }
+    // Single-value question: use the most recent observation
+    const latest = [...matchesByQuestionConcept].sort((a, b) => getObsTime(b) - getObsTime(a))[0];
+    answers[q.id] = extractSingleValue(latest);
   });
-
-  // Debug: show final answers
-  // console.log('Final answers object:', answers);
-  // console.log(
-  //   'Answers with values:',
-  //   Object.entries(answers)
-  //     .filter(([k, v]) => v !== undefined)
-  //     .slice(0, 5),
-  // );
 
   return answers;
 }
 import React, { useMemo } from 'react';
 import { FormDisplay } from './formdisplay';
-import formJson from '../सहभागी फारम.json'; // participant form
+import formJson from '../participate.json'; // participant form
 import counselorFormJson from '../काउन्सिलर फारम.json'; // counselor form
 import ConunselorFormDisplay from './conunselorformdisplay';
 // ART ID visualization component for reuse
@@ -339,7 +245,7 @@ export function ArtIdVisualization({ patients }: { patients: any[] }) {
               <div style={{ display: 'grid', gap: '1rem' }}>
                 <div>
                   <h4 style={{ margin: '0 0 8px 0' }}>सहभागी फारम - उत्तरहरू</h4>
-                  <FormDisplay formDefinition={formJson} answers={patientAnswers} />
+                  <FormDisplay formDefinition={formJson} answers={patientAnswers} showAllQuestions />
                 </div>
                 <div>
                   <h4 style={{ margin: '0 0 8px 0' }}>Counselor Form</h4>
@@ -773,74 +679,3 @@ export default function MultiChartSelector({
     </div>
   );
 }
-
-// export ArtIdVisualization({ patients }: { patients: any[] }) {
-//   const [artId, setArtId] = React.useState('');
-//   const [selectedPatientUuid, setSelectedPatientUuid] = React.useState<string | null>(null);
-
-//   return (
-//     <div
-//       style={{
-//         backgroundColor: '#fff',
-//         padding: 'clamp(1rem, 3vw, 2rem)',
-//         marginBottom: '1.5rem',
-//         borderRadius: '12px',
-//         boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-//         maxWidth: '98vw',
-//         minWidth: 0,
-//         width: '100%',
-//         minHeight: 300,
-//         margin: '0 auto',
-//         display: 'flex',
-//         flexDirection: 'column',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         boxSizing: 'border-box',
-//       }}
-//     >
-//       <label>
-//         Enter ART ID:{' '}
-//         <input
-//           type="text"
-//           value={artId}
-//           onChange={(e) => setArtId(e.target.value)}
-//           style={{
-//             padding: '0.5rem',
-//             borderRadius: 4,
-//             border: '1px solid #ccc',
-//             marginRight: '1rem',
-//           }}
-//         />
-//         <button
-//           onClick={() => {
-//             const patient = patients.find(
-//               (p) =>
-//                 p.identifier &&
-//                 p.identifier.some((id) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
-//             );
-//             setSelectedPatientUuid(patient ? patient.id : null);
-//           }}
-//           style={{
-//             padding: '0.5rem 1rem',
-//             borderRadius: 4,
-//             border: 'none',
-//             background: '#1f2e5b',
-//             color: '#fff',
-//             cursor: 'pointer',
-//           }}
-//         >
-//           Visualize
-//         </button>
-//       </label>
-//       <div style={{ width: '100%', marginTop: '2rem' }}>
-//         {selectedPatientUuid ? (
-//           <MultiChartSelector patientUuid={selectedPatientUuid} />
-//         ) : (
-//           <p style={{ color: '#888', fontSize: '1.1rem', marginTop: '2rem' }}>
-//             {artId ? 'No patient found for this ART ID.' : 'Please enter an ART ID and click Visualize.'}
-//           </p>
-//         )}
-//       </div>
-//     </div>
-//   );
-// }

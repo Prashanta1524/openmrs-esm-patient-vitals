@@ -25,7 +25,27 @@ const STIGMA_TYPE_LABELS = {
   is: 'आत्मलान्छना (Internalized Stigma)',
 };
 
-// Helper function to extract dimension scores from observation data
+// All 12 domain concept UUIDs from stigma-data.resource.tsx
+const DOMAIN_UUIDS = {
+  // Anticipated Stigma (AS) domains
+  hiv_domain_as: '90e0da1c-1bb4-48db-869e-d0ed4cd11c24',
+  mh_domain_as: '8f94f4c3-58f2-414a-9286-68c5ede9c46e',
+  sgm_domain_as: 'eb0a135d-3b90-470c-a684-d6dc3464712d',
+  em_domain_as: 'd1ccc9dc-92fa-4118-af50-6394295131f8',
+  // Enacted Stigma (ES) domains
+  hiv_domain_es: '6a0fbece-ed88-4da2-9cb2-6db7848dbdfd',
+  mh_domain_es: '7ed8a592-dac5-4c7b-b9c0-3ac6126689b8',
+  sgm_domain_es: '5c10bc7a-332c-4586-94f2-fbb90b8a264d',
+  em_domain_es: '298384cf-8f27-4ec0-93ca-4657eb66c8a1',
+  // Internalized Stigma (IS) domains
+  hiv_domain_is: 'ea081a06-b663-40f0-b74c-ede85468ed89',
+  mh_domain_is: 'ef14a69f-b4fa-4fcd-8699-6b827bb67525',
+  sgm_domain_is: '79c9043f-3cb6-41b2-b189-6018cb9b2bde',
+  em_domain_is: '373eca5f-bc30-4b5e-a799-c50931731209',
+};
+
+// Helper function to extract dimension scores from raw observations
+// Matches observations by concept UUID (code.coding[0].code)
 function extractDimensionScores(
   allPatientsData: any[],
   selectedType: 'as' | 'es' | 'is',
@@ -38,185 +58,91 @@ function extractDimensionScores(
     em: [],
   };
 
-  console.log('🔍 Dimension Extraction Debug:', {
-    selectedType,
-    currentLocationUuid,
-    totalPatients: allPatientsData.length,
+  // Get the 4 concept UUIDs for the selected stigma type
+  const uuids = {
+    hiv: DOMAIN_UUIDS[`hiv_domain_${selectedType}` as keyof typeof DOMAIN_UUIDS],
+    mh: DOMAIN_UUIDS[`mh_domain_${selectedType}` as keyof typeof DOMAIN_UUIDS],
+    sgm: DOMAIN_UUIDS[`sgm_domain_${selectedType}` as keyof typeof DOMAIN_UUIDS],
+    em: DOMAIN_UUIDS[`em_domain_${selectedType}` as keyof typeof DOMAIN_UUIDS],
+  };
+
+  console.log('🔍 Dimension Extraction using concept UUIDs:', { selectedType, uuids });
+  console.log('📊 Total patients/observation arrays received:', allPatientsData.length);
+
+  let totalObsCount = 0;
+  const sampleConceptUuids: string[] = [];
+  allPatientsData.forEach((p) => {
+    totalObsCount += p?.length || 0;
+    // Collect some sample concept UUIDs
+    if (sampleConceptUuids.length < 20) {
+      p?.forEach((obs: any) => {
+        const uuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || 'N/A';
+        if (sampleConceptUuids.length < 20) sampleConceptUuids.push(uuid);
+      });
+    }
   });
+  console.log('📊 Total observations across all patients:', totalObsCount);
+  console.log('📊 Sample concept UUIDs in data:', sampleConceptUuids);
 
-  let totalObs = 0;
-  let matchedTypeObs = 0;
-  let foundDomainScores = 0;
+  let foundCount = 0;
 
-  allPatientsData.forEach((patientObservations, pIndex) => {
+  allPatientsData.forEach((patientObservations, patientIdx) => {
     patientObservations.forEach((obs: any) => {
-      totalObs++;
+      // Skip location filtering since data is already filtered by conf_dashboard
+      // const obsLocationUuid = obs.locationUuid || obs.location?.uuid;
+      // if (currentLocationUuid && obsLocationUuid && obsLocationUuid !== currentLocationUuid) {
+      //   return;
+      // }
 
-      // Filter by location - check multiple possible location fields in FHIR/REST data
-      const obsLocationUuid =
-        obs.locationUuid ||
-        obs.location?.uuid ||
-        obs.location?.reference?.split('/').pop() ||
-        obs.encounter?.location?.[0]?.location?.reference?.split('/').pop();
+      // Get concept UUID from observation (code.coding[0].code maps from obs.concept.uuid)
+      const conceptUuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
 
-      // Skip location filter if observation doesn't have location data
-      if (currentLocationUuid && obsLocationUuid && obsLocationUuid !== currentLocationUuid) {
-        return;
-      }
-
-      // Get stigma type from observation
-      const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
-      const stigmaType = raw.toLowerCase();
-
-      // Match stigma type (AS, ES, IS) with expanded patterns
-      let isMatchingType = false;
-      let typeLabel = '';
-
-      if (
-        selectedType === 'as' &&
-        (stigmaType.includes('anticipated') ||
-          stigmaType.includes('अपेक्षित') ||
-          stigmaType.includes('concern') ||
-          stigmaType.includes('fear') ||
-          stigmaType.includes('worry') ||
-          stigmaType.includes('expect'))
-      ) {
-        isMatchingType = true;
-        typeLabel = 'Anticipated (AS)';
-      } else if (
-        selectedType === 'es' &&
-        (stigmaType.includes('enacted') ||
-          stigmaType.includes('व्यावहारिक') ||
-          stigmaType.includes('verbal abuse') ||
-          stigmaType.includes('mistreatment') ||
-          stigmaType.includes('discriminat') ||
-          stigmaType.includes('reject') ||
-          stigmaType.includes('avoid'))
-      ) {
-        isMatchingType = true;
-        typeLabel = 'Enacted (ES)';
-      } else if (
-        selectedType === 'is' &&
-        (stigmaType.includes('internalized') ||
-          stigmaType.includes('आत्म') ||
-          stigmaType.includes('self-disgust') ||
-          stigmaType.includes('self disgust') ||
-          stigmaType.includes('shame') ||
-          stigmaType.includes('self-blame') ||
-          stigmaType.includes('self blame'))
-      ) {
-        isMatchingType = true;
-        typeLabel = 'Internalized (IS)';
-      }
-
-      if (!isMatchingType) return;
-
-      matchedTypeObs++;
-
-      // Now check which DOMAIN this observation is for
-      // The key insight: observations are domain-specific!
-      // Each observation represents ONE domain's score for ONE stigma type
-
-      let domainFound = false;
+      // Extract numeric value
       let score: number | null = null;
-
-      // Extract numeric value (same as stg_type.tsx)
-      const vq = obs.valueQuantity?.value;
-      if (typeof vq === 'number') {
-        score = vq;
-      } else if (typeof obs.valueNumber === 'number') {
-        score = obs.valueNumber;
+      if (typeof obs.valueQuantity?.value === 'number') {
+        score = obs.valueQuantity.value;
       } else if (typeof obs.value === 'number') {
         score = obs.value;
-      } else if (Array.isArray(obs.component)) {
-        for (const c of obs.component) {
-          const cv = c.valueQuantity?.value ?? c.valueNumber ?? c.value;
-          if (typeof cv === 'number') {
-            score = cv;
-            break;
-          }
-        }
+      } else if (typeof obs.value === 'string') {
+        const match = obs.value.match(/-?\d+(?:\.\d+)?/);
+        if (match) score = parseFloat(match[0]);
       }
 
-      if (score === null || isNaN(score)) return;
+      if (score === null || isNaN(score) || score <= 0) return;
 
-      // Determine which domain this observation belongs to
-      // Check stigmaType, code.text, code.display, or dimensionScore for domain indicators
-      const fullText = (raw + ' ' + (obs.code?.text || '') + ' ' + (obs.dimensionScore || '')).toLowerCase();
-
-      if (fullText.includes('hiv') || fullText.includes('एचआईभी')) {
+      // Match by exact concept UUID
+      if (conceptUuid === uuids.hiv) {
         domainScores.hiv.push(score);
-        domainFound = true;
-        if (foundDomainScores < 5) {
-          console.log(`📊 Found HIV ${typeLabel} score:`, score, 'from:', raw.substring(0, 50));
-        }
-      }
-
-      if (fullText.includes('mental') || fullText.includes('मानसिक')) {
+        foundCount++;
+        if (foundCount <= 8) console.log(`📊 HIV ${selectedType.toUpperCase()}: ${score}`);
+      } else if (conceptUuid === uuids.mh) {
         domainScores.mh.push(score);
-        domainFound = true;
-        if (foundDomainScores < 5) {
-          console.log(`📊 Found MH ${typeLabel} score:`, score, 'from:', raw.substring(0, 50));
-        }
-      }
-
-      if (
-        fullText.includes('sgm') ||
-        fullText.includes('sexual') ||
-        fullText.includes('gender') ||
-        fullText.includes('लैङ्गिक')
-      ) {
+        foundCount++;
+        if (foundCount <= 8) console.log(`📊 MH ${selectedType.toUpperCase()}: ${score}`);
+      } else if (conceptUuid === uuids.sgm) {
         domainScores.sgm.push(score);
-        domainFound = true;
-        if (foundDomainScores < 5) {
-          console.log(`📊 Found SGM ${typeLabel} score:`, score, 'from:', raw.substring(0, 50));
-        }
-      }
-
-      if (
-        fullText.includes('ethnic') ||
-        fullText.includes('dalit') ||
-        fullText.includes('minority') ||
-        fullText.includes('जातीय') ||
-        fullText.includes('अल्पसङ्ख्यक') ||
-        fullText.includes('दलित')
-      ) {
+        foundCount++;
+        if (foundCount <= 8) console.log(`📊 SGM ${selectedType.toUpperCase()}: ${score}`);
+      } else if (conceptUuid === uuids.em) {
         domainScores.em.push(score);
-        domainFound = true;
-        if (foundDomainScores < 5) {
-          console.log(` Found EM ${typeLabel} score:`, score, 'from:', raw.substring(0, 50));
-        }
-      }
-
-      if (domainFound) {
-        foundDomainScores++;
-      } else if (matchedTypeObs <= 3) {
-        // Log first few unmatched observations to see what domains might be missing
-        console.log(`⚠️ Matched ${typeLabel} but no domain found in:`, {
-          stigmaType: raw.substring(0, 100),
-          codeText: obs.code?.text?.substring(0, 100),
-          dimensionScore: obs.dimensionScore?.substring(0, 100),
-          score,
-        });
+        foundCount++;
+        if (foundCount <= 8) console.log(`📊 EM ${selectedType.toUpperCase()}: ${score}`);
       }
     });
   });
 
-  console.log('📈 Dimension Extraction Results:', {
-    totalObservations: totalObs,
-    matchedTypeObservations: matchedTypeObs,
-    foundDomainScores: foundDomainScores,
-    domainCounts: {
+  console.log('📈 Dimension Results for', selectedType.toUpperCase(), ':', {
+    counts: {
       hiv: domainScores.hiv.length,
       mh: domainScores.mh.length,
       sgm: domainScores.sgm.length,
       em: domainScores.em.length,
     },
-    sampleScores: {
-      hiv: domainScores.hiv.slice(0, 3),
-      mh: domainScores.mh.slice(0, 3),
-      sgm: domainScores.sgm.slice(0, 3),
-      em: domainScores.em.slice(0, 3),
+    allValues: {
+      hiv: domainScores.hiv,
+      mh: domainScores.mh,
+      sgm: domainScores.sgm,
+      em: domainScores.em,
     },
   });
 
@@ -278,32 +204,35 @@ export function DimensionVisualization({
     return calculateMinMax(domainScores);
   }, [allPatientsData, selectedType, locationUuid, startDate, endDate]);
 
-  // Prepare chart data with new colors
-  const chartData = {
-    labels: Object.keys(DOMAIN_LABELS).map((key) => DOMAIN_LABELS[key as keyof typeof DOMAIN_LABELS]),
-    datasets: [
-      {
-        label: 'Max Score',
-        data: Object.keys(DOMAIN_LABELS).map((key) => dimensionData[key]?.max || 0),
-        backgroundColor: ['#9C27B0', '#9C27B0', '#9C27B0', '#9C27B0'],
-        borderColor: ['#7B1FA2', '#7B1FA2', '#7B1FA2', '#7B1FA2'],
-        borderWidth: 2,
-        borderRadius: 6,
-        barPercentage: 0.8,
-        categoryPercentage: 0.7,
-      },
-      {
-        label: 'Min Score',
-        data: Object.keys(DOMAIN_LABELS).map((key) => dimensionData[key]?.min || 0),
-        backgroundColor: ['#FF9800', '#FF9800', '#FF9800', '#FF9800'],
-        borderColor: ['#F57C00', '#F57C00', '#F57C00', '#F57C00'],
-        borderWidth: 2,
-        borderRadius: 6,
-        barPercentage: 0.8,
-        categoryPercentage: 0.7,
-      },
-    ],
-  };
+  // Prepare chart data with new colors - wrapped in useMemo
+  const chartData = useMemo(
+    () => ({
+      labels: Object.keys(DOMAIN_LABELS).map((key) => DOMAIN_LABELS[key as keyof typeof DOMAIN_LABELS]),
+      datasets: [
+        {
+          label: 'Max Score',
+          data: Object.keys(DOMAIN_LABELS).map((key) => dimensionData[key]?.max || 0),
+          backgroundColor: ['#9C27B0', '#9C27B0', '#9C27B0', '#9C27B0'],
+          borderColor: ['#7B1FA2', '#7B1FA2', '#7B1FA2', '#7B1FA2'],
+          borderWidth: 2,
+          borderRadius: 6,
+          barPercentage: 0.8,
+          categoryPercentage: 0.7,
+        },
+        {
+          label: 'Min Score',
+          data: Object.keys(DOMAIN_LABELS).map((key) => dimensionData[key]?.min || 0),
+          backgroundColor: ['#FF9800', '#FF9800', '#FF9800', '#FF9800'],
+          borderColor: ['#F57C00', '#F57C00', '#F57C00', '#F57C00'],
+          borderWidth: 2,
+          borderRadius: 6,
+          barPercentage: 0.8,
+          categoryPercentage: 0.7,
+        },
+      ],
+    }),
+    [dimensionData],
+  );
 
   const options: any = {
     responsive: true,
@@ -435,7 +364,13 @@ export function DimensionVisualization({
           position: 'relative',
         }}
       >
-        <Chart type="bar" data={chartData} options={options} plugins={[datalabelsPlugin]} />
+        <Chart
+          key={`dimension-chart-${selectedType}`}
+          type="bar"
+          data={chartData}
+          options={options}
+          plugins={[datalabelsPlugin]}
+        />
       </div>
     </div>
   );

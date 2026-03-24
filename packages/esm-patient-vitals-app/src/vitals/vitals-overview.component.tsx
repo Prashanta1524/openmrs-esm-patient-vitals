@@ -80,15 +80,15 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
 
     const identifiers =
       patient?.identifier?.filter(
-        (identifier) => !excludePatientIdentifierCodeTypes?.uuids.includes(identifier.type.coding[0].code),
+        (identifier) => !excludePatientIdentifierCodeTypes?.uuids.includes(identifier.type?.coding?.[0]?.code),
       ) ?? [];
 
     return {
       name: patient ? getPatientName(patient) : '',
-      age: age(patient?.birthDate),
-      gender: getGender(patient?.gender),
-      location: patient?.address?.[0].city,
-      identifiers: identifiers?.length ? identifiers.map(({ value }) => value) : [],
+      age: age(patient?.birthDate) ?? '',
+      gender: getGender(patient?.gender ?? 'unknown'),
+      location: patient?.address?.[0].city ?? '',
+      identifiers: identifiers?.length ? identifiers.map(({ value }) => value ?? '') : [],
     };
   }, [patient, t, excludePatientIdentifierCodeTypes?.uuids]);
 
@@ -203,7 +203,7 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
     });
   };
 
-  const onBeforeGetContentResolve = useRef(null);
+  const onBeforeGetContentResolve = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (isPrinting && onBeforeGetContentResolve.current) {
@@ -217,7 +217,7 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
     onBeforeGetContent: () =>
       new Promise((resolve) => {
         if (patient && headerTitle) {
-          onBeforeGetContentResolve.current = resolve;
+          onBeforeGetContentResolve.current = () => resolve(undefined);
           setIsPrinting(true);
         }
       }),
@@ -266,7 +266,7 @@ const VitalsOverview: React.FC<VitalsOverviewProps> = ({ patientUuid, patient, p
               )}
 
               {chartView ? (
-                <VitalsChart patientVitals={vitals} conceptUnits={conceptUnits} config={config} />
+                <VitalsChart patientVitals={vitals ?? []} conceptUnits={conceptUnits} config={config} />
               ) : (
                 <div ref={contentToPrintRef}>
                   <PrintComponent subheader={headerTitle} patientDetails={patientDetails} />

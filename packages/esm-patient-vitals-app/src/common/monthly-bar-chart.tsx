@@ -26,27 +26,30 @@ export function MonthlyBarChart({
   const [month, setMonth] = useState<number>(new Date().getMonth());
   const [isNarrow, setIsNarrow] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth < 1000 : false);
 
+  const stigmaOnlyPatientsData = useMemo(
+    () => allPatientsData.map((patientData) => patientData.filter((obs: any) => isStigmaObservation(obs))),
+    [allPatientsData],
+  );
+
   const countsByDay = useMemo(() => {
     const counts: Record<number, number> = {};
-    allPatientsData.forEach((patientData) => {
+    stigmaOnlyPatientsData.forEach((patientData) => {
       patientData.forEach((obs: any) => {
         // Filter by location
         if (currentLocationUuid && obs.locationUuid !== currentLocationUuid) return;
 
         const date = new Date(obs.effectiveDateTime || obs.date);
         if (!date) return;
-        const offsetInMs = 5 * 60 * 60 * 1000 + 45 * 60 * 1000;
-        const nepaliDate = new Date(date.getTime() + offsetInMs);
-        const y = nepaliDate.getFullYear().toString();
-        const m = nepaliDate.getMonth();
-        const d = nepaliDate.getDate();
+        const y = date.getFullYear().toString();
+        const m = date.getMonth();
+        const d = date.getDate();
         if (y === selectedYear && m === month) {
           counts[d] = (counts[d] || 0) + 1;
         }
       });
     });
     return counts;
-  }, [allPatientsData, selectedYear, month, currentLocationUuid]);
+  }, [stigmaOnlyPatientsData, selectedYear, month, currentLocationUuid]);
 
   // const dynamic = useMemo(() => {
   //   if (!startDate || !endDate) return null;
@@ -66,12 +69,12 @@ export function MonthlyBarChart({
     const rangeStart = s <= e ? s : e;
     const rangeEnd = s <= e ? e : s;
     const level = getAggregationLevel(rangeStart, rangeEnd);
-    return aggregateData(allPatientsData, rangeStart, rangeEnd, level);
-  }, [allPatientsData, startDate, endDate]);
+    return aggregateData(stigmaOnlyPatientsData, rangeStart, rangeEnd, level);
+  }, [stigmaOnlyPatientsData, startDate, endDate]);
 
   const monthCounts = useMemo(
-    () => aggregateYearMonthPatientCount(allPatientsData, selectedYear, currentLocationUuid),
-    [allPatientsData, selectedYear, currentLocationUuid],
+    () => aggregateYearMonthPatientCount(stigmaOnlyPatientsData, selectedYear, currentLocationUuid),
+    [stigmaOnlyPatientsData, selectedYear, currentLocationUuid],
   );
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -256,11 +259,8 @@ function aggregateYearMonthPatientCount(allPatientsData: any[], selectedYear: st
 
       const date = new Date(obs.effectiveDateTime || obs.date);
       if (!date) return;
-      // Adjust for Nepali Time (UTC+5:45)
-      const offsetInMs = 5 * 60 * 60 * 1000 + 45 * 60 * 1000;
-      const nepaliDate = new Date(date.getTime() + offsetInMs);
-      const year = nepaliDate.getFullYear().toString();
-      const month = nepaliDate.getMonth();
+      const year = date.getFullYear().toString();
+      const month = date.getMonth();
       if (year === selectedYear) {
         monthPatientSets[month].add(String(patientIdx));
       }
@@ -268,4 +268,11 @@ function aggregateYearMonthPatientCount(allPatientsData: any[], selectedYear: st
   });
 
   return monthPatientSets.map((set) => set.size);
+}
+
+function isStigmaObservation(obs: any): boolean {
+  return !!obs?.code?.coding?.some(
+    (coding: any) =>
+      coding?.display?.toLowerCase().includes('stigma') || coding?.code?.toLowerCase().includes('stigma'),
+  );
 }

@@ -3,7 +3,15 @@ import jsPDF from 'jspdf';
 
 // formDefinition: parsed JSON form definition
 // answers: { [questionId]: selectedValue }
-export function FormDisplay({ formDefinition, answers }: { formDefinition: any; answers: Record<string, any> }) {
+export function FormDisplay({
+  formDefinition,
+  answers,
+  showAllQuestions = false,
+}: {
+  formDefinition: any;
+  answers: Record<string, any>;
+  showAllQuestions?: boolean;
+}) {
   // Flatten all questions from all sections/pages, filter out domain/total score questions
   const questions: any[] = [];
   const hiddenLabels = [
@@ -29,20 +37,12 @@ export function FormDisplay({ formDefinition, answers }: { formDefinition: any; 
   formDefinition.pages.forEach((page: any) => {
     page.sections.forEach((section: any) => {
       section.questions.forEach((q: any) => {
-        if (!hiddenLabels.includes(q.label)) {
+        if (showAllQuestions || !hiddenLabels.includes(q.label)) {
           questions.push(q);
         }
       });
     });
   });
-
-  // Debug helpers: show which question ids have answers (useful when values render as '-')
-  const answerKeys = answers ? Object.keys(answers) : [];
-  const questionAnswerMap = questions.map((q) => ({
-    id: q.id,
-    hasAnswer: answers && Object.prototype.hasOwnProperty.call(answers, q.id),
-    value: answers ? answers[q.id] : undefined,
-  }));
 
   // Helper to get label for selected value
   function getAnswerLabel(q: any, value: any) {
@@ -55,6 +55,24 @@ export function FormDisplay({ formDefinition, answers }: { formDefinition: any; 
 
     // If no value, return '-'
     if (value === undefined || value === null) return '-';
+
+    const answerOptions = q?.questionOptions?.answers || [];
+    const mapSingleValueToLabel = (singleValue: any) => {
+      if (singleValue === undefined || singleValue === null) return undefined;
+
+      // If value is concept UUID or coded concept from this question, show the configured label.
+      const optionByConcept = answerOptions.find((opt: any) => opt?.concept === singleValue);
+      if (optionByConcept?.label) return optionByConcept.label;
+
+      // If value is numeric score and question options have value fields, map to matching option label.
+      const optionByNumericValue = answerOptions.find((opt: any) =>
+        opt?.value !== undefined && String(opt.value) === String(singleValue),
+      );
+      if (optionByNumericValue?.label) return optionByNumericValue.label;
+
+      return singleValue;
+    };
+
     // If value is an object with display, try to extract number from display string
     if (value && typeof value === 'object' && value.display) {
       const match = value.display.match(/: (\d+(\.\d+)?)/);
@@ -64,12 +82,12 @@ export function FormDisplay({ formDefinition, answers }: { formDefinition: any; 
     // If value is an array, deduplicate and join with comma
     if (Array.isArray(value)) {
       if (!value.length) return '-';
-      // Remove duplicates using Set and filter out any falsy values
-      const uniqueValues = [...new Set(value)].filter(Boolean);
+      // Map each selected value to this question's answer labels, then deduplicate.
+      const uniqueValues = [...new Set(value.map(mapSingleValueToLabel))].filter(Boolean);
       return uniqueValues.join(', ');
     }
     // If value is a string or number, show as is
-    return value;
+    return mapSingleValueToLabel(value);
   }
 
   // Download table as simple text PDF
