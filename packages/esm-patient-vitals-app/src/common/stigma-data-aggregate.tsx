@@ -55,13 +55,7 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
     return false;
   });
 
-  // Helpers for strict concept-based mapping
-  const getConceptUuid = (obs: any) => {
-    if (!obs?.concept) return undefined;
-    if (typeof obs.concept === 'string') return obs.concept;
-    return obs.concept.uuid;
-  };
-
+  // Keep only observations from the latest encounter so ART ID view reflects a single form submission.
   const getObsTime = (o: any) => {
     return (
       (o.obsDatetime && new Date(o.obsDatetime).getTime()) ||
@@ -69,6 +63,44 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
       (o.dateCreated && new Date(o.dateCreated).getTime()) ||
       0
     );
+  };
+
+  const encounterUuidByObsUuid = new Map<string, string>();
+  const encounterLatestTime = new Map<string, number>();
+
+  obsArray.forEach((obs: any) => {
+    const obsUuid = obs?.uuid;
+    const encounterUuid = obs?.encounter?.uuid;
+    if (obsUuid && encounterUuid) {
+      encounterUuidByObsUuid.set(obsUuid, encounterUuid);
+      const t = getObsTime(obs);
+      const prev = encounterLatestTime.get(encounterUuid) ?? 0;
+      if (t > prev) {
+        encounterLatestTime.set(encounterUuid, t);
+      }
+    }
+  });
+
+  if (encounterLatestTime.size > 0) {
+    let latestEncounterUuid: string | undefined;
+    let latestTime = 0;
+    for (const [encUuid, t] of encounterLatestTime.entries()) {
+      if (t > latestTime) {
+        latestTime = t;
+        latestEncounterUuid = encUuid;
+      }
+    }
+
+    if (latestEncounterUuid) {
+      obsArray = obsArray.filter((obs: any) => obs?.encounter?.uuid === latestEncounterUuid);
+    }
+  }
+
+  // Helpers for strict concept-based mapping
+  const getConceptUuid = (obs: any) => {
+    if (!obs?.concept) return undefined;
+    if (typeof obs.concept === 'string') return obs.concept;
+    return obs.concept.uuid;
   };
 
   const getCodedValueUuid = (obs: any) => {
@@ -96,6 +128,51 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
     return undefined;
   };
 
+  // Build deterministic per-concept queues so repeated concept UUIDs map to distinct repeated questions.
+  const obsByConcept = new Map<string, any[]>();
+  obsArray.forEach((obs: any) => {
+    const concept = getConceptUuid(obs);
+    if (!concept) return;
+    const existing = obsByConcept.get(concept) || [];
+    existing.push(obs);
+    obsByConcept.set(concept, existing);
+  });
+
+  for (const [concept, list] of obsByConcept.entries()) {
+    list.sort((a, b) => getObsTime(a) - getObsTime(b));
+    obsByConcept.set(concept, list);
+  }
+
+  const conceptReadIndex = new Map<string, number>();
+  const getObsGroupKey = (obs: any) => {
+    const groupUuid = obs?.obsGroup?.uuid;
+    return typeof groupUuid === 'string' && groupUuid.length > 0 ? groupUuid : undefined;
+  };
+
+  const consumeObsPacketForConcept = (concept: string) => {
+    const list = obsByConcept.get(concept) || [];
+    if (!list.length) return [] as any[];
+
+    const start = conceptReadIndex.get(concept) || 0;
+    if (start >= list.length) return [] as any[];
+
+    const first = list[start];
+    const packet: any[] = [first];
+    let nextIndex = start + 1;
+
+    // If observations are grouped, consume the whole group as one logical answer packet.
+    const firstGroup = getObsGroupKey(first);
+    if (firstGroup) {
+      while (nextIndex < list.length && getObsGroupKey(list[nextIndex]) === firstGroup) {
+        packet.push(list[nextIndex]);
+        nextIndex += 1;
+      }
+    }
+
+    conceptReadIndex.set(concept, nextIndex);
+    return packet;
+  };
+
   // Map answers
   const answers: Record<string, any> = {};
   questions.forEach((q) => {
@@ -113,18 +190,12 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
     const matchesByQuestionConcept = obsArray.filter((obs) => getConceptUuid(obs) === questionConcept);
 
     if (rendering === 'checkbox') {
-      // Handle both OpenMRS patterns:
-      // 1) obs concept == question concept, value/valueCoded == option concept
-      // 2) obs concept == option concept (group member obs)
+      // Consume only the next packet for this repeated concept to avoid cross-section leakage.
       const selectedOptionConcepts = new Set<string>();
 
-      const matchesByOptionConcept = obsArray.filter((obs) => optionConcepts.includes(getConceptUuid(obs) || ''));
-      matchesByOptionConcept.forEach((obs) => {
-        const c = getConceptUuid(obs);
-        if (c && optionConcepts.includes(c)) selectedOptionConcepts.add(c);
-      });
+      const packet = consumeObsPacketForConcept(questionConcept);
 
-      matchesByQuestionConcept.forEach((obs) => {
+      packet.forEach((obs) => {
         const coded = getCodedValueUuid(obs);
         if (coded && optionConcepts.includes(coded)) selectedOptionConcepts.add(coded);
       });
@@ -138,9 +209,10 @@ export async function fetchPatientAnswers(patientUuid: string, formJson: any) {
       return;
     }
 
-    // Single-value question: use the most recent observation
-    const latest = [...matchesByQuestionConcept].sort((a, b) => getObsTime(b) - getObsTime(a))[0];
-    answers[q.id] = extractSingleValue(latest);
+    // Single-value question: consume next observation packet for this concept.
+    const packet = consumeObsPacketForConcept(questionConcept);
+    const selectedObs = packet.length ? packet[packet.length - 1] : undefined;
+    answers[q.id] = selectedObs ? extractSingleValue(selectedObs) : undefined;
   });
 
   return answers;

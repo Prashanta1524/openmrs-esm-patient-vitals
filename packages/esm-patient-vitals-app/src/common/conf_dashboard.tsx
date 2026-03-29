@@ -1420,30 +1420,87 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
   const [counselorAnswers, setCounselorAnswers] = React.useState<Record<string, any>>({});
   const [loading, setLoading] = React.useState(false);
 
+  async function findPatientUuidByArtId(inputArtId: string) {
+    const normalizedArtId = inputArtId.trim().toLowerCase();
+    if (!normalizedArtId) {
+      return null;
+    }
+
+    console.log('[ART-ID] lookup started', { artId: inputArtId.trim() });
+
+    try {
+      const url = `/ws/rest/v1/patient?q=${encodeURIComponent(inputArtId.trim())}&v=full&limit=50`;
+      const { data } = await openmrsFetch(url);
+      const apiPatients = Array.isArray(data?.results) ? data.results : [];
+      console.log('[ART-ID] API search results', { count: apiPatients.length });
+
+      const matchedApiPatient = apiPatients.find((p: any) => {
+        const identifiers = Array.isArray(p?.identifiers) ? p.identifiers : [];
+        return identifiers.some((id: any) => {
+          const directIdentifier = (id?.identifier || '').toString().trim().toLowerCase();
+          const fromDisplay = (id?.display || '').toString();
+          const parsedDisplayIdentifier = fromDisplay.includes('=')
+            ? fromDisplay.split('=').pop()?.trim().toLowerCase()
+            : fromDisplay.trim().toLowerCase();
+
+          return directIdentifier === normalizedArtId || parsedDisplayIdentifier === normalizedArtId;
+        });
+      });
+
+      if (matchedApiPatient?.uuid) {
+        console.log('[ART-ID] matched via API identifiers', { patientUuid: matchedApiPatient.uuid });
+        return matchedApiPatient.uuid as string;
+      }
+
+      console.log('[ART-ID] no exact identifier match from API results; trying local fallback');
+    } catch (error) {
+      console.warn('ART ID API lookup failed; falling back to local patient list.', error);
+    }
+
+    const localPatient = patients.find(
+      (p) => p.identifier && p.identifier.some((id: any) => id.value && id.value.toLowerCase() === normalizedArtId),
+    );
+
+    if (localPatient?.uuid || localPatient?.id) {
+      console.log('[ART-ID] matched via local patient list', { patientUuid: localPatient?.uuid || localPatient?.id });
+    } else {
+      console.log('[ART-ID] not found in API or local fallback', { artId: inputArtId.trim() });
+    }
+
+    return localPatient?.uuid || localPatient?.id || null;
+  }
+
   async function onSearch() {
     setSelectedPatientUuid(null);
     setParticipantAnswers({});
     setCounselorAnswers({});
-    if (!artId) return;
-    const patient = patients.find(
-      (p) =>
-        p.identifier &&
-        p.identifier.some((id: any) => id.value && id.value.toLowerCase() === artId.trim().toLowerCase()),
-    );
-    if (!patient) {
-      setSelectedPatientUuid(null);
-      return;
-    }
-    setSelectedPatientUuid(patient.id);
+    if (!artId.trim()) return;
+
+    console.log('[ART-ID] search button clicked', { artId: artId.trim() });
+
     setLoading(true);
     try {
+      const patientUuid = await findPatientUuidByArtId(artId);
+
+      if (!patientUuid) {
+        console.log('[ART-ID] search ended with no patient UUID');
+        setSelectedPatientUuid(null);
+        return;
+      }
+
+      setSelectedPatientUuid(patientUuid);
+      console.log('[ART-ID] fetching form answers', { patientUuid });
       const [pAns, cAns] = await Promise.all([
-        fetchPatientAnswers(patient.id, participantFormJson),
-        fetchPatientAnswers(patient.id, counselorFormJson),
+        fetchPatientAnswers(patientUuid, participantFormJson),
+        fetchPatientAnswers(patientUuid, counselorFormJson),
       ]);
 
       setParticipantAnswers(pAns || {});
       setCounselorAnswers(cAns || {});
+      console.log('[ART-ID] form answers loaded', {
+        participantAnswerKeys: Object.keys(pAns || {}).length,
+        counselorAnswerKeys: Object.keys(cAns || {}).length,
+      });
     } catch (err) {
       console.error('Error fetching form answers for ART ID', artId, err);
       setParticipantAnswers({});
@@ -1487,7 +1544,12 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
             </div>
             <div>
               <h4 style={{ margin: '0 0 8px 0' }}>सहभागी फारम - उत्तरहरू</h4>
-              <FormDisplay formDefinition={participantFormJson} answers={participantAnswers} showAllQuestions />
+              <FormDisplay
+                formDefinition={participantFormJson}
+                answers={participantAnswers}
+                showAllQuestions
+                respectVisibility={false}
+              />
             </div>
             <div>
               {/* <h4 style={{ margin: '0 0 8px 0' }}>Counselor Form</h4> */}
@@ -2215,7 +2277,11 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
       let errorCount = 0;
 
       for (const [conceptUuid, value] of Object.entries(formData)) {
-        if (value && value !== '') {
+        const hasValue = Array.isArray(value)
+          ? value.length > 0
+          : value !== null && value !== undefined && value !== '';
+
+        if (hasValue) {
           // Transform radio button values: concept UUIDs → numeric values
           let transformedValue = value;
 

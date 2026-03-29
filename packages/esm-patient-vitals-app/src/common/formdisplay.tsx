@@ -7,10 +7,12 @@ export function FormDisplay({
   formDefinition,
   answers,
   showAllQuestions = false,
+  respectVisibility = true,
 }: {
   formDefinition: any;
   answers: Record<string, any>;
   showAllQuestions?: boolean;
+  respectVisibility?: boolean;
 }) {
   // Flatten all questions from all sections/pages, filter out domain/total score questions
   const questions: any[] = [];
@@ -34,14 +36,76 @@ export function FormDisplay({
     'Ethnic Minorities domain score- Anticipated stigma score',
     'Intersectional stigma score for Anticipated stigma',
   ];
+  const allQuestions: any[] = [];
   formDefinition.pages.forEach((page: any) => {
     page.sections.forEach((section: any) => {
       section.questions.forEach((q: any) => {
-        if (showAllQuestions || !hiddenLabels.includes(q.label)) {
-          questions.push(q);
-        }
+        allQuestions.push(q);
       });
     });
+  });
+
+  const normalizeAnswerForQuestion = (q: any, rawValue: any) => {
+    if (rawValue === undefined || rawValue === null) return rawValue;
+
+    const answerOptions = q?.questionOptions?.answers || [];
+
+    // Keep checkbox answers as an array of option concepts.
+    if (Array.isArray(rawValue)) {
+      return rawValue;
+    }
+
+    // For radio/select answers stored as option concept UUID, map to configured numeric value when present.
+    const optionByConcept = answerOptions.find((opt: any) => opt?.concept === rawValue);
+    if (optionByConcept && optionByConcept.value !== undefined && optionByConcept.value !== null) {
+      return optionByConcept.value;
+    }
+
+    return rawValue;
+  };
+
+  const normalizedAnswersByQuestionId: Record<string, any> = {};
+  allQuestions.forEach((q: any) => {
+    normalizedAnswersByQuestionId[q.id] = normalizeAnswerForQuestion(q, answers[q.id]);
+  });
+
+  const evaluateHideExpression = (expression: string) => {
+    try {
+      // Form hide expressions reference question ids as variables; a Proxy avoids ReferenceError for missing ids.
+      const scope = new Proxy(normalizedAnswersByQuestionId, {
+        has: () => true,
+        get: (target, prop) => target[String(prop)],
+      });
+      return Boolean(new Function('scope', `with (scope) { return (${expression}); }`)(scope));
+    } catch {
+      return false;
+    }
+  };
+
+  allQuestions.forEach((q: any) => {
+    const isHiddenByLabel = !showAllQuestions && hiddenLabels.includes(q.label);
+    if (isHiddenByLabel) {
+      return;
+    }
+
+    const rawAnswer = answers[q.id];
+    const hasAnswer = Array.isArray(rawAnswer)
+      ? rawAnswer.length > 0
+      : rawAnswer !== undefined && rawAnswer !== null && rawAnswer !== '';
+
+    // Always keep answered questions visible, even if hide expressions are currently true.
+    if (hasAnswer) {
+      questions.push(q);
+      return;
+    }
+
+    const hideExpression = q?.hide?.hideWhenExpression;
+    const isHiddenByFormLogic = respectVisibility && typeof hideExpression === 'string' && evaluateHideExpression(hideExpression);
+    if (isHiddenByFormLogic) {
+      return;
+    }
+
+    questions.push(q);
   });
 
   // Helper to get label for selected value
@@ -65,8 +129,8 @@ export function FormDisplay({
       if (optionByConcept?.label) return optionByConcept.label;
 
       // If value is numeric score and question options have value fields, map to matching option label.
-      const optionByNumericValue = answerOptions.find((opt: any) =>
-        opt?.value !== undefined && String(opt.value) === String(singleValue),
+      const optionByNumericValue = answerOptions.find(
+        (opt: any) => opt?.value !== undefined && String(opt.value) === String(singleValue),
       );
       if (optionByNumericValue?.label) return optionByNumericValue.label;
 
