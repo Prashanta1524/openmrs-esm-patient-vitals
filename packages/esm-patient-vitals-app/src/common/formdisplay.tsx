@@ -1,8 +1,6 @@
 import React from 'react';
 import jsPDF from 'jspdf';
 
-// formDefinition: parsed JSON form definition
-// answers: { [questionId]: selectedValue }
 export function FormDisplay({
   formDefinition,
   answers,
@@ -14,8 +12,6 @@ export function FormDisplay({
   showAllQuestions?: boolean;
   respectVisibility?: boolean;
 }) {
-  // Flatten all questions from all sections/pages, filter out domain/total score questions
-  const questions: any[] = [];
   const hiddenLabels = [
     'Internalized stigma score',
     'HIV domain total score-Internalized stigma',
@@ -36,6 +32,8 @@ export function FormDisplay({
     'Ethnic Minorities domain score- Anticipated stigma score',
     'Intersectional stigma score for Anticipated stigma',
   ];
+
+  // 🔹 Flatten questions
   const allQuestions: any[] = [];
   formDefinition.pages.forEach((page: any) => {
     page.sections.forEach((section: any) => {
@@ -45,19 +43,19 @@ export function FormDisplay({
     });
   });
 
+  // 🔹 Normalize answers
   const normalizeAnswerForQuestion = (q: any, rawValue: any) => {
     if (rawValue === undefined || rawValue === null) return rawValue;
 
     const answerOptions = q?.questionOptions?.answers || [];
 
-    // Keep checkbox answers as an array of option concepts.
-    if (Array.isArray(rawValue)) {
-      return rawValue;
-    }
+    if (Array.isArray(rawValue)) return rawValue;
 
-    // For radio/select answers stored as option concept UUID, map to configured numeric value when present.
-    const optionByConcept = answerOptions.find((opt: any) => opt?.concept === rawValue);
-    if (optionByConcept && optionByConcept.value !== undefined && optionByConcept.value !== null) {
+    const optionByConcept = answerOptions.find(
+      (opt: any) => opt?.concept === rawValue
+    );
+
+    if (optionByConcept?.value !== undefined) {
       return optionByConcept.value;
     }
 
@@ -66,173 +64,150 @@ export function FormDisplay({
 
   const normalizedAnswersByQuestionId: Record<string, any> = {};
   allQuestions.forEach((q: any) => {
-    normalizedAnswersByQuestionId[q.id] = normalizeAnswerForQuestion(q, answers[q.id]);
+    normalizedAnswersByQuestionId[q.id] =
+      normalizeAnswerForQuestion(q, answers[q.id]);
   });
 
+  // 🔹 Evaluate visibility
   const evaluateHideExpression = (expression: string) => {
     try {
-      // Form hide expressions reference question ids as variables; a Proxy avoids ReferenceError for missing ids.
       const scope = new Proxy(normalizedAnswersByQuestionId, {
         has: () => true,
         get: (target, prop) => target[String(prop)],
       });
-      return Boolean(new Function('scope', `with (scope) { return (${expression}); }`)(scope));
+      return Boolean(
+        new Function('scope', `with (scope) { return (${expression}); }`)(scope)
+      );
     } catch {
       return false;
     }
   };
 
+  // 🔹 Filter questions
+  const questions: any[] = [];
+
   allQuestions.forEach((q: any) => {
-    const isHiddenByLabel = !showAllQuestions && hiddenLabels.includes(q.label);
-    if (isHiddenByLabel) {
-      return;
-    }
+    const isHiddenByLabel =
+      !showAllQuestions && hiddenLabels.includes(q.label);
 
-    const rawAnswer = answers[q.id];
-    const hasAnswer = Array.isArray(rawAnswer)
-      ? rawAnswer.length > 0
-      : rawAnswer !== undefined && rawAnswer !== null && rawAnswer !== '';
+    if (isHiddenByLabel) return;
 
-    // Always keep answered questions visible, even if hide expressions are currently true.
+    const value = normalizedAnswersByQuestionId[q.id];
+
+    const hasAnswer = Array.isArray(value)
+      ? value.length > 0
+      : value !== undefined && value !== null && value !== '';
+
     if (hasAnswer) {
       questions.push(q);
       return;
     }
 
     const hideExpression = q?.hide?.hideWhenExpression;
-    const isHiddenByFormLogic = respectVisibility && typeof hideExpression === 'string' && evaluateHideExpression(hideExpression);
-    if (isHiddenByFormLogic) {
-      return;
-    }
 
-    questions.push(q);
+    const isHiddenByFormLogic =
+      respectVisibility &&
+      typeof hideExpression === 'string' &&
+      evaluateHideExpression(hideExpression);
+
+    if (!isHiddenByFormLogic) {
+      questions.push(q);
+    }
   });
 
-  // Helper to get label for selected value
+  // 🔹 Get label
   function getAnswerLabel(q: any, value: any) {
-    // Debug: log which questions have/don't have values
-    // if (q.id && (value === undefined || value === null)) {
-    //   console.log('Missing value for question:', q.id, q.label?.substring(0, 50));
-    // } else if (q.id && value) {
-    //   console.log('Has value for question:', q.id, value, q.label?.substring(0, 50));
-    // }
-
-    // If no value, return '-'
     if (value === undefined || value === null) return '-';
 
     const answerOptions = q?.questionOptions?.answers || [];
-    const mapSingleValueToLabel = (singleValue: any) => {
-      if (singleValue === undefined || singleValue === null) return undefined;
 
-      // If value is concept UUID or coded concept from this question, show the configured label.
-      const optionByConcept = answerOptions.find((opt: any) => opt?.concept === singleValue);
-      if (optionByConcept?.label) return optionByConcept.label;
-
-      // If value is numeric score and question options have value fields, map to matching option label.
-      const optionByNumericValue = answerOptions.find(
-        (opt: any) => opt?.value !== undefined && String(opt.value) === String(singleValue),
+    const mapValue = (val: any) => {
+      const byConcept = answerOptions.find(
+        (opt: any) => opt?.concept === val
       );
-      if (optionByNumericValue?.label) return optionByNumericValue.label;
+      if (byConcept?.label) return byConcept.label;
 
-      return singleValue;
+      const byValue = answerOptions.find(
+        (opt: any) =>
+          opt?.value !== undefined &&
+          String(opt.value) === String(val)
+      );
+      if (byValue?.label) return byValue.label;
+
+      return val;
     };
 
-    // If value is an object with display, try to extract number from display string
-    if (value && typeof value === 'object' && value.display) {
-      const match = value.display.match(/: (\d+(\.\d+)?)/);
-      if (match) return match[1];
+    if (Array.isArray(value)) {
+      const unique = [...new Set(value.map(mapValue))].filter(Boolean);
+      return unique.join(', ');
+    }
+
+    if (typeof value === 'object' && value?.display) {
       return value.display;
     }
-    // If value is an array, deduplicate and join with comma
-    if (Array.isArray(value)) {
-      if (!value.length) return '-';
-      // Map each selected value to this question's answer labels, then deduplicate.
-      const uniqueValues = [...new Set(value.map(mapSingleValueToLabel))].filter(Boolean);
-      return uniqueValues.join(', ');
-    }
-    // If value is a string or number, show as is
-    return mapSingleValueToLabel(value);
+
+    return mapValue(value);
   }
 
-  // Download table as simple text PDF
+  // 🔹 PDF export
   function handleDownloadPDF() {
     const doc = new jsPDF();
     let y = 20;
+
     doc.setFontSize(16);
     doc.text('Form Responses', 15, y);
     y += 10;
+
     doc.setFontSize(12);
     doc.text('Question', 15, y);
-    doc.text('Selected Answer', 100, y);
+    doc.text('Answer', 100, y);
     y += 8;
+
     questions.forEach((q) => {
       const question = String(q.label);
-      const answer = String(getAnswerLabel(q, answers[q.id]));
+      const answer = String(
+        getAnswerLabel(q, normalizedAnswersByQuestionId[q.id])
+      );
+
       doc.text(question, 15, y);
       doc.text(answer, 100, y);
+
       y += 8;
       if (y > 280) {
         doc.addPage();
         y = 20;
       }
     });
+
     doc.save('form-responses.pdf');
   }
 
   return (
     <div style={{ padding: '16px' }}>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px', background: '#fafafa' }}>
+        <table style={{ width: '100%', borderSpacing: '0 8px' }}>
           <thead>
             <tr>
-              <th
-                style={{
-                  border: '1px solid #ccc',
-                  padding: '8px',
-                  fontWeight: 'bold',
-                  background: '#f5f5f5',
-                  fontSize: '1em',
-                }}
-              >
+              <th style={{ border: '1px solid #ccc', padding: 8 }}>
                 Question
               </th>
-              <th
-                style={{
-                  border: '1px solid #ccc',
-                  padding: '8px',
-                  fontWeight: 'bold',
-                  background: '#f5f5f5',
-                  fontSize: '1em',
-                }}
-              >
+              <th style={{ border: '1px solid #ccc', padding: 8 }}>
                 Selected Answer
               </th>
             </tr>
           </thead>
+
           <tbody>
             {questions.map((q) => (
               <tr key={q.id}>
-                <td
-                  style={{
-                    border: '1px solid #ccc',
-                    padding: '8px',
-                    background: '#fff',
-                    verticalAlign: 'top',
-                    minWidth: 180,
-                  }}
-                >
+                <td style={{ border: '1px solid #ccc', padding: 8 }}>
                   {q.label}
                 </td>
-                <td
-                  style={{
-                    border: '1px solid #ccc',
-                    padding: '8px',
-                    background: '#fff',
-                    verticalAlign: 'top',
-                    minWidth: 120,
-                  }}
-                >
-                  {getAnswerLabel(q, answers[q.id])}
+                <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                  {getAnswerLabel(
+                    q,
+                    normalizedAnswersByQuestionId[q.id] // ✅ FIXED
+                  )}
                 </td>
               </tr>
             ))}
