@@ -6,11 +6,13 @@ export function FormDisplay({
   answers,
   showAllQuestions = false,
   respectVisibility = true,
+  questionIdToConceptMap = {},
 }: {
   formDefinition: any;
   answers: Record<string, any>;
   showAllQuestions?: boolean;
   respectVisibility?: boolean;
+  questionIdToConceptMap?: Record<string, string>;
 }) {
   const hiddenLabels = [
     'Internalized stigma score',
@@ -43,6 +45,11 @@ export function FormDisplay({
     });
   });
 
+  // 🔹 Resolve the key used in `answers` for a given questionId
+  const getAnswerKey = (questionId: string): string => {
+    return questionIdToConceptMap[questionId] ?? questionId;
+  };
+
   // 🔹 Normalize answers
   const normalizeAnswerForQuestion = (q: any, rawValue: any) => {
     if (rawValue === undefined || rawValue === null) return rawValue;
@@ -62,10 +69,14 @@ export function FormDisplay({
     return rawValue;
   };
 
+  // 🔹 Build normalized answers using mapped concept UUID for lookup
   const normalizedAnswersByQuestionId: Record<string, any> = {};
   allQuestions.forEach((q: any) => {
-    normalizedAnswersByQuestionId[q.id] =
-      normalizeAnswerForQuestion(q, answers[q.id]);
+    const answerKey = getAnswerKey(q.id); // resolve to conceptUUID if mapped
+    normalizedAnswersByQuestionId[q.id] = normalizeAnswerForQuestion(
+      q,
+      answers[answerKey] // fetch from answers using UUID
+    );
   });
 
   // 🔹 Evaluate visibility
@@ -184,6 +195,21 @@ export function FormDisplay({
 
   return (
     <div style={{ padding: '16px' }}>
+      <div style={{ marginBottom: '12px' }}>
+        <button
+          onClick={handleDownloadPDF}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#0070f3',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+        >
+          Download PDF
+        </button>
+      </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderSpacing: '0 8px' }}>
           <thead>
@@ -204,10 +230,7 @@ export function FormDisplay({
                   {q.label}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {getAnswerLabel(
-                    q,
-                    normalizedAnswersByQuestionId[q.id] // ✅ FIXED
-                  )}
+                  {getAnswerLabel(q, normalizedAnswersByQuestionId[q.id])}
                 </td>
               </tr>
             ))}
