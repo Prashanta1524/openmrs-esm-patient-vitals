@@ -1540,7 +1540,7 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
           <div style={{ display: 'grid', gap: '1rem' }}>
             <div>
               {/* Per-patient stigma bar chart */}
-              <MultiChartSelector patientUuid={selectedPatientUuid} />
+              <MultiChartSelector patientUuid={selectedPatientUuid} chartType="bar" />
             </div>
             <div>
               <h4 style={{ margin: '0 0 8px 0' }}>सहभागी फारम - उत्तरहरू</h4>

@@ -551,23 +551,37 @@ function TypeDimensionBarChart({ data }: { data: ReturnType<typeof aggregateByTy
 function LatestStigmaBarChart({ latestRecord }: { latestRecord: ReturnType<typeof aggregateByDateGrouped>[0] }) {
   if (!latestRecord || !latestRecord.records.length) return null;
 
-  const domains = [
-    { key: 'hiv', label: 'एचआईभी', color: DOMAIN_COLORS.hiv },
-    { key: 'mh', label: 'मानसिक स्वास्थ्य', color: DOMAIN_COLORS.mh },
-    { key: 'sgm', label: 'लैङ्गिक तथा यौनिक अल्पसङ्ख्यक', color: DOMAIN_COLORS.sgm },
-    { key: 'em', label: 'जातीय अल्पसङ्ख्यक/दलित', color: DOMAIN_COLORS.em },
-    { key: 'intersectional', label: 'इण्टरसेक्सनल', color: DOMAIN_COLORS.intersectional },
-    { key: 'overall', label: 'कुल स्कोर', color: '#1f2e5b' },
+  // Extract the three main stigma type scores from the records
+  const stigmaTypes = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
+  const record = latestRecord.records[0];
+  
+  // Map field names to stigma types
+  // is_score = internalized (आत्मलान्छना)
+  // as_score = anticipated (अपेक्षित लान्छना)
+  // es_score = enacted (व्यावहारिक लान्छना)
+  const scoreValues = [
+    record.totals?.overall || 0,  // This might need adjustment based on actual data structure
   ];
 
-  const labels = latestRecord.records.map((record) => record.type);
+  const labels = stigmaTypes;
+  
+  // Extract scores from record - trying multiple possible field names
+  const internalizedScore = record.totals?.is_score !== undefined ? record.totals.is_score : record.totals?.overall || 0;
+  const anticipatedScore = record.totals?.as_score !== undefined ? record.totals.as_score : record.totals?.overall || 0;
+  const enactedScore = record.totals?.es_score !== undefined ? record.totals.es_score : record.totals?.overall || 0;
 
-  const datasets = domains.map((domain) => ({
-    label: domain.label,
-    data: latestRecord.records.map((record) => (record.totals as any)[domain.key] || 0),
-    backgroundColor: domain.color,
-    borderRadius: 4,
-  }));
+  const datasets = [
+    {
+      label: 'Stigma Scores',
+      data: [internalizedScore, anticipatedScore, enactedScore],
+      backgroundColor: ['#FF6B6B', '#4FC3F7', '#81C784'],
+      borderColor: ['#D32F2F', '#0288D1', '#2E7D32'],
+      borderWidth: 2,
+      borderRadius: 8,
+      barPercentage: 0.65,
+      categoryPercentage: 0.8,
+    },
+  ];
 
   const dateStr = new Date(latestRecord.date).toLocaleDateString('default', {
     day: '2-digit',
@@ -583,20 +597,20 @@ function LatestStigmaBarChart({ latestRecord }: { latestRecord: ReturnType<typeo
       }}
       plugins={[
         {
-          id: 'datalabels-bar',
+          id: 'datalabels-stigma-types',
           afterDatasetsDraw: (chart: any) => {
             const ctx = chart.ctx;
             ctx.save();
-            ctx.font = 'bold 12px sans-serif';
+            ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
+            ctx.fillStyle = '#333';
             chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
               const meta = chart.getDatasetMeta(datasetIndex);
               meta.data.forEach((bar: any, index: number) => {
                 const value = dataset.data[index];
-                if (value !== 0) {
-                  ctx.fillStyle = dataset.backgroundColor;
-                  ctx.fillText(value, bar.x, bar.y - 5);
+                if (value !== undefined && value !== null) {
+                  ctx.fillText(value.toFixed(1), bar.x, bar.y - 8);
                 }
               });
             });
@@ -608,12 +622,26 @@ function LatestStigmaBarChart({ latestRecord }: { latestRecord: ReturnType<typeo
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          title: { display: true, text: `Latest Stigma Scores (${dateStr})`, font: { size: 16 } },
-          legend: { display: true, position: 'bottom' },
-          tooltip: { enabled: false },
+          title: { display: true, text: `लान्छना प्रकार स्कोर (${dateStr})`, font: { size: 16 } },
+          legend: { display: false },
+          tooltip: { 
+            enabled: true,
+            callbacks: {
+              label: (context: any) => {
+                const value = typeof context.raw === 'number' ? context.raw.toFixed(1) : context.raw;
+                return `Score: ${value}`;
+              },
+            },
+          },
         },
         scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'Score' } },
+          y: { 
+            beginAtZero: true, 
+            title: { display: true, text: 'Score' },
+          },
+          x: {
+            title: { display: true, text: 'Stigma Type' },
+          },
         },
       }}
     />
