@@ -195,21 +195,6 @@ export function FormDisplay({
 
   return (
     <div style={{ padding: '16px' }}>
-      <div style={{ marginBottom: '12px' }}>
-        <button
-          onClick={handleDownloadPDF}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#0070f3',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Download PDF
-        </button>
-      </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderSpacing: '0 8px' }}>
           <thead>

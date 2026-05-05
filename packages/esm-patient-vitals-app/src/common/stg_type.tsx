@@ -294,7 +294,11 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
   );
 
   const labels = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
-  const scoreValues = [latestScores.internalized, latestScores.anticipated, latestScores.enacted];
+  const scoreValues = [
+    latestScores.internalized || 0,
+    latestScores.anticipated || 0,
+    latestScores.enacted || 0,
+  ];
   const latestDateLabel = latestScores.latestDate ? `Latest data: ${latestScores.latestDate}` : 'No data available';
 
   const chartData = {
