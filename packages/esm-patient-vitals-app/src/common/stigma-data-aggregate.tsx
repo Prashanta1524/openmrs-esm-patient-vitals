@@ -501,6 +501,10 @@ const aggregateByDateGrouped = (data: CovidStigmaData[]) => {
     grouped[dateStr].records.push({
       type: d.stigmaType || 'Unknown',
       totals,
+      as_score: d.as_score,
+      es_score: d.es_score,
+      is_score: d.is_score,
+      stigmaScore: d.stigmaScore,
     });
   });
 
@@ -548,68 +552,91 @@ function TypeDimensionBarChart({ data }: { data: ReturnType<typeof aggregateByTy
 }
 */
 
-function LatestStigmaBarChart({ latestRecord }: { latestRecord: ReturnType<typeof aggregateByDateGrouped>[0] }) {
-  if (!latestRecord || !latestRecord.records.length) return null;
+function normalizeStigmaType(raw?: string) {
+  const s = String(raw || '').toLowerCase();
+  if (s.includes('आत्म') || s.includes('internal')) return 'आत्मलान्छना';
+  if (s.includes('अपेक्षित') || s.includes('anticip')) return 'अपेक्षित लान्छना';
+  if (s.includes('व्यावहारिक') || s.includes('enact')) return 'व्यावहारिक लान्छना';
+  return 'Unknown';
+}
 
-  // Extract the three main stigma type scores from the records
+function safeScore(value: any): number {
+  if (value === null || value === undefined || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const parsed = parseFloat(String(value).trim());
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getStigmaScore(record: any, targetType: string) {
+  if (!record) return 0;
+
+  const scoreField =
+    targetType === 'आत्मलान्छना'
+      ? record.is_score
+      : targetType === 'अपेक्षित लान्छना'
+      ? record.as_score
+      : targetType === 'व्यावहारिक लान्छना'
+      ? record.es_score
+      : undefined;
+
+  return (
+    safeScore(scoreField) ||
+    safeScore(record.stigmaScore) ||
+    safeScore(record.totals?.overall) ||
+    safeScore(record.totals?.as_score) ||
+    safeScore(record.totals?.es_score) ||
+    safeScore(record.totals?.is_score)
+  );
+}
+
+function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<typeof aggregateByDateGrouped> }) {
+  if (!groupedVisits || !groupedVisits.length) return null;
+
   const stigmaTypes = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
-  const record = latestRecord.records[0];
-  
-  // Map field names to stigma types
-  // is_score = internalized (आत्मलान्छना)
-  // as_score = anticipated (अपेक्षित लान्छना)
-  // es_score = enacted (व्यावहारिक लान्छना)
-  const scoreValues = [
-    record.totals?.overall || 0,  // This might need adjustment based on actual data structure
-  ];
+  const visitEntries = groupedVisits.slice(0, 3);
+  const visitLabels = visitEntries.map((entry, index) =>
+    index === 0 ? '1st visit' : index === 1 ? '2nd visit' : index === 2 ? '3rd visit' : `${index + 1}th visit`,
+  );
 
-  const labels = stigmaTypes;
-  
-  // Extract scores from record - trying multiple possible field names
-  const internalizedScore = record.totals?.is_score !== undefined ? record.totals.is_score : record.totals?.overall || 0;
-  const anticipatedScore = record.totals?.as_score !== undefined ? record.totals.as_score : record.totals?.overall || 0;
-  const enactedScore = record.totals?.es_score !== undefined ? record.totals.es_score : record.totals?.overall || 0;
+  const datasets = visitEntries.map((entry, visitIndex) => {
+    const visitScores = stigmaTypes.map((type) => {
+      const matchedRecord = entry.records.find((record: any) => normalizeStigmaType(record.type) === type);
+      return getStigmaScore(matchedRecord, type);
+    });
 
-  const datasets = [
-    {
-      label: 'Stigma Scores',
-      data: [internalizedScore, anticipatedScore, enactedScore],
-      backgroundColor: ['#FF6B6B', '#4FC3F7', '#81C784'],
-      borderColor: ['#D32F2F', '#0288D1', '#2E7D32'],
-      borderWidth: 2,
-      borderRadius: 8,
-      barPercentage: 0.65,
+    const colors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)'];
+    const borderColors = ['#d32f2f', '#1565c0', '#2e7d32'];
+
+    return {
+      label: visitLabels[visitIndex],
+      data: visitScores,
+      backgroundColor: colors[visitIndex % colors.length],
+      borderColor: borderColors[visitIndex % borderColors.length],
+      borderWidth: 1,
+      borderRadius: 6,
+      barPercentage: 0.7,
       categoryPercentage: 0.8,
-    },
-  ];
-
-  const dateStr = new Date(latestRecord.date).toLocaleDateString('default', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    };
   });
 
   return (
     <Bar
-      data={{
-        labels,
-        datasets,
-      }}
+      data={{ labels: stigmaTypes, datasets }}
       plugins={[
         {
           id: 'datalabels-stigma-types',
           afterDatasetsDraw: (chart: any) => {
             const ctx = chart.ctx;
             ctx.save();
-            ctx.font = 'bold 14px sans-serif';
+            ctx.font = 'bold 12px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            ctx.fillStyle = '#333';
             chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
               const meta = chart.getDatasetMeta(datasetIndex);
               meta.data.forEach((bar: any, index: number) => {
                 const value = dataset.data[index];
                 if (value !== undefined && value !== null) {
+                  ctx.fillStyle = '#333';
                   ctx.fillText(value.toFixed(1), bar.x, bar.y - 8);
                 }
               });
@@ -622,26 +649,20 @@ function LatestStigmaBarChart({ latestRecord }: { latestRecord: ReturnType<typeo
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          title: { display: true, text: `लान्छना प्रकार स्कोर (${dateStr})`, font: { size: 16 } },
-          legend: { display: false },
-          tooltip: { 
-            enabled: true,
+          title: { display: true, text: 'Visit-wise Stigma Scores by Type', font: { size: 16 } },
+          legend: { position: 'bottom' },
+          tooltip: {
             callbacks: {
               label: (context: any) => {
                 const value = typeof context.raw === 'number' ? context.raw.toFixed(1) : context.raw;
-                return `Score: ${value}`;
+                return `${context.dataset.label}: ${value}`;
               },
             },
           },
         },
         scales: {
-          y: { 
-            beginAtZero: true, 
-            title: { display: true, text: 'Score' },
-          },
-          x: {
-            title: { display: true, text: 'Stigma Type' },
-          },
+          y: { beginAtZero: true, title: { display: true, text: 'Score' } },
+          x: { title: { display: true, text: 'Stigma Type' } },
         },
       }}
     />
@@ -771,7 +792,7 @@ export default function MultiChartSelector({
       {/* Responsive chart area: fills card, not congested */}
       <div style={{ width: '100%', minHeight: 400, height: '50vw', maxHeight: 600 }}>
         {chartType === 'bar' ? (
-          <LatestStigmaBarChart latestRecord={dateDataGrouped[dateDataGrouped.length - 1]} />
+          <VisitStigmaBarChart groupedVisits={dateDataGrouped} />
         ) : (
           <StigmaLineChart data={dateDataLine} />
         )}
