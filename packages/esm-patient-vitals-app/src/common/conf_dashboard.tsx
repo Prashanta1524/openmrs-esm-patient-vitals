@@ -17,7 +17,7 @@ import participantFormJson from '../participate.json';
 import counselorFormJson from '../काउन्सिलर फारम.json';
 import conferenceFormJson from '../कन्फरेन्स फारम.json';
 import { MonthlyBarChart } from './monthly-bar-chart';
-import StgTypeVisualization from './stg_type';
+import { StgTypeVisualization } from './stg_type';
 import { DimensionVisualization } from './dimension-visualization';
 import { IntersectionalVisualization } from './intersectional-visualization';
 import { CovidStigmaData } from './types';
