@@ -461,7 +461,10 @@ const aggregateByDate = (data: CovidStigmaData[]) => {
 };
 
 const aggregateByDateGrouped = (data: CovidStigmaData[]) => {
-  const grouped: Record<string, { date: string; records: any[] }> = {};
+  const grouped: Record<
+    string,
+    { date: string; encounterUuid: string; records: any[]; as_score?: number; es_score?: number; is_score?: number }
+  > = {};
 
   const safeNum = (v: any): number => {
     if (v === null || v === undefined || v === '') return 0;
@@ -476,9 +479,14 @@ const aggregateByDateGrouped = (data: CovidStigmaData[]) => {
   data.forEach((d) => {
     const dDate = d.date ? new Date(d.date) : new Date(0);
     const dateStr = `${dDate.getFullYear()}-${String(dDate.getMonth() + 1).padStart(2, '0')}-${String(dDate.getDate()).padStart(2, '0')}`;
+    const encounterKey = d.encounterUuid || dateStr;
 
-    if (!grouped[dateStr]) {
-      grouped[dateStr] = { date: d.date ?? '', records: [] };
+    if (!grouped[encounterKey]) {
+      grouped[encounterKey] = {
+        date: d.date ?? dateStr,
+        encounterUuid: d.encounterUuid || encounterKey,
+        records: [],
+      };
     }
 
     const parsed = d.dimensionScore
@@ -498,13 +506,33 @@ const aggregateByDateGrouped = (data: CovidStigmaData[]) => {
       overall: d.as_score ?? d.es_score ?? d.is_score ?? safeNum(d.stigmaScore),
     };
 
-    grouped[dateStr].records.push({
+    const normalizedType = normalizeStigmaType(d.stigmaType);
+    const recordAsScore =
+      normalizedType === 'अपेक्षित लान्छना' ? safeNum(d.as_score ?? d.stigmaScore) : undefined;
+    const recordEsScore =
+      normalizedType === 'व्यावहारिक लान्छना' ? safeNum(d.es_score ?? d.stigmaScore) : undefined;
+    const recordIsScore =
+      normalizedType === 'आत्मलान्छना' ? safeNum(d.is_score ?? d.stigmaScore) : undefined;
+
+    if (recordAsScore !== undefined) {
+      grouped[encounterKey].as_score = recordAsScore;
+    }
+    if (recordEsScore !== undefined) {
+      grouped[encounterKey].es_score = recordEsScore;
+    }
+    if (recordIsScore !== undefined) {
+      grouped[encounterKey].is_score = recordIsScore;
+    }
+
+    grouped[encounterKey].records.push({
       type: d.stigmaType || 'Unknown',
       totals,
+      encounterUuid: d.encounterUuid,
       as_score: d.as_score,
       es_score: d.es_score,
       is_score: d.is_score,
       stigmaScore: d.stigmaScore,
+      rawScore: safeNum(d.stigmaScore),
     });
   });
 
@@ -581,6 +609,7 @@ function getStigmaScore(record: any, targetType: string) {
 
   return (
     safeScore(scoreField) ||
+    safeScore(record.rawScore) ||
     safeScore(record.stigmaScore) ||
     safeScore(record.totals?.overall) ||
     safeScore(record.totals?.as_score) ||
@@ -599,11 +628,11 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
   );
 
   const datasets = visitEntries.map((entry, visitIndex) => {
-    const visitScores = stigmaTypes.map((type) => {
-      const matchedRecord = entry.records.find((record: any) => normalizeStigmaType(record.type) === type);
-      return getStigmaScore(matchedRecord, type);
-    });
-
+      const visitScores = [
+        entry.as_score ?? 0,
+        entry.es_score ?? 0,
+        entry.is_score ?? 0,
+      ];
     const typeColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)'];
     const typeBorderColors = ['#d32f2f', '#1565c0', '#2e7d32'];
 

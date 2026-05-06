@@ -261,12 +261,23 @@ export function useCovidStigmaData(patientUuid: string) {
       return Number.isFinite(n) ? n : 0;
     };
 
+    const findObsByConcept = (obsList: any[], conceptUuid: string): any | null => {
+      if (!Array.isArray(obsList)) return null;
+      for (const obs of obsList) {
+        if (obs?.concept?.uuid === conceptUuid) return obs;
+        const nested = findObsByConcept(obs.groupMembers || obs.members || [], conceptUuid);
+        if (nested) return nested;
+      }
+      return null;
+    };
+
     const getObsVal = (enc: any, conceptUuid: string) => {
-      const obs = enc.obs?.find((o: any) => o.concept?.uuid === conceptUuid);
+      const obs = findObsByConcept(enc.obs, conceptUuid);
       if (!obs) return null;
       if (obs.valueNumeric !== undefined && obs.valueNumeric !== null) return obs.valueNumeric;
       if (obs.valueQuantity?.value !== undefined && obs.valueQuantity?.value !== null) return obs.valueQuantity.value;
       if (obs.valueText !== undefined && obs.valueText !== null) return obs.valueText;
+      if (typeof obs.value === 'object' && obs.value?.value !== undefined) return obs.value.value;
       if (obs.value?.display !== undefined && obs.value?.display !== null) return obs.value.display;
       if (obs.value !== undefined && obs.value !== null) return obs.value;
       if (obs.valueCoded?.uuid) return obs.valueCoded.uuid;
