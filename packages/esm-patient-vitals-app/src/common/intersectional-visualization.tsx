@@ -71,20 +71,86 @@ function extractIntersectionalScores(allPatientsData: any[]) {
   return scoresByType;
 }
 
-function calculateMinMax(scoresByType: Record<'as' | 'es' | 'is', number[]>) {
-  const keys: Array<'as' | 'es' | 'is'> = ['as', 'es', 'is'];
-  return keys.map((key) => {
-    const values = scoresByType[key];
-    if (!values.length) {
-      return { key, min: 0, max: 0, count: 0 };
-    }
+function calculateVisitAverages(scoresByVisit: Array<Record<'as' | 'es' | 'is', number[]>>) {
+  return scoresByVisit.map((visitScores, index) => {
+    const average = (values: number[]) => {
+      if (!values.length) return 0;
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
+    };
+
     return {
-      key,
-      min: Math.min(...values),
-      max: Math.max(...values),
-      count: values.length,
+      visit: index + 1,
+      as: average(visitScores.as),
+      es: average(visitScores.es),
+      is: average(visitScores.is),
     };
   });
+}
+
+function getOrdinalSuffix(n: number) {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  if (n % 10 === 1) return 'st';
+  if (n % 10 === 2) return 'nd';
+  if (n % 10 === 3) return 'rd';
+  return 'th';
+}
+
+function calculateVisitScores(allPatientsData: any[]) {
+  const visitScores: Array<Record<'as' | 'es' | 'is', number[]>> = [];
+
+  allPatientsData.forEach((patientObservations) => {
+    const encounters = new Map<string, { date: Date; scores: Record<'as' | 'es' | 'is', number[]> }>();
+
+    patientObservations.forEach((obs: any) => {
+      const conceptUuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
+      const conceptDisplay = (obs.code?.coding?.[0]?.display || obs.code?.text || '').toString().toLowerCase();
+
+      const isAs = conceptUuid === INTERSECTIONAL_UUIDS.as || (conceptDisplay.includes('intersectional') && conceptDisplay.includes('anticipated'));
+      const isEs = conceptUuid === INTERSECTIONAL_UUIDS.es || (conceptDisplay.includes('intersectional') && conceptDisplay.includes('enacted'));
+      const isIs = conceptUuid === INTERSECTIONAL_UUIDS.is || (conceptDisplay.includes('intersectional') && conceptDisplay.includes('internalized'));
+      if (!isAs && !isEs && !isIs) return;
+
+      let score: number | null = null;
+      if (typeof obs.valueQuantity?.value === 'number') {
+        score = obs.valueQuantity.value;
+      } else if (typeof obs.value === 'number') {
+        score = obs.value;
+      } else if (typeof obs.value === 'string') {
+        const match = obs.value.match(/-?\d+(?:\.\d+)?/);
+        if (match) score = parseFloat(match[0]);
+      }
+      if (score === null || isNaN(score) || score <= 0) return;
+
+      const dateValue = obs.effectiveDateTime || obs.date;
+      const encounterKey = obs.encounter?.uuid || obs.encounter?.reference || String(dateValue || 'unknown');
+      if (!encounterKey) return;
+
+      const group = encounters.get(encounterKey) || {
+        date: new Date(dateValue || new Date().toISOString()),
+        scores: { as: [], es: [], is: [] },
+      };
+      if (!encounters.has(encounterKey)) {
+        encounters.set(encounterKey, group);
+      }
+
+      if (isAs) group.scores.as.push(score);
+      if (isEs) group.scores.es.push(score);
+      if (isIs) group.scores.is.push(score);
+    });
+
+    const sortedEncounterGroups = Array.from(encounters.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    sortedEncounterGroups.forEach((encounterGroup, encounterIndex) => {
+      if (!visitScores[encounterIndex]) {
+        visitScores[encounterIndex] = { as: [], es: [], is: [] };
+      }
+      visitScores[encounterIndex].as.push(...encounterGroup.scores.as);
+      visitScores[encounterIndex].es.push(...encounterGroup.scores.es);
+      visitScores[encounterIndex].is.push(...encounterGroup.scores.is);
+    });
+  });
+
+  return calculateVisitAverages(visitScores);
 }
 
 export function IntersectionalVisualization({
@@ -96,7 +162,7 @@ export function IntersectionalVisualization({
   const session = useSession();
   const locationUuid = currentLocationUuid || session?.sessionLocation?.uuid;
 
-  const minMaxData = useMemo(() => {
+  const visitAverages = useMemo(() => {
     let filteredData = allPatientsData;
     if (startDate || endDate) {
       const s = startDate ? new Date(startDate) : null;
@@ -113,38 +179,26 @@ export function IntersectionalVisualization({
       );
     }
 
-    const scores = extractIntersectionalScores(filteredData);
-    return calculateMinMax(scores);
+    return calculateVisitScores(filteredData);
   }, [allPatientsData, startDate, endDate]);
 
-  const labels = minMaxData.map((d) => TYPE_LABELS[d.key]);
-  const maxValues = minMaxData.map((d) => d.max);
-  const minValues = minMaxData.map((d) => d.min);
+  const scoreKeys = ['as', 'es', 'is'] as const;
+  const labels = scoreKeys.map((key) => TYPE_LABELS[key]);
+  const colors = ['#9C27B0', '#FF9800', '#4CAF50', '#2196F3'];
+  const borderColors = ['#7B1FA2', '#F57C00', '#388E3C', '#1976D2'];
 
   const chartData = {
     labels,
-    datasets: [
-      {
-        label: 'Max Score',
-        data: maxValues,
-        backgroundColor: ['#9C27B0', '#9C27B0', '#9C27B0'],
-        borderColor: ['#7B1FA2', '#7B1FA2', '#7B1FA2'],
-        borderWidth: 2,
-        borderRadius: 6,
-        barPercentage: 0.8,
-        categoryPercentage: 0.7,
-      },
-      {
-        label: 'Min Score',
-        data: minValues,
-        backgroundColor: ['#FF9800', '#FF9800', '#FF9800'],
-        borderColor: ['#F57C00', '#F57C00', '#F57C00'],
-        borderWidth: 2,
-        borderRadius: 6,
-        barPercentage: 0.8,
-        categoryPercentage: 0.7,
-      },
-    ],
+    datasets: visitAverages.map((visit, index) => ({
+      label: `${visit.visit}${getOrdinalSuffix(visit.visit)} visit`,
+      data: [visit.as, visit.es, visit.is],
+      backgroundColor: colors[index % colors.length],
+      borderColor: borderColors[index % borderColors.length],
+      borderWidth: 2,
+      borderRadius: 6,
+      barPercentage: 0.8,
+      categoryPercentage: 0.7,
+    })),
   };
 
   const options: any = {
