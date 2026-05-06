@@ -627,20 +627,22 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
     index === 0 ? '1st visit' : index === 1 ? '2nd visit' : index === 2 ? '3rd visit' : `${index + 1}th visit`,
   );
 
-  const datasets = visitEntries.map((entry, visitIndex) => {
-      const visitScores = [
-        entry.as_score ?? 0,
-        entry.es_score ?? 0,
-        entry.is_score ?? 0,
-      ];
-    const typeColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)'];
-    const typeBorderColors = ['#d32f2f', '#1565c0', '#2e7d32'];
+  const typeColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)'];
+  const typeBorderColors = ['#d32f2f', '#1565c0', '#2e7d32'];
+
+  const datasets = stigmaTypes.map((type, typeIndex) => {
+    const data = visitEntries.map((entry) => {
+      if (type === 'अपेक्षित लान्छना') return entry.as_score ?? 0;
+      if (type === 'व्यावहारिक लान्छना') return entry.es_score ?? 0;
+      if (type === 'आत्मलान्छना') return entry.is_score ?? 0;
+      return 0;
+    });
 
     return {
-      label: visitLabels[visitIndex],
-      data: visitScores,
-      backgroundColor: typeColors,
-      borderColor: typeBorderColors,
+      label: type,
+      data,
+      backgroundColor: typeColors[typeIndex],
+      borderColor: typeBorderColors[typeIndex],
       borderWidth: 1,
       borderRadius: 6,
       barPercentage: 0.7,
@@ -650,7 +652,7 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
 
   return (
     <Bar
-      data={{ labels: stigmaTypes, datasets }}
+      data={{ labels: visitLabels, datasets }}
       plugins={[
         {
           id: 'datalabels-stigma-types',
@@ -691,7 +693,7 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
         },
         scales: {
           y: { beginAtZero: true, title: { display: true, text: 'Score' } },
-          x: { title: { display: true, text: 'Stigma Type' } },
+          x: { title: { display: true, text: 'Visit' } },
         },
       }}
     />
