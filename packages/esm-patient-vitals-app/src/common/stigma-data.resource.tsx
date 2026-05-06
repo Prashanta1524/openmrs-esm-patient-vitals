@@ -264,7 +264,14 @@ export function useCovidStigmaData(patientUuid: string) {
     const getObsVal = (enc: any, conceptUuid: string) => {
       const obs = enc.obs?.find((o: any) => o.concept?.uuid === conceptUuid);
       if (!obs) return null;
-      return obs.value?.display ?? obs.value ?? null;
+      if (obs.valueNumeric !== undefined && obs.valueNumeric !== null) return obs.valueNumeric;
+      if (obs.valueQuantity?.value !== undefined && obs.valueQuantity?.value !== null) return obs.valueQuantity.value;
+      if (obs.valueText !== undefined && obs.valueText !== null) return obs.valueText;
+      if (obs.value?.display !== undefined && obs.value?.display !== null) return obs.value.display;
+      if (obs.value !== undefined && obs.value !== null) return obs.value;
+      if (obs.valueCoded?.uuid) return obs.valueCoded.uuid;
+      if (obs.display !== undefined && obs.display !== null) return obs.display;
+      return null;
     };
 
     for (const enc of encounters) {

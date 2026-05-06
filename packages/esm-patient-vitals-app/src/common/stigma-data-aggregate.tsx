@@ -604,14 +604,14 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
       return getStigmaScore(matchedRecord, type);
     });
 
-    const colors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)'];
-    const borderColors = ['#d32f2f', '#1565c0', '#2e7d32'];
+    const typeColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)'];
+    const typeBorderColors = ['#d32f2f', '#1565c0', '#2e7d32'];
 
     return {
       label: visitLabels[visitIndex],
       data: visitScores,
-      backgroundColor: colors[visitIndex % colors.length],
-      borderColor: borderColors[visitIndex % borderColors.length],
+      backgroundColor: typeColors,
+      borderColor: typeBorderColors,
       borderWidth: 1,
       borderRadius: 6,
       barPercentage: 0.7,
