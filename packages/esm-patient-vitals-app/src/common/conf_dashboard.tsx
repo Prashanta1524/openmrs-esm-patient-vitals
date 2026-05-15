@@ -694,7 +694,10 @@ export default function AllPatientsDashboard() {
           }}
         >
           {patients && patients.length > 0 ? (
-            <FormFillingInterface formUuid="55b82773-3cd0-4813-a38e-9d0c1ea35e45" patients={patients} />
+            <FormFillingInterface 
+              formUuid="55b82773-3cd0-4813-a38e-9d0c1ea35e45" 
+              patients={patients}
+            />
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center' }}>
               {/* <h4>📝 Form Filling Interface</h4> */}
@@ -2087,6 +2090,102 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
       setFormDefinition(conferenceFormJson);
     }
   }, [formUuid]);
+
+  // Load latest conference form submission data into form fields
+  React.useEffect(() => {
+    const loadLatestSubmission = async () => {
+      if (!patients || patients.length === 0 || !currentLocationUuid) return;
+
+      try {
+        const patientUuid = patients[0]?.id;
+        if (!patientUuid) return;
+
+        // Fetch all conference form observations for this patient at current location
+        const obsUrl = `/ws/rest/v1/obs?patient=${patientUuid}&v=full&limit=1000`;
+        const obsResp = await openmrsFetch(obsUrl);
+        const allObs = obsResp.data?.results || [];
+
+        // Get conference form concept UUIDs
+        const conferenceConceptUuids = new Set<string>();
+        if (conferenceFormJson?.pages) {
+          conferenceFormJson.pages.forEach((page: any) => {
+            page.sections?.forEach((section: any) => {
+              section.questions?.forEach((question: any) => {
+                const concept = question.questionOptions?.concept;
+                if (concept) conferenceConceptUuids.add(concept);
+              });
+            });
+          });
+        }
+
+        // Filter to only conference form obs at current location
+        const conferenceObs = allObs.filter((obs: any) => {
+          const matchesConcept = conferenceConceptUuids.has(obs.concept?.uuid);
+          const matchesLocation = obs.location?.uuid === currentLocationUuid;
+          return matchesConcept && matchesLocation;
+        });
+
+        if (conferenceObs.length === 0) return;
+
+        // Group obs by timestamp and get the LATEST submission
+        const submissionsByTimestamp: Record<string, any[]> = {};
+        conferenceObs.forEach((obs: any) => {
+          const timestamp = obs.obsDatetime ? new Date(obs.obsDatetime).toISOString().substring(0, 13) : 'unknown';
+          if (!submissionsByTimestamp[timestamp]) {
+            submissionsByTimestamp[timestamp] = [];
+          }
+          submissionsByTimestamp[timestamp].push(obs);
+        });
+
+        const timestamps = Object.keys(submissionsByTimestamp).sort().reverse();
+        if (timestamps.length === 0) return;
+
+        const latestTimestamp = timestamps[0];
+        const latestObsGroup = submissionsByTimestamp[latestTimestamp];
+
+        // Build form data from latest submission
+        const newFormData: Record<string, any> = {};
+        latestObsGroup.forEach((obs: any) => {
+          const conceptId = obs.concept?.uuid;
+          let value = obs.value;
+
+          if (obs.value?.display) {
+            value = obs.value.display;
+          } else if (typeof obs.value === 'number') {
+            value = obs.value.toString();
+          }
+
+          if (value !== undefined && value !== null && value !== '') {
+            newFormData[conceptId] = value;
+          }
+        });
+
+        if (Object.keys(newFormData).length > 0) {
+          setFormData(newFormData);
+          console.log('📋 Loaded latest submission into form:', newFormData);
+
+          // Update conditional values
+          Object.entries(newFormData).forEach(([conceptId, value]) => {
+            if (conceptId === '7189452b-be65-42aa-ad77-4861f7d07bae') {
+              setConditionalValues((prev: any) => ({
+                ...prev,
+                decide_to_implement: value,
+              }));
+            } else if (conceptId === '49b60881-a607-408d-89b4-f0c2105c1d96') {
+              setConditionalValues((prev: any) => ({
+                ...prev,
+                implement_activity: value,
+              }));
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error loading latest submission:', error);
+      }
+    };
+
+    loadLatestSubmission();
+  }, [patients, currentLocationUuid]);
 
   // State for conditional form logic
   const [conditionalValues, setConditionalValues] = React.useState<Record<string, any>>({
