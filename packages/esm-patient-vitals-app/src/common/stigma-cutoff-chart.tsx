@@ -19,10 +19,13 @@ interface StigmaCutoffChartProps {
 
 type StigmaTypeKey = 'anticipated' | 'enacted' | 'internalized';
 
-interface ChartCounts {
-  above: number;
-  below: number;
-  total: number;
+interface ChartAverages {
+  aboveAverage: number;
+  belowAverage: number;
+  aboveCount: number;
+  belowCount: number;
+  totalCount: number;
+  cutoff: number;
 }
 
 const STIGMA_CUTOFFS: Record<StigmaTypeKey, number> = {
@@ -57,34 +60,58 @@ function getIntersectionalScore(entry: any, stigmaType: StigmaTypeKey | null = n
   return match ? Number(match[0]) : undefined;
 }
 
-function calculateStigmaStrategyCounts(stigmaData: StigmaData[]) {
-  const counts: Record<'overall' | StigmaTypeKey, ChartCounts> = {
-    overall: { above: 0, below: 0, total: 0 },
-    anticipated: { above: 0, below: 0, total: 0 },
-    enacted: { above: 0, below: 0, total: 0 },
-    internalized: { above: 0, below: 0, total: 0 },
+function calculateStigmaStrategyAverages(stigmaData: StigmaData[], overallCutoff = 0) {
+  const averages: Record<'overall' | StigmaTypeKey, ChartAverages> = {
+    overall: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: overallCutoff },
+    anticipated: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.anticipated },
+    enacted: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.enacted },
+    internalized: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.internalized },
+  };
+
+  const sums: Record<'overall' | StigmaTypeKey, { above: number; below: number }> = {
+    overall: { above: 0, below: 0 },
+    anticipated: { above: 0, below: 0 },
+    enacted: { above: 0, below: 0 },
+    internalized: { above: 0, below: 0 },
   };
 
   stigmaData.forEach((entry) => {
     const stigmaType = normalizeStigmaType(entry);
-    const intersectionalScore = getIntersectionalScore(entry, stigmaType);
-    if (intersectionalScore === undefined || Number.isNaN(intersectionalScore) || !stigmaType) {
+    const score = getIntersectionalScore(entry, stigmaType);
+    if (score === undefined || Number.isNaN(score) || !stigmaType) {
       return;
     }
 
-    const threshold = STIGMA_CUTOFFS[stigmaType];
-    const above = intersectionalScore >= threshold;
+    const typeCutoff = STIGMA_CUTOFFS[stigmaType];
+    const overallAbove = overallCutoff ? score >= overallCutoff : false;
+    const typeAbove = score >= typeCutoff;
 
-    if (above) counts.overall.above += 1;
-    else counts.overall.below += 1;
-    counts.overall.total += 1;
+    if (overallAbove) {
+      averages.overall.aboveCount += 1;
+      sums.overall.above += score;
+    } else {
+      averages.overall.belowCount += 1;
+      sums.overall.below += score;
+    }
+    averages.overall.totalCount += 1;
 
-    if (above) counts[stigmaType].above += 1;
-    else counts[stigmaType].below += 1;
-    counts[stigmaType].total += 1;
+    if (typeAbove) {
+      averages[stigmaType].aboveCount += 1;
+      sums[stigmaType].above += score;
+    } else {
+      averages[stigmaType].belowCount += 1;
+      sums[stigmaType].below += score;
+    }
+    averages[stigmaType].totalCount += 1;
   });
 
-  return counts;
+  (Object.keys(averages) as Array<'overall' | StigmaTypeKey>).forEach((key) => {
+    const group = averages[key];
+    group.aboveAverage = group.aboveCount > 0 ? sums[key].above / group.aboveCount : 0;
+    group.belowAverage = group.belowCount > 0 ? sums[key].below / group.belowCount : 0;
+  });
+
+  return averages;
 }
 
 export function StigmaCutoffChart({
@@ -96,30 +123,41 @@ export function StigmaCutoffChart({
 }: StigmaCutoffChartProps) {
   const chartCounts = useMemo(() => {
     if (stigmaData && stigmaData.length > 0) {
-      return calculateStigmaStrategyCounts(stigmaData);
+      return calculateStigmaStrategyAverages(stigmaData, stigmaScoreThreshold ?? 0);
     }
 
     if (patientsData && stigmaScoreLabel && stigmaScoreThreshold) {
       const result = calculateStigmaThresholdCounts(patientsData, stigmaScoreLabel, stigmaScoreThreshold);
       const total = result.aboveThresholdCount + result.belowThresholdCount;
       return {
-        overall: { above: result.aboveThresholdCount, below: result.belowThresholdCount, total },
-        anticipated: { above: 0, below: 0, total: 0 },
-        enacted: { above: 0, below: 0, total: 0 },
-        internalized: { above: 0, below: 0, total: 0 },
+        overall: {
+          aboveAverage: total > 0 ? result.aboveThresholdCount / total : 0,
+          belowAverage: total > 0 ? result.belowThresholdCount / total : 0,
+          aboveCount: result.aboveThresholdCount,
+          belowCount: result.belowThresholdCount,
+          totalCount: total,
+          cutoff: stigmaScoreThreshold,
+        },
+        anticipated: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.anticipated },
+        enacted: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.enacted },
+        internalized: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.internalized },
       };
     }
 
     if (stigmaCutoffSummary) {
+      const total = stigmaCutoffSummary.totalPatients;
       return {
         overall: {
-          above: stigmaCutoffSummary.matchedPatients,
-          below: stigmaCutoffSummary.unmatchedPatients,
-          total: stigmaCutoffSummary.totalPatients,
+          aboveAverage: total > 0 ? stigmaCutoffSummary.matchedPatients / total : 0,
+          belowAverage: total > 0 ? stigmaCutoffSummary.unmatchedPatients / total : 0,
+          aboveCount: stigmaCutoffSummary.matchedPatients,
+          belowCount: stigmaCutoffSummary.unmatchedPatients,
+          totalCount: total,
+          cutoff: stigmaScoreThreshold ?? 0,
         },
-        anticipated: { above: 0, below: 0, total: 0 },
-        enacted: { above: 0, below: 0, total: 0 },
-        internalized: { above: 0, below: 0, total: 0 },
+        anticipated: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.anticipated },
+        enacted: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.enacted },
+        internalized: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.internalized },
       };
     }
 
@@ -130,11 +168,11 @@ export function StigmaCutoffChart({
     return <p>तथ्यांक विश्लेषण गर्दै...</p>;
   }
 
-  const makeChartConfig = (counts: ChartCounts) => ({
+  const makeChartConfig = (counts: ChartAverages) => ({
     labels: ['Above cut-off score', 'Below cut-off score'],
     datasets: [
       {
-        data: [counts.above, counts.below],
+        data: [counts.aboveAverage, counts.belowAverage],
         backgroundColor: ['#f7cc5c', '#28a6a4'],
         borderColor: ['#fff', '#fff'],
         borderWidth: 2,
@@ -179,9 +217,9 @@ export function StigmaCutoffChart({
         }}
       >
         {chartCards.map((card) => {
-          const total = card.counts.total;
-          const percentageAbove = total > 0 ? ((card.counts.above / total) * 100).toFixed(1) : '0.0';
-          const percentageBelow = total > 0 ? ((card.counts.below / total) * 100).toFixed(1) : '0.0';
+          const totalCount = card.counts.totalCount;
+          const aboveAverage = card.counts.aboveAverage;
+          const belowAverage = card.counts.belowAverage;
           return (
             <div
               key={card.title}
@@ -221,8 +259,8 @@ export function StigmaCutoffChart({
                         label: function (context) {
                           const value = context.raw as number;
                           const label = context.label || '';
-                          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                          return `${label}: ${percentage}% (${value} patients)`;
+                          const percentage = totalCount > 0 ? ((value / (aboveAverage + belowAverage)) * 100).toFixed(1) : '0.0';
+                          return `${label}: ${percentage}% (${value.toFixed(1)})`;
                         },
                       },
                     },
@@ -231,13 +269,13 @@ export function StigmaCutoffChart({
               />
               <div style={{ marginTop: '1rem', textAlign: 'center', color: '#374151' }}>
                 <p style={{ margin: '0.2rem 0', fontWeight: 600 }}>
-                  Above cut-off score: {percentageAbove}% ({card.counts.above})
+                  Above cut-off score average: {aboveAverage.toFixed(1)}
                 </p>
                 <p style={{ margin: '0.2rem 0', fontWeight: 600 }}>
-                  Below cut-off score: {percentageBelow}% ({card.counts.below})
+                  Below cut-off score average: {belowAverage.toFixed(1)}
                 </p>
                 <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
-                  Total patients: {total}
+                  Total entries: {totalCount}
                 </p>
               </div>
             </div>
