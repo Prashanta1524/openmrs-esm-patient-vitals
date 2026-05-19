@@ -131,7 +131,7 @@
               },
               "id": "length_meeting",
               "label": "४. बैठकको अवधि खुलाउनुहोस्:",
-              "required": false
+              "required": true
             }
           ]
         }

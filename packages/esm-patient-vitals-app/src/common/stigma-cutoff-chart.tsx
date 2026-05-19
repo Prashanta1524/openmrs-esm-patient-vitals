@@ -128,19 +128,66 @@ export function StigmaCutoffChart({
 
     if (patientsData && stigmaScoreLabel && stigmaScoreThreshold) {
       const result = calculateStigmaThresholdCounts(patientsData, stigmaScoreLabel, stigmaScoreThreshold);
-      const total = result.aboveThresholdCount + result.belowThresholdCount;
+      const overallTotal = result.overall.aboveThresholdCount + result.overall.belowThresholdCount;
       return {
         overall: {
-          aboveAverage: total > 0 ? result.aboveThresholdCount / total : 0,
-          belowAverage: total > 0 ? result.belowThresholdCount / total : 0,
-          aboveCount: result.aboveThresholdCount,
-          belowCount: result.belowThresholdCount,
-          totalCount: total,
+          aboveAverage: overallTotal > 0 ? result.overall.aboveThresholdCount / overallTotal : 0,
+          belowAverage: overallTotal > 0 ? result.overall.belowThresholdCount / overallTotal : 0,
+          aboveCount: result.overall.aboveThresholdCount,
+          belowCount: result.overall.belowThresholdCount,
+          totalCount: overallTotal,
           cutoff: stigmaScoreThreshold,
         },
-        anticipated: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.anticipated },
-        enacted: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.enacted },
-        internalized: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: STIGMA_CUTOFFS.internalized },
+        anticipated: {
+          aboveAverage:
+            result.anticipated.aboveThresholdCount + result.anticipated.belowThresholdCount > 0
+              ? result.anticipated.aboveThresholdCount /
+                (result.anticipated.aboveThresholdCount + result.anticipated.belowThresholdCount)
+              : 0,
+          belowAverage:
+            result.anticipated.aboveThresholdCount + result.anticipated.belowThresholdCount > 0
+              ? result.anticipated.belowThresholdCount /
+                (result.anticipated.aboveThresholdCount + result.anticipated.belowThresholdCount)
+              : 0,
+          aboveCount: result.anticipated.aboveThresholdCount,
+          belowCount: result.anticipated.belowThresholdCount,
+          totalCount:
+            result.anticipated.aboveThresholdCount + result.anticipated.belowThresholdCount,
+          cutoff: STIGMA_CUTOFFS.anticipated,
+        },
+        enacted: {
+          aboveAverage:
+            result.enacted.aboveThresholdCount + result.enacted.belowThresholdCount > 0
+              ? result.enacted.aboveThresholdCount /
+                (result.enacted.aboveThresholdCount + result.enacted.belowThresholdCount)
+              : 0,
+          belowAverage:
+            result.enacted.aboveThresholdCount + result.enacted.belowThresholdCount > 0
+              ? result.enacted.belowThresholdCount /
+                (result.enacted.aboveThresholdCount + result.enacted.belowThresholdCount)
+              : 0,
+          aboveCount: result.enacted.aboveThresholdCount,
+          belowCount: result.enacted.belowThresholdCount,
+          totalCount: result.enacted.aboveThresholdCount + result.enacted.belowThresholdCount,
+          cutoff: STIGMA_CUTOFFS.enacted,
+        },
+        internalized: {
+          aboveAverage:
+            result.internalized.aboveThresholdCount + result.internalized.belowThresholdCount > 0
+              ? result.internalized.aboveThresholdCount /
+                (result.internalized.aboveThresholdCount + result.internalized.belowThresholdCount)
+              : 0,
+          belowAverage:
+            result.internalized.aboveThresholdCount + result.internalized.belowThresholdCount > 0
+              ? result.internalized.belowThresholdCount /
+                (result.internalized.aboveThresholdCount + result.internalized.belowThresholdCount)
+              : 0,
+          aboveCount: result.internalized.aboveThresholdCount,
+          belowCount: result.internalized.belowThresholdCount,
+          totalCount:
+            result.internalized.aboveThresholdCount + result.internalized.belowThresholdCount,
+          cutoff: STIGMA_CUTOFFS.internalized,
+        },
       };
     }
 
@@ -172,7 +219,7 @@ export function StigmaCutoffChart({
     labels: ['Above cut-off score', 'Below cut-off score'],
     datasets: [
       {
-        data: [counts.aboveAverage, counts.belowAverage],
+        data: [counts.aboveCount, counts.belowCount],
         backgroundColor: ['#f7cc5c', '#28a6a4'],
         borderColor: ['#fff', '#fff'],
         borderWidth: 2,
@@ -217,9 +264,9 @@ export function StigmaCutoffChart({
         }}
       >
         {chartCards.map((card) => {
-          const totalCount = card.counts.totalCount;
-          const aboveAverage = card.counts.aboveAverage;
-          const belowAverage = card.counts.belowAverage;
+          const aboveCount = card.counts.aboveCount;
+          const belowCount = card.counts.belowCount;
+          const totalCount = aboveCount + belowCount;
           return (
             <div
               key={card.title}
@@ -259,8 +306,8 @@ export function StigmaCutoffChart({
                         label: function (context) {
                           const value = context.raw as number;
                           const label = context.label || '';
-                          const percentage = totalCount > 0 ? ((value / (aboveAverage + belowAverage)) * 100).toFixed(1) : '0.0';
-                          return `${label}: ${percentage}% (${value.toFixed(1)})`;
+                          const percentage = totalCount > 0 ? ((value / totalCount) * 100).toFixed(1) : '0.0';
+                          return `${label}: ${percentage}% (${value})`;
                         },
                       },
                     },
@@ -269,10 +316,10 @@ export function StigmaCutoffChart({
               />
               <div style={{ marginTop: '1rem', textAlign: 'center', color: '#374151' }}>
                 <p style={{ margin: '0.2rem 0', fontWeight: 600 }}>
-                  Above cut-off score average: {aboveAverage.toFixed(1)}
+                  Above cut-off score count: {aboveCount} ({totalCount > 0 ? ((aboveCount / totalCount) * 100).toFixed(1) : '0.0'}%)
                 </p>
                 <p style={{ margin: '0.2rem 0', fontWeight: 600 }}>
-                  Below cut-off score average: {belowAverage.toFixed(1)}
+                  Below cut-off score count: {belowCount} ({totalCount > 0 ? ((belowCount / totalCount) * 100).toFixed(1) : '0.0'}%)
                 </p>
                 <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
                   Total entries: {totalCount}
@@ -287,39 +334,70 @@ export function StigmaCutoffChart({
 }
 
 // Helper function to calculate stigma threshold counts
-function calculateStigmaThresholdCounts(patientsData: any[], stigmaScoreLabel: string, stigmaScoreThreshold: number) {
-  let aboveThresholdCount = 0;
-  let belowThresholdCount = 0;
+function calculateStigmaThresholdCounts(
+  patientsData: any[],
+  stigmaScoreLabel: string,
+  stigmaScoreThreshold: number,
+) {
+  const counts: Record<'overall' | StigmaTypeKey, { aboveThresholdCount: number; belowThresholdCount: number }> = {
+    overall: { aboveThresholdCount: 0, belowThresholdCount: 0 },
+    anticipated: { aboveThresholdCount: 0, belowThresholdCount: 0 },
+    enacted: { aboveThresholdCount: 0, belowThresholdCount: 0 },
+    internalized: { aboveThresholdCount: 0, belowThresholdCount: 0 },
+  };
 
   patientsData.forEach((patient: any[]) => {
-    // Find the most recent stigma score for each patient
-    let mostRecent: any = null;
-    let mostRecentDate: Date | null = null;
+    let mostRecentOverall: any = null;
+    let mostRecentOverallDate: Date | null = null;
+    const mostRecentByType: Record<StigmaTypeKey, { obs: any | null; date: Date | null }> = {
+      anticipated: { obs: null, date: null },
+      enacted: { obs: null, date: null },
+      internalized: { obs: null, date: null },
+    };
 
     patient.forEach((obs: any) => {
+      const date = new Date(obs.effectiveDateTime || obs.date);
       if (obs.display?.includes(stigmaScoreLabel)) {
-        const date = new Date(obs.effectiveDateTime || obs.date);
-        if (!mostRecentDate || date > mostRecentDate) {
-          mostRecentDate = date;
-          mostRecent = obs;
+        if (!mostRecentOverallDate || date > mostRecentOverallDate) {
+          mostRecentOverallDate = date;
+          mostRecentOverall = obs;
+        }
+      }
+
+      const stigmaType = normalizeStigmaType(obs);
+      if (stigmaType) {
+        const score = getIntersectionalScore(obs, stigmaType);
+        if (score !== undefined && !Number.isNaN(score)) {
+          const current = mostRecentByType[stigmaType];
+          if (!current.date || date > current.date) {
+            mostRecentByType[stigmaType] = { obs, date };
+          }
         }
       }
     });
 
-    if (mostRecent) {
-      // Extract the numeric value from the display string
-      // Assuming the format is like "Stigma Score: 12"
-      const valueMatch = mostRecent.display.match(/\d+(\.\d+)?/);
-      if (valueMatch) {
-        const value = parseFloat(valueMatch[0]);
-        if (value >= stigmaScoreThreshold) {
-          aboveThresholdCount++;
-        } else {
-          belowThresholdCount++;
-        }
+    const addCount = (type: 'overall' | StigmaTypeKey, value: number | undefined) => {
+      if (value === undefined || Number.isNaN(value)) return;
+      if (value >= stigmaScoreThreshold) {
+        counts[type].aboveThresholdCount += 1;
+      } else {
+        counts[type].belowThresholdCount += 1;
       }
+    };
+
+    if (mostRecentOverall) {
+      const overallValue = getIntersectionalScore(mostRecentOverall);
+      addCount('overall', overallValue);
     }
+
+    (Object.keys(mostRecentByType) as StigmaTypeKey[]).forEach((type) => {
+      const item = mostRecentByType[type];
+      if (item.obs) {
+        const score = getIntersectionalScore(item.obs, type);
+        addCount(type, score);
+      }
+    });
   });
 
-  return { aboveThresholdCount, belowThresholdCount };
+  return counts;
 }
