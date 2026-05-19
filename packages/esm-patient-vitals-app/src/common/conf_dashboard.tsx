@@ -498,6 +498,73 @@ export default function AllPatientsDashboard() {
 
   // When selecting ART ID the ArtIdPanel will be shown by the conditional render below
 
+  function normalizeStigmaType(obs: any): 'anticipated' | 'enacted' | 'internalized' | null {
+    const text = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString().toLowerCase();
+    if (text.includes('anticipated') || text.includes('अपेक्षित')) return 'anticipated';
+    if (text.includes('enacted') || text.includes('व्यावहारिक')) return 'enacted';
+    if (text.includes('internalized') || text.includes('आत्म')) return 'internalized';
+    return null;
+  }
+
+  function getNumericScore(obs: any): number {
+    if (typeof obs.stigmaScore === 'number') return obs.stigmaScore;
+    if (typeof obs.stigmaScore === 'string') {
+      const parsed = parseFloat(obs.stigmaScore);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (obs.valueQuantity?.value !== undefined) return Number(obs.valueQuantity.value);
+    const displayValue = (obs.display || '').toString();
+    const match = displayValue.match(/-?\d+(?:\.\d+)?/);
+    return match ? Number(match[0]) : 0;
+  }
+
+  function calculateStigmaTypeSummary(patientData: any[]) {
+    const thresholds: Record<'anticipated' | 'enacted' | 'internalized', number> = {
+      anticipated: 40,
+      enacted: 43,
+      internalized: 33,
+    };
+
+    const summary = {
+      anticipated: { above: 0, below: 0, total: 0 },
+      enacted: { above: 0, below: 0, total: 0 },
+      internalized: { above: 0, below: 0, total: 0 },
+    };
+
+    patientData.forEach((observations) => {
+      const mostRecentByType: Record<
+        'anticipated' | 'enacted' | 'internalized',
+        { obs: any | null; date: Date | null }
+      > = {
+        anticipated: { obs: null, date: null },
+        enacted: { obs: null, date: null },
+        internalized: { obs: null, date: null },
+      };
+
+      observations.forEach((obs: any) => {
+        const type = normalizeStigmaType(obs);
+        if (!type) return;
+        const date = new Date(obs.effectiveDateTime || obs.date || Date.now());
+        const current = mostRecentByType[type];
+        if (!current.date || date > current.date) {
+          mostRecentByType[type] = { obs, date };
+        }
+      });
+
+      (['anticipated', 'enacted', 'internalized'] as const).forEach((type) => {
+        const { obs } = mostRecentByType[type];
+        if (!obs) return;
+        const score = getNumericScore(obs);
+        if (Number.isNaN(score)) return;
+        const key = score >= thresholds[type] ? 'above' : 'below';
+        summary[type][key] += 1;
+        summary[type].total += 1;
+      });
+    });
+
+    return summary;
+  }
+
   // Test function to analyze stigma data
   function testStigmaAnalysis(patientData: any[], startDate?: string, endDate?: string) {
     let totalPatients = 0;
@@ -666,7 +733,11 @@ export default function AllPatientsDashboard() {
     const dataToUse = locationFilteredData.length > 0 ? locationFilteredData : [];
     if (dataToUse.length > 0) {
       const analysisResult = testStigmaAnalysis(dataToUse, startDate || undefined, endDate || undefined);
-      return analysisResult;
+      const typeSummary = calculateStigmaTypeSummary(dataToUse);
+      return {
+        ...analysisResult,
+        typeSummary,
+      };
     }
     return null;
   }, [locationFilteredData, startDate, endDate]);
@@ -838,64 +909,123 @@ export default function AllPatientsDashboard() {
                     लान्छना विश्लेषण नतिजाहरू
                   </h3>
                   {stigmaCutoffSummary ? (
-                    <>
-                      <div
-                        style={{
-                          maxWidth: '500px',
-                          margin: '20px auto',
-                          WebkitFontSmoothing: 'antialiased',
-                          MozOsxFontSmoothing: 'grayscale',
-                        }}
-                      >
-                        <Chart
-                          type="pie"
-                          data={{
-                            labels: ['उच्च लान्छना स्कोर', 'न्यून लान्छना स्कोर'],
-                            datasets: [
-                              {
-                                data: [stigmaCutoffSummary.matchedPatients, stigmaCutoffSummary.unmatchedPatients],
-                                backgroundColor: ['#FFA500', '#87CEEB'],
-                                borderColor: ['#fff', '#fff'],
-                                borderWidth: 2,
-                              },
-                            ],
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                        gap: '1rem',
+                        width: '100%',
+                      }}
+                    >
+                      {[
+                        {
+                          title: 'Overall Intersectional Stigma',
+                          above: stigmaCutoffSummary.matchedPatients,
+                          below: stigmaCutoffSummary.unmatchedPatients,
+                          total: stigmaCutoffSummary.totalPatients,
+                        },
+                        {
+                          title: 'Anticipated Stigma',
+                          above: stigmaCutoffSummary.typeSummary.anticipated.above,
+                          below: stigmaCutoffSummary.typeSummary.anticipated.below,
+                          total: stigmaCutoffSummary.typeSummary.anticipated.total,
+                        },
+                        {
+                          title: 'Enacted Stigma',
+                          above: stigmaCutoffSummary.typeSummary.enacted.above,
+                          below: stigmaCutoffSummary.typeSummary.enacted.below,
+                          total: stigmaCutoffSummary.typeSummary.enacted.total,
+                        },
+                        {
+                          title: 'Internalized Stigma',
+                          above: stigmaCutoffSummary.typeSummary.internalized.above,
+                          below: stigmaCutoffSummary.typeSummary.internalized.below,
+                          total: stigmaCutoffSummary.typeSummary.internalized.total,
+                        },
+                      ].map((chart) => (
+                        <div
+                          key={chart.title}
+                          style={{
+                            backgroundColor: '#fafbfd',
+                            borderRadius: '12px',
+                            padding: '1rem',
+                            boxShadow: '0 1px 10px rgba(0,0,0,0.06)',
+                            minHeight: '320px',
                           }}
-                          options={{
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            plugins: {
-                              legend: {
-                                position: 'bottom',
-                                labels: {
-                                  font: {
-                                    size: 14,
-                                    weight: 500,
+                        >
+                          <h4
+                            style={{
+                              margin: '0 0 0.75rem',
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              color: '#1f2937',
+                            }}
+                          >
+                            {chart.title}
+                          </h4>
+                          {chart.total > 0 ? (
+                            <>
+                              <Chart
+                                type="pie"
+                                data={{
+                                  labels: ['उच्च लान्छना स्कोर', 'न्यून लान्छना स्कोर'],
+                                  datasets: [
+                                    {
+                                      data: [chart.above, chart.below],
+                                      backgroundColor: ['#FFA500', '#87CEEB'],
+                                      borderColor: ['#fff', '#fff'],
+                                      borderWidth: 2,
+                                    },
+                                  ],
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: true,
+                                  plugins: {
+                                    legend: {
+                                      position: 'bottom',
+                                      labels: {
+                                        font: {
+                                          size: 12,
+                                          weight: 500,
+                                        },
+                                        padding: 16,
+                                      },
+                                    },
+                                    tooltip: {
+                                      titleFont: {
+                                        size: 14,
+                                        weight: 600,
+                                      },
+                                      bodyFont: {
+                                        size: 13,
+                                      },
+                                      callbacks: {
+                                        label: function (context) {
+                                          const value = context.raw as number;
+                                          const percentage = chart.total > 0 ? ((value / chart.total) * 100).toFixed(1) : '0.0';
+                                          return `${context.label}: ${percentage}% (${value})`;
+                                        },
+                                      },
+                                    },
                                   },
-                                  padding: 20,
-                                },
-                              },
-                              tooltip: {
-                                titleFont: {
-                                  size: 14,
-                                  weight: 600,
-                                },
-                                bodyFont: {
-                                  size: 13,
-                                },
-                                callbacks: {
-                                  label: function (context) {
-                                    const total = stigmaCutoffSummary.totalPatients;
-                                    const value = context.raw as number;
-                                    const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${context.label}: ${percentage}% (${value} बिरामीहरू)`;
-                                  },
-                                },
-                              },
-                            },
-                          }}
-                        />
-                      </div>
-                    </>
+                                }}
+                              />
+                              <div style={{ marginTop: '0.75rem', color: '#334155', textAlign: 'center' }}>
+                                <p style={{ margin: '0.2rem 0', fontWeight: 600 }}>
+                                  Above: {chart.above} ({chart.total > 0 ? ((chart.above / chart.total) * 100).toFixed(1) : '0.0'}%)
+                                </p>
+                                <p style={{ margin: '0.2rem 0', fontWeight: 600 }}>
+                                  Below: {chart.below} ({chart.total > 0 ? ((chart.below / chart.total) * 100).toFixed(1) : '0.0'}%)
+                                </p>
+                              </div>
+                            </>
+                          ) : (
+                            <p style={{ margin: '1rem 0', color: '#64748b' }}>No data available for this category.</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <p>तथ्यांक विश्लेषण गर्दै...</p>
                   )}
@@ -2338,6 +2468,18 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
         return;
       }
 
+      // Validate required conference length field (length_meeting concept)
+      const meetingConcept = '694b7410-6b0d-4ac7-baaa-5479de255d92';
+      const meetingValue = formData[meetingConcept];
+      if (!meetingValue || (typeof meetingValue === 'string' && meetingValue.trim() === '')) {
+        showSnackbar({
+          title: 'त्रुटि / Error',
+          kind: 'error',
+          subtitle: 'कृपया बैठकको अवधि भर्नुहोस् (घण्टा र मिनेट दुबै चाहिन्छ)। / Please enter meeting length (hours and minutes).',
+        });
+        return;
+      }
+
       if (!currentLocationUuid) {
         showSnackbar({
           title: 'त्रुटि / Error',
@@ -2556,16 +2698,16 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                     <select
                                       value={
                                         formData[question.questionOptions?.concept]
-                                          ? formData[question.questionOptions?.concept].split(' ')[0] || '1'
-                                          : '1'
+                                          ? formData[question.questionOptions?.concept].split(' ')[0] || ''
+                                          : ''
                                       }
                                       onChange={(e) => {
                                         const hours = e.target.value;
                                         const currentValue = formData[question.questionOptions?.concept] || '';
-                                        const minutes = currentValue.split(' ')[2] || '1';
+                                        const minutes = currentValue.split(' ')[2] || '';
                                         setFormData({
                                           ...formData,
-                                          [question.questionOptions?.concept]: `${hours} घण्टा ${minutes} मिनेट`,
+                                          [question.questionOptions?.concept]: hours && minutes ? `${hours} घण्टा ${minutes} मिनेट` : '',
                                         });
                                       }}
                                       style={{
@@ -2576,6 +2718,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                         fontSize: '1rem',
                                       }}
                                     >
+                                      <option value="">-- छान्नुहोस् --</option>
                                       {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
                                         <option key={h} value={h}>
                                           {h}
@@ -2586,16 +2729,16 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                     <select
                                       value={
                                         formData[question.questionOptions?.concept]
-                                          ? formData[question.questionOptions?.concept].split(' ')[2] || '1'
-                                          : '1'
+                                          ? formData[question.questionOptions?.concept].split(' ')[2] || ''
+                                          : ''
                                       }
                                       onChange={(e) => {
                                         const minutes = e.target.value;
                                         const currentValue = formData[question.questionOptions?.concept] || '';
-                                        const hours = currentValue.split(' ')[0] || '1';
+                                        const hours = currentValue.split(' ')[0] || '';
                                         setFormData({
                                           ...formData,
-                                          [question.questionOptions?.concept]: `${hours} घण्टा ${minutes} मिनेट`,
+                                          [question.questionOptions?.concept]: hours && minutes ? `${hours} घण्टा ${minutes} मिनेट` : '',
                                         });
                                       }}
                                       style={{
@@ -2606,6 +2749,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                         fontSize: '1rem',
                                       }}
                                     >
+                                      <option value="">-- छान्नुहोस् --</option>
                                       {Array.from({ length: 60 }, (_, i) => i + 1).map((m) => (
                                         <option key={m} value={m}>
                                           {m}
