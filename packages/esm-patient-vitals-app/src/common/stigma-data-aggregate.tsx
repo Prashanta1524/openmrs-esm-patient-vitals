@@ -627,11 +627,11 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
     index === 0 ? '1st visit' : index === 1 ? '2nd visit' : index === 2 ? '3rd visit' : `${index + 1}th visit`,
   );
 
-  const typeColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)'];
-  const typeBorderColors = ['#d32f2f', '#1565c0', '#2e7d32'];
+  const visitColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(255, 159, 64, 0.85)'];
+  const visitBorderColors = ['#d32f2f', '#1565c0', '#ef6c00'];
 
-  const datasets = stigmaTypes.map((type, typeIndex) => {
-    const data = visitEntries.map((entry) => {
+  const datasets = visitEntries.map((entry, visitIndex) => {
+    const data = stigmaTypes.map((type) => {
       if (type === 'अपेक्षित लान्छना') return entry.as_score ?? 0;
       if (type === 'व्यावहारिक लान्छना') return entry.es_score ?? 0;
       if (type === 'आत्मलान्छना') return entry.is_score ?? 0;
@@ -639,10 +639,10 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
     });
 
     return {
-      label: type,
+      label: visitLabels[visitIndex],
       data,
-      backgroundColor: typeColors[typeIndex],
-      borderColor: typeBorderColors[typeIndex],
+      backgroundColor: visitColors[visitIndex],
+      borderColor: visitBorderColors[visitIndex],
       borderWidth: 1,
       borderRadius: 6,
       barPercentage: 0.7,
@@ -652,7 +652,7 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
 
   return (
     <Bar
-      data={{ labels: visitLabels, datasets }}
+      data={{ labels: stigmaTypes, datasets }}
       plugins={[
         {
           id: 'datalabels-stigma-types',
@@ -660,15 +660,17 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
             const ctx = chart.ctx;
             ctx.save();
             ctx.font = 'bold 12px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
             chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
               const meta = chart.getDatasetMeta(datasetIndex);
               meta.data.forEach((bar: any, index: number) => {
                 const value = dataset.data[index];
                 if (value !== undefined && value !== null) {
+                  const x = bar.x + 8;
+                  const y = bar.y;
                   ctx.fillStyle = '#333';
-                  ctx.fillText(value.toFixed(1), bar.x, bar.y - 8);
+                  ctx.fillText(value.toFixed(1), x, y);
                 }
               });
             });
@@ -677,6 +679,7 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
         },
       ]}
       options={{
+        indexAxis: 'y' as const,
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -692,8 +695,8 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
           },
         },
         scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'Score' } },
-          x: { title: { display: true, text: 'Visit' } },
+          x: { beginAtZero: true, title: { display: true, text: 'Score' } },
+          y: { title: { display: true, text: 'Stigma Type' } },
         },
       }}
     />

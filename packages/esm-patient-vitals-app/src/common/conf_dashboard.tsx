@@ -968,7 +968,7 @@ export default function AllPatientsDashboard() {
                               <Chart
                                 type="pie"
                                 data={{
-                                  labels: ['उच्च लान्छना स्कोर', 'न्यून लान्छना स्कोर'],
+                                  labels: ['Above cutoff score', 'Below cutoff score'],
                                   datasets: [
                                     {
                                       data: [chart.above, chart.below],
@@ -2704,10 +2704,13 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                       onChange={(e) => {
                                         const hours = e.target.value;
                                         const currentValue = formData[question.questionOptions?.concept] || '';
-                                        const minutes = currentValue.split(' ')[2] || '';
+                                        const minutes = currentValue.split(' ')[2] || '0';
                                         setFormData({
                                           ...formData,
-                                          [question.questionOptions?.concept]: hours && minutes ? `${hours} घण्टा ${minutes} मिनेट` : '',
+                                          [question.questionOptions?.concept]:
+                                            hours || minutes !== '0'
+                                              ? `${hours || '0'} घण्टा ${minutes} मिनेट`
+                                              : '',
                                         });
                                       }}
                                       style={{
@@ -2719,7 +2722,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                       }}
                                     >
                                       <option value="">-- छान्नुहोस् --</option>
-                                      {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                                      {Array.from({ length: 13 }, (_, i) => i).map((h) => (
                                         <option key={h} value={h}>
                                           {h}
                                         </option>
@@ -2735,10 +2738,13 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                       onChange={(e) => {
                                         const minutes = e.target.value;
                                         const currentValue = formData[question.questionOptions?.concept] || '';
-                                        const hours = currentValue.split(' ')[0] || '';
+                                        const hours = currentValue.split(' ')[0] || '0';
                                         setFormData({
                                           ...formData,
-                                          [question.questionOptions?.concept]: hours && minutes ? `${hours} घण्टा ${minutes} मिनेट` : '',
+                                          [question.questionOptions?.concept]:
+                                            minutes || hours !== '0'
+                                              ? `${hours} घण्टा ${minutes || '0'} मिनेट`
+                                              : '',
                                         });
                                       }}
                                       style={{
@@ -2750,7 +2756,7 @@ function FormFillingInterface({ formUuid, patients }: { formUuid: string; patien
                                       }}
                                     >
                                       <option value="">-- छान्नुहोस् --</option>
-                                      {Array.from({ length: 60 }, (_, i) => i + 1).map((m) => (
+                                      {Array.from({ length: 60 }, (_, i) => i).map((m) => (
                                         <option key={m} value={m}>
                                           {m}
                                         </option>
