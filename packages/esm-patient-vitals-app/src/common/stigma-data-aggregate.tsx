@@ -660,15 +660,15 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
             const ctx = chart.ctx;
             ctx.save();
             ctx.font = 'bold 12px sans-serif';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
             chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
               const meta = chart.getDatasetMeta(datasetIndex);
               meta.data.forEach((bar: any, index: number) => {
                 const value = dataset.data[index];
                 if (value !== undefined && value !== null) {
-                  const x = bar.x + 8;
-                  const y = bar.y;
+                  const x = bar.x;
+                  const y = bar.y - 6;
                   ctx.fillStyle = '#333';
                   ctx.fillText(value.toFixed(1), x, y);
                 }
@@ -679,7 +679,6 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
         },
       ]}
       options={{
-        indexAxis: 'y' as const,
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -695,8 +694,8 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
           },
         },
         scales: {
-          x: { beginAtZero: true, title: { display: true, text: 'Score' } },
-          y: { title: { display: true, text: 'Stigma Type' } },
+          x: { title: { display: true, text: 'Stigma Type' } },
+          y: { beginAtZero: true, title: { display: true, text: 'Score' } },
         },
       }}
     />
