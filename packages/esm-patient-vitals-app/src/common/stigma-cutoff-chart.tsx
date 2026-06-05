@@ -60,6 +60,168 @@ function getIntersectionalScore(entry: any, stigmaType: StigmaTypeKey | null = n
   return match ? Number(match[0]) : undefined;
 }
 
+/*
+interface VisitTrendPoint {
+  visitLabel: string;
+  visitDate: string;
+  anticipated: number;
+  enacted: number;
+  internalized: number;
+}
+
+function formatVisitDate(dateString: string | undefined): string {
+  if (!dateString) return 'Unknown date';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString('default', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function buildVisitTrendData(stigmaData: StigmaData[]): VisitTrendPoint[] {
+  const visits: Record<string, { date: string; entries: any[] }> = {};
+
+  stigmaData.forEach((entry) => {
+    const visitKey = entry.encounterUuid || entry.date || `${entry.stigmaType}-${Math.random().toString(36).slice(2)}`;
+    const date = entry.date || '';
+    if (!visits[visitKey]) {
+      visits[visitKey] = { date, entries: [] };
+    }
+    visits[visitKey].entries.push(entry);
+  });
+
+  return Object.entries(visits)
+    .map(([_, visit], index) => {
+      const sortedEntries = visit.entries.sort((a, b) => {
+        const aTime = new Date(a.date || '').getTime() || 0;
+        const bTime = new Date(b.date || '').getTime() || 0;
+        return aTime - bTime;
+      });
+
+      const point: VisitTrendPoint = {
+        visitLabel: `Visit ${index + 1}`,
+        visitDate: formatVisitDate(visit.date),
+        anticipated: 0,
+        enacted: 0,
+        internalized: 0,
+      };
+
+      sortedEntries.forEach((entry) => {
+        const type = normalizeStigmaType(entry);
+        const score = getIntersectionalScore(entry, type);
+        if (score === undefined || Number.isNaN(score)) return;
+
+        if (type === 'anticipated') {
+          point.anticipated = score;
+        }
+        if (type === 'enacted') {
+          point.enacted = score;
+        }
+        if (type === 'internalized') {
+          point.internalized = score;
+        }
+      });
+
+      return point;
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.visitDate).getTime() || 0;
+      const bTime = new Date(b.visitDate).getTime() || 0;
+      return aTime - bTime;
+    });
+}
+
+function VisitTrendChart({ visitTrend }: { visitTrend: VisitTrendPoint[] }) {
+  if (!visitTrend || visitTrend.length === 0) {
+    return null;
+  }
+
+  const labels = visitTrend.map((point) => point.visitLabel);
+  const datasets = [
+    {
+      label: 'Anticipated Intersectional',
+      data: visitTrend.map((point) => point.anticipated),
+      borderColor: '#3490dc',
+      backgroundColor: '#93c5fd',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 4,
+    },
+    {
+      label: 'Enacted Intersectional',
+      data: visitTrend.map((point) => point.enacted),
+      borderColor: '#f97316',
+      backgroundColor: '#fdba74',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 4,
+    },
+    {
+      label: 'Internalized Intersectional',
+      data: visitTrend.map((point) => point.internalized),
+      borderColor: '#10b981',
+      backgroundColor: '#6ee7b7',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 4,
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        backgroundColor: '#fff',
+        padding: '1rem',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        marginTop: '1.5rem',
+      }}
+    >
+      <h4 style={{ margin: '0 0 1rem', fontSize: '1.25rem', color: '#111827' }}>
+        Multiple Visit Intersectional Score Trend
+      </h4>
+      <Chart
+        type="line"
+        data={{ labels, datasets }}
+        options={{
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom' as const,
+              labels: { color: '#1f2937', font: { size: 12 } },
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = context.raw as number;
+                  return `${context.dataset.label}: ${value}`;
+                },
+              },
+            },
+            title: {
+              display: false,
+            },
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Visit' },
+            },
+            y: {
+              title: { display: true, text: 'Intersectional Score' },
+              beginAtZero: true,
+            },
+          },
+        }}
+        style={{ width: '100%', minHeight: 320, maxHeight: 420 }}
+      />
+    </div>
+  );
+}
+*/
+
 function calculateStigmaStrategyAverages(stigmaData: StigmaData[], overallCutoff = 0) {
   const averages: Record<'overall' | StigmaTypeKey, ChartAverages> = {
     overall: { aboveAverage: 0, belowAverage: 0, aboveCount: 0, belowCount: 0, totalCount: 0, cutoff: overallCutoff },
@@ -211,6 +373,10 @@ export function StigmaCutoffChart({
     return null;
   }, [stigmaCutoffSummary, patientsData, stigmaData, stigmaScoreLabel, stigmaScoreThreshold]);
 
+  // const visitTrendData = useMemo(() => {
+  //   return stigmaData && stigmaData.length > 0 ? buildVisitTrendData(stigmaData) : [];
+  // }, [stigmaData]);
+
   if (!chartCounts) {
     return <p>तथ्यांक विश्लेषण गर्दै...</p>;
   }
@@ -329,6 +495,9 @@ export function StigmaCutoffChart({
           );
         })}
       </div>
+      {/*
+      {visitTrendData.length > 0 && <VisitTrendChart visitTrend={visitTrendData} />}
+      */}
     </div>
   );
 }

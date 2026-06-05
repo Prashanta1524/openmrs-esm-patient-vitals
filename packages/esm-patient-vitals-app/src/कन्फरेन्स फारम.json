@@ -26,7 +26,7 @@
               },
               "id": "num_conference",
               "label": "१. बैठकको गठन गरेको  मिति",
-              "required": false,
+              "required": true,
               "datePickerFormat": "calendar"
             },
             {
@@ -49,6 +49,7 @@
               },
               "id": "decide_to_implement",
               "label": " २. यस बैठकमा, लान्छना सम्बन्धि  कुनै नयाँ गतिविधिहरु कार्यान्वयन गर्नको लागि निर्णय गर्नुभयो?"
+              
             },
             {
               "type": "obs",
