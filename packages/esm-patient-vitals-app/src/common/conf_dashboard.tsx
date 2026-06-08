@@ -364,8 +364,8 @@ export default function AllPatientsDashboard() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [vizType, setVizType] = useState<
-    'summary' | 'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Location' | 'dimensions'
-  >('summary');
+    'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Location' | 'dimensions'
+  >('monthly');
 
   // Get current location UUID for filtering
   const currentLocationUuid = session?.sessionLocation?.uuid;
@@ -728,20 +728,6 @@ export default function AllPatientsDashboard() {
   }, [allPatientsData]);
 
   // Summary cutoff analysis uses location-filtered data
-  const stigmaCutoffSummary = useMemo(() => {
-    // Use location-filtered data for cutoff analysis
-    const dataToUse = locationFilteredData.length > 0 ? locationFilteredData : [];
-    if (dataToUse.length > 0) {
-      const analysisResult = testStigmaAnalysis(dataToUse, startDate || undefined, endDate || undefined);
-      const typeSummary = calculateStigmaTypeSummary(dataToUse);
-      return {
-        ...analysisResult,
-        typeSummary,
-      };
-    }
-    return null;
-  }, [locationFilteredData, startDate, endDate]);
-
   return (
     <div
       style={{
@@ -798,7 +784,6 @@ export default function AllPatientsDashboard() {
                 backgroundColor: '#f8f8f8',
               }}
             >
-              <option value="summary">Above/Below Cutoff Stigma Score</option>
               <option value="monthly">Patient Participation</option>
               <option value="custom1">ART ID</option>
               <option value="stgtype"> Stigma Type</option>

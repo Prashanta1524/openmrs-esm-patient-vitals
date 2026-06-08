@@ -196,7 +196,8 @@ function getNumericValueFromObservation(obs: any, debug = false): number | null 
   return null;
 }
 
-interface LatestTypeScores {
+interface VisitTypeScores {
+  visit: number;
   internalized: number;
   anticipated: number;
   enacted: number;
@@ -208,30 +209,40 @@ function formatDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function computeLatestTypeScores(
+function getOrdinalSuffix(n: number) {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  if (n % 10 === 1) return 'st';
+  if (n % 10 === 2) return 'nd';
+  if (n % 10 === 3) return 'rd';
+  return 'th';
+}
+
+function calculateVisitScores(
   allPatientsData: any[],
   startDate?: string,
   endDate?: string,
   currentLocationUuid?: string,
-): LatestTypeScores {
-  const latestPerType = {
-    internalized: { timestamp: 0, value: 0 },
-    anticipated: { timestamp: 0, value: 0 },
-    enacted: { timestamp: 0, value: 0 },
-  };
-
+): VisitTypeScores[] {
   const start = startDate ? new Date(startDate) : null;
   const end = endDate ? new Date(endDate) : null;
-  let latestTimestamp = 0;
+  const visitScores: Array<Record<'internalized' | 'anticipated' | 'enacted', number[]>> = [];
+  const visitDates: Date[] = [];
 
-  (allPatientsData || []).forEach((patientObs) => {
-    (patientObs || []).forEach((obs: any) => {
+  (allPatientsData || []).forEach((patientObservations) => {
+    const encounters = new Map<
+      string,
+      {
+        date: Date;
+        scores: Record<'internalized' | 'anticipated' | 'enacted', number[]>;
+      }
+    >();
+
+    (patientObservations || []).forEach((obs: any) => {
       const obsLocationUuid =
         obs.locationUuid ||
         obs.location?.uuid ||
         obs.location?.reference?.split('/').pop() ||
         obs.encounter?.location?.[0]?.location?.reference?.split('/').pop();
-
       if (currentLocationUuid && obsLocationUuid && obsLocationUuid !== currentLocationUuid) return;
 
       const ds = obs.effectiveDateTime || obs.date;
@@ -245,41 +256,58 @@ function computeLatestTypeScores(
       const norm = normalizeStigmaType(raw, conceptUuid);
       if (!norm) return;
 
-      const value = getNumericValueFromObservation(obs);
-      if (value === null || Number.isNaN(value)) return;
+      const score = getNumericValueFromObservation(obs);
+      if (score === null || Number.isNaN(score)) return;
 
-      const timestamp = d.getTime();
-      if (norm === 'आत्मलान्छना') {
-        if (timestamp >= latestPerType.internalized.timestamp) {
-          latestPerType.internalized = { timestamp, value };
-        }
-      } else if (norm === 'अपेक्षित लान्छना') {
-        if (timestamp >= latestPerType.anticipated.timestamp) {
-          latestPerType.anticipated = { timestamp, value };
-        }
-      } else if (norm === 'व्यावहारिक लान्छना') {
-        if (timestamp >= latestPerType.enacted.timestamp) {
-          latestPerType.enacted = { timestamp, value };
-        }
-      }
+      const encounterKey = obs.encounter?.uuid || obs.encounter?.reference || String(ds);
+      if (!encounterKey) return;
 
-      if (timestamp > latestTimestamp) {
-        latestTimestamp = timestamp;
+      const existing = encounters.get(encounterKey);
+      if (existing) {
+        if (norm === 'आत्मलान्छना') {
+          existing.scores.internalized.push(score);
+        } else if (norm === 'अपेक्षित लान्छना') {
+          existing.scores.anticipated.push(score);
+        } else if (norm === 'व्यावहारिक लान्छना') {
+          existing.scores.enacted.push(score);
+        }
+      } else {
+        const scores: Record<'internalized' | 'anticipated' | 'enacted', number[]> = {
+          internalized: [],
+          anticipated: [],
+          enacted: [],
+        };
+        if (norm === 'आत्मलान्छना') scores.internalized.push(score);
+        if (norm === 'अपेक्षित लान्छना') scores.anticipated.push(score);
+        if (norm === 'व्यावहारिक लान्छना') scores.enacted.push(score);
+        encounters.set(encounterKey, { date: d, scores });
       }
+    });
+
+    const sortedEncounters = Array.from(encounters.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+    sortedEncounters.forEach((encounterGroup, encounterIndex) => {
+      if (!visitScores[encounterIndex]) {
+        visitScores[encounterIndex] = { internalized: [], anticipated: [], enacted: [] };
+      }
+      visitScores[encounterIndex].internalized.push(...encounterGroup.scores.internalized);
+      visitScores[encounterIndex].anticipated.push(...encounterGroup.scores.anticipated);
+      visitScores[encounterIndex].enacted.push(...encounterGroup.scores.enacted);
+      visitDates[encounterIndex] = encounterGroup.date;
     });
   });
 
-  const result: LatestTypeScores = {
-    internalized: latestPerType.internalized.value,
-    anticipated: latestPerType.anticipated.value,
-    enacted: latestPerType.enacted.value,
+  const average = (values: number[]) => {
+    if (!values.length) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
   };
 
-  if (latestTimestamp > 0) {
-    result.latestDate = formatDateKey(new Date(latestTimestamp));
-  }
-
-  return result;
+  return visitScores.map((scores, index) => ({
+    visit: index + 1,
+    internalized: average(scores.internalized),
+    anticipated: average(scores.anticipated),
+    enacted: average(scores.enacted),
+    latestDate: visitDates[index] ? formatDateKey(visitDates[index]) : undefined,
+  }));
 }
 
 export const StgTypeVisualization: React.FC<StgTypeProps> = ({
@@ -288,55 +316,68 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
   endDate,
   currentLocationUuid,
 }) => {
-  const latestScores = useMemo(
-    () => computeLatestTypeScores(allPatientsData, startDate, endDate, currentLocationUuid),
+  const visitAverages = useMemo(
+    () => calculateVisitScores(allPatientsData, startDate, endDate, currentLocationUuid),
     [allPatientsData, startDate, endDate, currentLocationUuid],
   );
 
   const labels = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
-  const scoreValues = [
-    latestScores.internalized || 0,
-    latestScores.anticipated || 0,
-    latestScores.enacted || 0,
-  ];
-  const latestDateLabel = latestScores.latestDate ? `Latest data: ${latestScores.latestDate}` : 'No data available';
+  const colors = ['#FF6B6B', '#4FC3F7', '#81C784', '#2196F3'];
+  const borderColors = ['#D32F2F', '#0288D1', '#2E7D32', '#1565C0'];
 
   const chartData = {
     labels,
-    datasets: [
-      {
-        label: 'Stigma Score',
-        data: scoreValues,
-        backgroundColor: ['#FF6B6B', '#4FC3F7', '#81C784'],
-        borderColor: ['#D32F2F', '#0288D1', '#2E7D32'],
-        borderWidth: 2,
-        borderRadius: 8,
-        barPercentage: 0.65,
-        categoryPercentage: 0.8,
-      },
-    ],
+    datasets: visitAverages.map((visit, index) => ({
+      label: `${visit.visit}${getOrdinalSuffix(visit.visit)} visit`,
+      data: [visit.internalized, visit.anticipated, visit.enacted],
+      backgroundColor: colors[index % colors.length],
+      borderColor: borderColors[index % borderColors.length],
+      borderWidth: 2,
+      borderRadius: 6,
+      barPercentage: 0.8,
+      categoryPercentage: 0.7,
+    })),
   };
+
+  const latestDateLabel = visitAverages.length
+    ? `Latest data: ${visitAverages[visitAverages.length - 1].latestDate ?? 'N/A'}`
+    : 'No data available';
 
   const chartOptions: any = {
     responsive: true,
     maintainAspectRatio: false,
     layout: {
       padding: {
-        top: 24,
+        top: 35,
       },
+    },
+    interaction: {
+      mode: 'index',
+      intersect: false,
     },
     plugins: {
       legend: {
+        display: true,
+        position: 'bottom' as const,
+        labels: {
+          font: {
+            size: window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 13 : 15,
+            weight: 'bold',
+          },
+          padding: window.innerWidth <= 480 ? 15 : window.innerWidth <= 768 ? 20 : 25,
+          usePointStyle: true,
+          pointStyle: 'rect',
+        },
+      },
+      title: {
         display: false,
       },
       tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            const value = typeof context.raw === 'number' ? context.raw.toFixed(1) : context.raw;
-            return `${context.label}: ${value}`;
-          },
-        },
+        enabled: true,
       },
+    },
+    animation: {
+      duration: 0,
     },
     scales: {
       y: {
@@ -354,26 +395,15 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
             size: window.innerWidth <= 480 ? 10 : 12,
           },
         },
-        grid: {
-          color: 'rgba(0, 0, 0, 0.08)',
-        },
       },
       x: {
-        title: {
-          display: true,
-          text: 'Stigma Type',
-          font: {
-            size: window.innerWidth <= 480 ? 11 : 13,
-            weight: 'bold',
-          },
-        },
         ticks: {
           font: {
             size: window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 11 : 12,
           },
-        },
-        grid: {
-          display: false,
+          autoSkip: false,
+          maxRotation: window.innerWidth <= 480 ? 45 : 0,
+          minRotation: window.innerWidth <= 480 ? 45 : 0,
         },
       },
     },
@@ -424,7 +454,9 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
                     const meta = chart.getDatasetMeta(datasetIndex);
                     meta.data.forEach((bar: any, index: number) => {
                       const value = dataset.data[index];
-                      ctx.fillText(value, bar.x, bar.y - 8);
+                      if (value !== 0) {
+                        ctx.fillText(value.toFixed(1), bar.x, bar.y - 8);
+                      }
                     });
                   });
                   ctx.restore();
