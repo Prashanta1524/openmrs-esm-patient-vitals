@@ -364,7 +364,7 @@ export default function AllPatientsDashboard() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [vizType, setVizType] = useState<
-    'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Location' | 'dimensions'
+    'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Location' | 'dimensions' | 'summary'
   >('monthly');
 
   // Get current location UUID for filtering
@@ -713,6 +713,13 @@ export default function AllPatientsDashboard() {
   allPatientsData.forEach((patientObservations, index) => {
     stigmaDataByPatient[String(index)] = patientObservations;
   });
+
+  const stigmaCutoffSummary = useMemo(() => {
+    if (!locationFilteredData || locationFilteredData.length === 0) return null;
+    const analysisResult = testStigmaAnalysis(locationFilteredData, startDate || undefined, endDate || undefined);
+    const typeSummary = calculateStigmaTypeSummary(locationFilteredData);
+    return { ...analysisResult, typeSummary };
+  }, [locationFilteredData, startDate, endDate]);
 
   // Test the analysis and log results
   useEffect(() => {
