@@ -6,8 +6,6 @@ import { useSession } from '@openmrs/esm-framework';
 interface DimensionVisualizationProps {
   allPatientsData: any[];
   currentLocationUuid?: string;
-  startDate?: string;
-  endDate?: string;
 }
 
 // Domain labels in Nepali
@@ -173,8 +171,6 @@ function calculateMinMax(domainScores: Record<string, number[]>) {
 export function DimensionVisualization({
   allPatientsData,
   currentLocationUuid,
-  startDate,
-  endDate,
 }: DimensionVisualizationProps) {
   const session = useSession();
   const [selectedType, setSelectedType] = useState<'as' | 'es' | 'is'>('as');
@@ -184,25 +180,9 @@ export function DimensionVisualization({
   const locationName = session?.sessionLocation?.display || 'Current Site';
 
   const dimensionData = useMemo(() => {
-    // Filter by date range if provided
-    let filteredData = allPatientsData;
-    if (startDate || endDate) {
-      const s = startDate ? new Date(startDate) : null;
-      const e = endDate ? new Date(endDate) : null;
-      filteredData = allPatientsData.map((patientObservations) =>
-        patientObservations.filter((obs: any) => {
-          const ds = obs.effectiveDateTime || obs.date;
-          if (!ds) return false;
-          const d = new Date(ds);
-          if (s && d < s) return false;
-          if (e && d > e) return false;
-          return true;
-        }),
-      );
-    }
-    const domainScores = extractDimensionScores(filteredData, selectedType, locationUuid);
+    const domainScores = extractDimensionScores(allPatientsData, selectedType, locationUuid);
     return calculateMinMax(domainScores);
-  }, [allPatientsData, selectedType, locationUuid, startDate, endDate]);
+  }, [allPatientsData, selectedType, locationUuid]);
 
   // Prepare chart data with new colors - wrapped in useMemo
   const chartData = useMemo(

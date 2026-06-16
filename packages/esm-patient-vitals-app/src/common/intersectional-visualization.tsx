@@ -6,8 +6,6 @@ import { useSession } from '@openmrs/esm-framework';
 interface IntersectionalVisualizationProps {
   allPatientsData: any[];
   currentLocationUuid?: string;
-  startDate?: string;
-  endDate?: string;
 }
 
 const INTERSECTIONAL_UUIDS = {
@@ -156,31 +154,13 @@ function calculateVisitScores(allPatientsData: any[]) {
 export function IntersectionalVisualization({
   allPatientsData,
   currentLocationUuid,
-  startDate,
-  endDate,
 }: IntersectionalVisualizationProps) {
   const session = useSession();
   const locationUuid = currentLocationUuid || session?.sessionLocation?.uuid;
 
   const visitAverages = useMemo(() => {
-    let filteredData = allPatientsData;
-    if (startDate || endDate) {
-      const s = startDate ? new Date(startDate) : null;
-      const e = endDate ? new Date(endDate) : null;
-      filteredData = allPatientsData.map((patientObservations) =>
-        patientObservations.filter((obs: any) => {
-          const ds = obs.effectiveDateTime || obs.date;
-          if (!ds) return false;
-          const d = new Date(ds);
-          if (s && d < s) return false;
-          if (e && d > e) return false;
-          return true;
-        }),
-      );
-    }
-
-    return calculateVisitScores(filteredData);
-  }, [allPatientsData, startDate, endDate]);
+    return calculateVisitScores(allPatientsData);
+  }, [allPatientsData]);
 
   const scoreKeys = ['as', 'es', 'is'] as const;
   const labels = scoreKeys.map((key) => TYPE_LABELS[key]);

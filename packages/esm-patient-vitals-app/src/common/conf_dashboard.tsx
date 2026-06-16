@@ -361,8 +361,6 @@ export default function AllPatientsDashboard() {
   const [locationFilteredData, setLocationFilteredData] = useState<any[]>([]); // Data filtered by current location
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [availableYears, setAvailableYears] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
   const [vizType, setVizType] = useState<
     'monthly' | 'custom1' | 'custom2' | 'stgtype' | 'Location' | 'dimensions' | 'summary'
   >('monthly');
@@ -566,7 +564,7 @@ export default function AllPatientsDashboard() {
   }
 
   // Test function to analyze stigma data
-  function testStigmaAnalysis(patientData: any[], startDate?: string, endDate?: string) {
+  function testStigmaAnalysis(patientData: any[]) {
     let totalPatients = 0;
     let matchedPatients = 0;
     let unmatchedPatients = 0;
@@ -574,10 +572,6 @@ export default function AllPatientsDashboard() {
       string,
       { matched: boolean; highestScores: { type: string; score: number; threshold: number }[] }
     > = {};
-
-    // Parse date range if provided
-    const start = startDate ? new Date(startDate) : undefined;
-    const end = endDate ? new Date(endDate) : undefined;
 
     patientData.forEach((observations, patientIndex) => {
       const patientId = String(patientIndex);
@@ -591,14 +585,6 @@ export default function AllPatientsDashboard() {
               coding.display?.toLowerCase().includes('stigma') || coding.code?.toLowerCase().includes('stigma'),
           );
           if (!isStigma) return false;
-          // Date filter
-          if (start || end) {
-            const obsDate = obs.effectiveDateTime || obs.date;
-            if (!obsDate) return false;
-            const d = new Date(obsDate);
-            if (start && d < start) return false;
-            if (end && d > end) return false;
-          }
           return true;
         })
         .map((obs: any) => ({
@@ -716,10 +702,10 @@ export default function AllPatientsDashboard() {
 
   const stigmaCutoffSummary = useMemo(() => {
     if (!locationFilteredData || locationFilteredData.length === 0) return null;
-    const analysisResult = testStigmaAnalysis(locationFilteredData, startDate || undefined, endDate || undefined);
+    const analysisResult = testStigmaAnalysis(locationFilteredData);
     const typeSummary = calculateStigmaTypeSummary(locationFilteredData);
     return { ...analysisResult, typeSummary };
-  }, [locationFilteredData, startDate, endDate]);
+  }, [locationFilteredData]);
 
   // Test the analysis and log results
   useEffect(() => {
@@ -800,59 +786,6 @@ export default function AllPatientsDashboard() {
             </select>
           </div>
 
-          {vizType !== 'custom1' && vizType !== 'Location' && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'center',
-                marginBottom: 12,
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <label style={{ color: '#444', fontSize: 14 }}>Start:</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  style={{ padding: '6px 8px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <label style={{ color: '#444', fontSize: 14 }}>End:</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  style={{ padding: '6px 8px' }}
-                />
-              </div>
-              <button
-                onClick={() => {
-                  // If both dates present but out of order, swap them
-                  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-                    const s = startDate;
-                    setStartDate(endDate);
-                    setEndDate(s);
-                  }
-                }}
-                style={{ padding: '6px 10px' }}
-              >
-                Apply
-              </button>
-              <button
-                onClick={() => {
-                  setStartDate('');
-                  setEndDate('');
-                }}
-                style={{ padding: '6px 10px' }}
-              >
-                Clear
-              </button>
-            </div>
-          )}
 
           {/* All visualizations now contained within the right column */}
           {isLoading && <p>Loading patient data...</p>}
@@ -1065,8 +998,6 @@ export default function AllPatientsDashboard() {
                     selectedYear={selectedYear}
                     onYearChange={setSelectedYear}
                     availableYears={availableYears}
-                    startDate={startDate || undefined}
-                    endDate={endDate || undefined}
                   />
                 </div>
               </div>
@@ -1093,8 +1024,6 @@ export default function AllPatientsDashboard() {
               )}
               <StgTypeVisualization
                 allPatientsData={locationFilteredData}
-                startDate={startDate || undefined}
-                endDate={endDate || undefined}
                 currentLocationUuid={currentLocationUuid}
               />
             </>
@@ -1118,8 +1047,6 @@ export default function AllPatientsDashboard() {
               <DimensionVisualization
                 allPatientsData={locationFilteredData}
                 currentLocationUuid={currentLocationUuid}
-                startDate={startDate || undefined}
-                endDate={endDate || undefined}
               />
             </>
           )}
@@ -1142,8 +1069,6 @@ export default function AllPatientsDashboard() {
               <IntersectionalVisualization
                 allPatientsData={locationFilteredData}
                 currentLocationUuid={currentLocationUuid}
-                startDate={startDate || undefined}
-                endDate={endDate || undefined}
               />
             </>
           )}

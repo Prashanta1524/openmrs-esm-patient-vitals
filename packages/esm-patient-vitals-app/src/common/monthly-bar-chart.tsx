@@ -8,8 +8,6 @@ interface MonthlyBarChartProps {
   selectedYear: string;
   onYearChange: (year: string) => void;
   availableYears: string[];
-  startDate?: string;
-  endDate?: string;
   currentLocationUuid?: string;
 }
 
@@ -18,8 +16,6 @@ export function MonthlyBarChart({
   selectedYear,
   onYearChange,
   availableYears,
-  startDate,
-  endDate,
   currentLocationUuid,
 }: MonthlyBarChartProps) {
   // Local month state default to current month
@@ -59,19 +55,6 @@ export function MonthlyBarChart({
   //   return aggregateData(allPatientsData, s, e, level);
   // }, [allPatientsData, startDate, endDate]);
 
-  const dynamic = useMemo(() => {
-    if (!startDate && !endDate) return null;
-    const rawStart = startDate ?? endDate;
-    const rawEnd = endDate ?? startDate;
-    const s = rawStart ? new Date(rawStart) : null;
-    const e = rawEnd ? new Date(rawEnd) : null;
-    if (!s || !e || isNaN(s.getTime()) || isNaN(e.getTime())) return null;
-    const rangeStart = s <= e ? s : e;
-    const rangeEnd = s <= e ? e : s;
-    const level = getAggregationLevel(rangeStart, rangeEnd);
-    return aggregateData(stigmaOnlyPatientsData, rangeStart, rangeEnd, level);
-  }, [stigmaOnlyPatientsData, startDate, endDate]);
-
   const monthCounts = useMemo(
     () => aggregateYearMonthPatientCount(stigmaOnlyPatientsData, selectedYear, currentLocationUuid),
     [stigmaOnlyPatientsData, selectedYear, currentLocationUuid],
@@ -89,43 +72,24 @@ export function MonthlyBarChart({
     return gradient;
   };
 
-  const data = dynamic
-    ? {
-        labels: dynamic.labels,
-        datasets: [
-          {
-            label: 'Patient Count',
-            data: dynamic.counts,
-            backgroundColor: (context: any) => {
-              const chart = context.chart;
-              const { ctx, chartArea } = chart;
-              if (!chartArea) return '#19147bff';
-              return createGradient(ctx, chartArea);
-            },
-            borderRadius: 8,
-            borderSkipped: false,
-            hoverBackgroundColor: '#2b21bfff',
-          },
-        ],
-      }
-    : {
-        labels: months,
-        datasets: [
-          {
-            label: 'Patient Count',
-            data: monthCounts,
-            backgroundColor: (context: any) => {
-              const chart = context.chart;
-              const { ctx, chartArea } = chart;
-              if (!chartArea) return '#4F46E5';
-              return createGradient(ctx, chartArea);
-            },
-            borderRadius: 8,
-            borderSkipped: false,
-            hoverBackgroundColor: '#3730A3',
-          },
-        ],
-      };
+  const data = {
+    labels: months,
+    datasets: [
+      {
+        label: 'Patient Count',
+        data: monthCounts,
+        backgroundColor: (context: any) => {
+          const chart = context.chart;
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return '#4F46E5';
+          return createGradient(ctx, chartArea);
+        },
+        borderRadius: 8,
+        borderSkipped: false,
+        hoverBackgroundColor: '#3730A3',
+      },
+    ],
+  };
 
   return (
     <div

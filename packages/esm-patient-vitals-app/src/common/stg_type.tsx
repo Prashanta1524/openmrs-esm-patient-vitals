@@ -7,8 +7,6 @@ export type MetricType = 'min' | 'max' | 'all';
 
 export interface StgTypeProps {
   allPatientsData: any[];
-  startDate?: string; // ISO yyyy-mm-dd
-  endDate?: string; // ISO yyyy-mm-dd
   currentLocationUuid?: string;
 }
 
@@ -219,12 +217,8 @@ function getOrdinalSuffix(n: number) {
 
 function calculateVisitScores(
   allPatientsData: any[],
-  startDate?: string,
-  endDate?: string,
   currentLocationUuid?: string,
 ): VisitTypeScores[] {
-  const start = startDate ? new Date(startDate) : null;
-  const end = endDate ? new Date(endDate) : null;
   const visitScores: Array<Record<'internalized' | 'anticipated' | 'enacted', number[]>> = [];
   const visitDates: Date[] = [];
 
@@ -248,8 +242,7 @@ function calculateVisitScores(
       const ds = obs.effectiveDateTime || obs.date;
       if (!ds) return;
       const d = new Date(ds);
-      if (start && d < start) return;
-      if (end && d > end) return;
+      if (Number.isNaN(d.getTime())) return;
 
       const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
       const conceptUuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
@@ -312,13 +305,11 @@ function calculateVisitScores(
 
 export const StgTypeVisualization: React.FC<StgTypeProps> = ({
   allPatientsData,
-  startDate,
-  endDate,
   currentLocationUuid,
 }) => {
   const visitAverages = useMemo(
-    () => calculateVisitScores(allPatientsData, startDate, endDate, currentLocationUuid),
-    [allPatientsData, startDate, endDate, currentLocationUuid],
+    () => calculateVisitScores(allPatientsData, currentLocationUuid),
+    [allPatientsData, currentLocationUuid],
   );
 
   const labels = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
