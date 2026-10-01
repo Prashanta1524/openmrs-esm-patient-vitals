@@ -179,7 +179,7 @@ export function MonthlyBarChart({
                   },
                   title: {
                     display: true,
-                    text: dynamic ? 'Time Period' : 'Month',
+                    text: 'Month',
                     font: {
                       size: window.innerWidth <= 480 ? 12 : window.innerWidth <= 768 ? 13 : 14,
                       weight: 'bold',

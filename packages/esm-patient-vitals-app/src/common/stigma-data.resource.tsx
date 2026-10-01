@@ -261,6 +261,8 @@ export function useCovidStigmaData(patientUuid: string) {
       return Number.isFinite(n) ? n : 0;
     };
 
+    const clampScore = (value: number, max: number) => Math.max(0, Math.min(value, max));
+
     const findObsByConcept = (obsList: any[], conceptUuid: string): any | null => {
       if (!Array.isArray(obsList)) return null;
       for (const obs of obsList) {
@@ -309,16 +311,17 @@ export function useCovidStigmaData(patientUuid: string) {
       const sgmIS = num(getObsVal(enc, '79c9043f-3cb6-41b2-b189-6018cb9b2bde'));
       const emIS = num(getObsVal(enc, '373eca5f-bc30-4b5e-a799-c50931731209'));
 
-      const asScore = num(rawAS);
-      const esScore = num(rawES);
-      const isScore = num(rawIS);
+      const clampScore = (value: number, max: number) => Math.max(0, Math.min(value, max));
+      const asScore = clampScore(num(rawAS), 36);
+      const esScore = clampScore(num(rawES), 13);
+      const isScore = clampScore(num(rawIS), 30);
 
       if (rawAS != null) {
         stigmaData.push({
           id: `${enc.uuid}-एन्टिसिपेटेड`,
           date: enc.encounterDatetime,
           stigmaType: 'अपेक्षित लान्छना',
-          stigmaScore: `${rawAS}/36`,
+          stigmaScore: `${asScore}/36`,
           as_score: asScore,
           dimensionType: [hivAS, mhAS, sgmAS, emAS].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी :${hivAS}/60, मानसिक स्वास्थ्य:${mhAS}/60, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmAS}/60, जातीय अल्पसङ्ख्यक/दलित:${emAS}/60`,
@@ -337,7 +340,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-enacted`,
           date: enc.encounterDatetime,
           stigmaType: 'व्यावहारिक लान्छना',
-          stigmaScore: `${rawES}/13`,
+          stigmaScore: `${esScore}/13`,
           es_score: esScore,
           dimensionType: [hivES, mhES, sgmES, emES].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी:${hivES}/65, मानसिक स्वास्थ्य:${mhES}/65, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmES}/65, जातीय अल्पसङ्ख्यक/दलित:${emES}/65`,
@@ -356,7 +359,7 @@ export function useCovidStigmaData(patientUuid: string) {
           id: `${enc.uuid}-internalized`,
           date: enc.encounterDatetime,
           stigmaType: 'आत्मलान्छना',
-          stigmaScore: `${rawIS}/30`,
+          stigmaScore: `${isScore}/30`,
           is_score: isScore,
           dimensionType: [hivIS, mhIS, sgmIS, emIS].some((s) => s > 0) ? 'Domains' : '',
           dimensionScore: `एचआईभी:${hivIS}/50, मानसिक स्वास्थ्य:${mhIS}/50, लैङ्गिक तथा यौनिक अल्पसङ्ख्यक:${sgmIS}/50, जातीय अल्पसङ्ख्यक/दलित:${emIS}/50`,

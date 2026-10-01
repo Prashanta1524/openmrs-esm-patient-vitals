@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Chart } from 'react-chartjs-2';
 import 'chart.js/auto';
+import { getMaxVisitCount } from './visit-utils';
 
 export type StigmaType = 'आत्मलान्छना' | 'अपेक्षित लान्छना' | 'व्यावहारिक लान्छना';
 export type MetricType = 'min' | 'max' | 'all';
@@ -58,8 +59,8 @@ function normalizeStigmaType(raw: string | undefined, conceptUuid?: string): str
     return '';
   }
 
-  // EXCLUDE domain scores - these contain "domain" in the text (individual domain scores, not main scores)
-  if (s.includes('domain score')) {
+  // EXCLUDE domain scores - these contain "domain" or domain-specific fields in the text
+  if (s.includes('domain score') || s.includes('domain') || s.includes('hiv') || s.includes('mh') || s.includes('mental') || s.includes('sgm') || s.includes('gender') || s.includes('ethnic') || s.includes('जातीय') || s.includes('लैङ्गिक') || s.includes('मानसिक') || s.includes('एचआईभी')) {
     return ''; // Skip domain scores - they are not the main stigma type total scores
   }
 
@@ -221,6 +222,13 @@ function calculateVisitScores(
 ): VisitTypeScores[] {
   const visitScores: Array<Record<'internalized' | 'anticipated' | 'enacted', number[]>> = [];
   const visitDates: Date[] = [];
+  let maxVisitCount = 0;
+
+  const flattenObservations = (observations: any[]): any[] =>
+    observations.flatMap((observation: any) => [
+      observation,
+      ...flattenObservations(observation.groupMembers || observation.members || []),
+    ]);
 
   (allPatientsData || []).forEach((patientObservations) => {
     const encounters = new Map<
@@ -231,7 +239,7 @@ function calculateVisitScores(
       }
     >();
 
-    (patientObservations || []).forEach((obs: any) => {
+    flattenObservations(patientObservations || []).forEach((obs: any) => {
       const obsLocationUuid =
         obs.locationUuid ||
         obs.location?.uuid ||
@@ -246,38 +254,44 @@ function calculateVisitScores(
 
       const raw = (obs.stigmaType || obs.code?.coding?.[0]?.display || obs.code?.text || '').toString();
       const conceptUuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
+      const encounterKey =
+        obs.encounter?.uuid ||
+        obs.encounter?.reference ||
+        obs.encounterUuid ||
+        String(ds);
+      if (!encounterKey) return;
+
+      const existing = encounters.get(encounterKey);
+      if (!existing) {
+        encounters.set(encounterKey, {
+          date: d,
+          scores: { internalized: [], anticipated: [], enacted: [] },
+        });
+      }
+
       const norm = normalizeStigmaType(raw, conceptUuid);
       if (!norm) return;
 
       const score = getNumericValueFromObservation(obs);
       if (score === null || Number.isNaN(score)) return;
 
-      const encounterKey = obs.encounter?.uuid || obs.encounter?.reference || String(ds);
-      if (!encounterKey) return;
+      const maxScore = norm === 'आत्मलान्छना' ? 30 : norm === 'अपेक्षित लान्छना' ? 36 : norm === 'व्यावहारिक लान्छना' ? 13 : 0;
+      if (maxScore <= 0 || score <= 0 || score > maxScore) return;
 
-      const existing = encounters.get(encounterKey);
-      if (existing) {
+      const encounter = encounters.get(encounterKey);
+      if (encounter) {
         if (norm === 'आत्मलान्छना') {
-          existing.scores.internalized.push(score);
+          encounter.scores.internalized.push(score);
         } else if (norm === 'अपेक्षित लान्छना') {
-          existing.scores.anticipated.push(score);
+          encounter.scores.anticipated.push(score);
         } else if (norm === 'व्यावहारिक लान्छना') {
-          existing.scores.enacted.push(score);
+          encounter.scores.enacted.push(score);
         }
-      } else {
-        const scores: Record<'internalized' | 'anticipated' | 'enacted', number[]> = {
-          internalized: [],
-          anticipated: [],
-          enacted: [],
-        };
-        if (norm === 'आत्मलान्छना') scores.internalized.push(score);
-        if (norm === 'अपेक्षित लान्छना') scores.anticipated.push(score);
-        if (norm === 'व्यावहारिक लान्छना') scores.enacted.push(score);
-        encounters.set(encounterKey, { date: d, scores });
       }
     });
 
     const sortedEncounters = Array.from(encounters.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+    maxVisitCount = Math.max(maxVisitCount, sortedEncounters.length);
     sortedEncounters.forEach((encounterGroup, encounterIndex) => {
       if (!visitScores[encounterIndex]) {
         visitScores[encounterIndex] = { internalized: [], anticipated: [], enacted: [] };
@@ -294,45 +308,121 @@ function calculateVisitScores(
     return values.reduce((sum, value) => sum + value, 0) / values.length;
   };
 
-  return visitScores.map((scores, index) => ({
-    visit: index + 1,
-    internalized: average(scores.internalized),
-    anticipated: average(scores.anticipated),
-    enacted: average(scores.enacted),
-    latestDate: visitDates[index] ? formatDateKey(visitDates[index]) : undefined,
-  }));
+  const visitCount = Math.max(visitScores.length, maxVisitCount, getMaxVisitCount(allPatientsData));
+
+  return Array.from({ length: visitCount }, (_, index) => {
+    const scores = visitScores[index] || { internalized: [], anticipated: [], enacted: [] };
+
+    return {
+      visit: index + 1,
+      internalized: average(scores.internalized),
+      anticipated: average(scores.anticipated),
+      enacted: average(scores.enacted),
+      latestDate: visitDates[index] ? formatDateKey(visitDates[index]) : undefined,
+    };
+  });
 }
+
+type SelectedStigmaType = 'all' | StigmaType;
 
 export const StgTypeVisualization: React.FC<StgTypeProps> = ({
   allPatientsData,
   currentLocationUuid,
 }) => {
+  const [selectedType, setSelectedType] = useState<SelectedStigmaType>('all');
+
   const visitAverages = useMemo(
     () => calculateVisitScores(allPatientsData, currentLocationUuid),
     [allPatientsData, currentLocationUuid],
   );
 
-  const labels = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
-  const colors = ['#FF6B6B', '#4FC3F7', '#81C784', '#2196F3'];
-  const borderColors = ['#D32F2F', '#0288D1', '#2E7D32', '#1565C0'];
+  const stigmaTypeOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'All stigma types' },
+      { value: 'आत्मलान्छना' as const, label: 'आत्मलान्छना' },
+      { value: 'अपेक्षित लान्छना' as const, label: 'अपेक्षित लान्छना' },
+      { value: 'व्यावहारिक लान्छना' as const, label: 'व्यावहारिक लान्छना' },
+    ],
+    [],
+  );
+
+  const labels = visitAverages.map((visit) => `${visit.visit}${getOrdinalSuffix(visit.visit)} visit`);
+  const colors = ['#FF6B6B', '#4FC3F7', '#81C784'];
+  const borderColors = ['#D32F2F', '#0288D1', '#2E7D32'];
+
+  const datasets = selectedType === 'all'
+    ? [
+        {
+          label: 'आत्मलान्छना',
+          data: visitAverages.map((visit) => visit.internalized),
+          borderColor: borderColors[0],
+          backgroundColor: colors[0],
+        },
+        {
+          label: 'अपेक्षित लान्छना',
+          data: visitAverages.map((visit) => visit.anticipated),
+          borderColor: borderColors[1],
+          backgroundColor: colors[1],
+        },
+        {
+          label: 'व्यावहारिक लान्छना',
+          data: visitAverages.map((visit) => visit.enacted),
+          borderColor: borderColors[2],
+          backgroundColor: colors[2],
+        },
+      ]
+    : [
+        {
+          label: selectedType,
+          data: visitAverages.map((visit) =>
+            selectedType === 'आत्मलान्छना'
+              ? visit.internalized
+              : selectedType === 'अपेक्षित लान्छना'
+              ? visit.anticipated
+              : visit.enacted,
+          ),
+          borderColor:
+            selectedType === 'आत्मलान्छना'
+              ? borderColors[0]
+              : selectedType === 'अपेक्षित लान्छना'
+              ? borderColors[1]
+              : borderColors[2],
+          backgroundColor:
+            selectedType === 'आत्मलान्छना'
+              ? colors[0]
+              : selectedType === 'अपेक्षित लान्छना'
+              ? colors[1]
+              : colors[2],
+        },
+      ];
 
   const chartData = {
     labels,
-    datasets: visitAverages.map((visit, index) => ({
-      label: `${visit.visit}${getOrdinalSuffix(visit.visit)} visit`,
-      data: [visit.internalized, visit.anticipated, visit.enacted],
-      backgroundColor: colors[index % colors.length],
-      borderColor: borderColors[index % borderColors.length],
-      borderWidth: 2,
-      borderRadius: 6,
-      barPercentage: 0.8,
-      categoryPercentage: 0.7,
+    datasets: datasets.map((dataset) => ({
+      ...dataset,
+      borderWidth: 3,
+      fill: false,
+      tension: 0.35,
+      pointRadius: 6,
+      pointHoverRadius: 8,
+      pointHitRadius: 10,
+      pointBackgroundColor: dataset.backgroundColor,
+      pointBorderColor: '#fff',
     })),
   };
 
   const latestDateLabel = visitAverages.length
     ? `Latest data: ${visitAverages[visitAverages.length - 1].latestDate ?? 'N/A'}`
     : 'No data available';
+
+  const totalPossibleScores: Record<SelectedStigmaType, string> = {
+    all: 'Total score: आत्मलान्छना = 30, अपेक्षित लान्छना = 36, व्यावहारिक लान्छना = 13',
+    'आत्मलान्छना': 'Total score: आत्मलान्छना = 30',
+    'अपेक्षित लान्छना': 'Total score: अपेक्षित लान्छना = 36',
+    'व्यावहारिक लान्छना': 'Total score: व्यावहारिक लान्छना = 13',
+  };
+
+  const totalPossibleLabel = totalPossibleScores[selectedType];
 
   const chartOptions: any = {
     responsive: true,
@@ -343,8 +433,8 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
       },
     },
     interaction: {
-      mode: 'index',
-      intersect: false,
+      mode: 'nearest',
+      intersect: true,
     },
     plugins: {
       legend: {
@@ -375,7 +465,7 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Score',
+          text: 'Average Score',
           font: {
             size: window.innerWidth <= 480 ? 11 : 13,
             weight: 'bold',
@@ -420,6 +510,29 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
           <div style={{ fontSize: '0.9rem', color: '#555' }}>{latestDateLabel}</div>
         </div>
 
+        <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center', alignItems: 'center' }}>
+          <label style={{ fontWeight: 'bold', fontSize: 'clamp(0.85rem, 2vw, 1rem)' }}>
+            Stigma Type:
+          </label>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value as SelectedStigmaType)}
+            style={{
+              padding: 'clamp(6px, 1.5vw, 8px)',
+              borderRadius: 4,
+              border: '1px solid #ccc',
+              fontSize: 'clamp(0.8rem, 2vw, 0.95rem)',
+              cursor: 'pointer',
+            }}
+          >
+            {stigmaTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div
           style={{
             height: window.innerWidth <= 480 ? '320px' : window.innerWidth <= 768 ? '380px' : '420px',
@@ -428,34 +541,13 @@ export const StgTypeVisualization: React.FC<StgTypeProps> = ({
           }}
         >
           <Chart
-            type="bar"
+            type="line"
             data={chartData}
-            plugins={[
-              {
-                id: 'datalabels-stigmatype',
-                afterDatasetsDraw: function (chart: any) {
-                  const ctx = chart.ctx;
-                  ctx.save();
-                  const fontSize = window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 14 : 16;
-                  ctx.font = `bold ${fontSize}px sans-serif`;
-                  ctx.textAlign = 'center';
-                  ctx.textBaseline = 'bottom';
-                  ctx.fillStyle = '#333';
-                  chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
-                    const meta = chart.getDatasetMeta(datasetIndex);
-                    meta.data.forEach((bar: any, index: number) => {
-                      const value = dataset.data[index];
-                      if (value !== 0) {
-                        ctx.fillText(value.toFixed(1), bar.x, bar.y - 8);
-                      }
-                    });
-                  });
-                  ctx.restore();
-                },
-              },
-            ]}
             options={chartOptions}
           />
+        </div>
+        <div style={{ marginTop: 12, textAlign: 'center', color: '#444', fontSize: '0.95rem' }}>
+          {totalPossibleLabel}
         </div>
       </div>
     </div>

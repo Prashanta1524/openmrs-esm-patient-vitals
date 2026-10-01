@@ -314,7 +314,14 @@ async function fetchPatientStigmaDataWithLocation(patientId: string): Promise<an
             locationUuid: encounterLocationUuid,
             effectiveDateTime: encounterDate,
             date: encounterDate,
-
+            encounter: {
+              uuid: encounter.uuid || encounter.encounterUuid,
+              reference:
+                encounter.uuid || encounter.encounterUuid
+                  ? `Encounter/${encounter.uuid || encounter.encounterUuid}`
+                  : undefined,
+            },
+            encounterUuid: encounter.uuid || encounter.encounterUuid,
             code: {
               coding: [
                 {
@@ -379,7 +386,7 @@ export default function AllPatientsDashboard() {
     });
   }, [session, currentLocationUuid, currentLocationName]);
 
-  // Fetch all patient data (for summary/monthly views that show all data)
+  // Fetch all patient data (for summary views that show all data)
   useEffect(() => {
     if (!patients?.length) return;
     Promise.all(patients.map((p) => fetchPatientStigmaData(p.id))).then((results) => {
@@ -414,7 +421,7 @@ export default function AllPatientsDashboard() {
     if (!currentLocationUuid) {
       console.log('⚠️ No currentLocationUuid set - location filtering disabled');
       // Still fetch data but don't filter by location if no location is set
-      Promise.all(patients.map((p) => fetchPatientStigmaDataWithLocation(p.id))).then((results) => {
+      Promise.all(patients.map((p) => fetchPatientStigmaData(p.id))).then((results) => {
         console.log(
           '📊 Fetched all data without location filter:',
           results.reduce((sum, arr) => sum + arr.length, 0),
@@ -439,13 +446,31 @@ export default function AllPatientsDashboard() {
       console.log('📍 Current location UUID:', currentLocationUuid);
 
       // Filter observations by current location
-      const filteredResults = results.map((patientObs) =>
-        patientObs.filter((obs: any) => {
-          // Only include observations from the current location
+            // Filter observations by current location
+      const TEST_PATIENTS: Record<string, string> = {
+        'e1e8d5ce-0b1b-4f27-9c57-e7c3f1671f6c': 'Bhaktapur test patient',
+        'adaa5248-b26e-4a5a-91d0-0f676c996018': 'Bhim test patient',
+        '5d9f2c0b-0d9a-455d-8bf4-3b27512c0d90': 'Kalaiya test patient',
+      };
+
+      const filteredResults = results.map((patientObs, idx) => {
+        const patientUuid = patients[idx]?.id;
+        const label = TEST_PATIENTS[patientUuid];
+        const isRelevantPatient =
+          (label === 'Bhaktapur test patient' && currentLocationName?.includes('भक्तपुर')) ||
+          (label === 'Bhim test patient' && currentLocationName?.includes('भिम')) ||
+          (label === 'Kalaiya test patient' && currentLocationName?.includes('कलैया'));
+
+        return patientObs.filter((obs: any) => {
           const matches = obs.locationUuid === currentLocationUuid;
+          if (!matches && isRelevantPatient) {
+            console.log(
+              `🎯 [${label}] dropped: date=${obs.effectiveDateTime || obs.date} obsLocationUuid=${obs.locationUuid} currentLocationUuid=${currentLocationUuid}`
+            );
+          }
           return matches;
-        }),
-      );
+        });
+      });
 
       const totalObs = results.reduce((sum, arr) => sum + arr.length, 0);
       const filteredObs = filteredResults.reduce((sum, arr) => sum + arr.length, 0);
@@ -1589,8 +1614,8 @@ function ArtIdPanel({ patients }: { patients: any[] }) {
         {!loading && selectedPatientUuid && (
           <div style={{ display: 'grid', gap: '1rem' }}>
             <div>
-              {/* Per-patient stigma bar chart */}
-              <MultiChartSelector patientUuid={selectedPatientUuid} chartType="bar" />
+              {/* Per-patient stigma line chart */}
+              <MultiChartSelector patientUuid={selectedPatientUuid} chartType="line" showAllVisits />
             </div>
             <div>
               <h4 style={{ margin: '0 0 8px 0' }}>सहभागी फारम - उत्तरहरू</h4>

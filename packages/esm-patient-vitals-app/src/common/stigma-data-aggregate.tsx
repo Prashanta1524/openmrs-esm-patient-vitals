@@ -312,7 +312,7 @@ export function ArtIdVisualization({ patients }: { patients: any[] }) {
       <div style={{ width: '100%', marginTop: '2rem' }}>
         {selectedPatientUuid ? (
           <>
-            <MultiChartSelector patientUuid={selectedPatientUuid} />
+            <MultiChartSelector patientUuid={selectedPatientUuid} chartType="bar" showAllVisits />
             <div style={{ marginTop: '2rem', width: '100%' }}>
               <div style={{ display: 'grid', gap: '1rem' }}>
                 <div>
@@ -384,12 +384,6 @@ function parseDimensionScore(scoreStr: string) {
 
 // Utility to map obs to answers for form questions
 function mapObsToAnswers(obsArray: any[], questions: any[]) {
-  // console.log('DEBUG: mapObsToAnswers called');
-  // console.log('DEBUG: obsArray', obsArray);
-  // console.log(
-  //   'DEBUG: questions',
-  //   questions.map((q) => ({ id: q.id, concept: q.questionOptions?.concept, answers: q.questionOptions?.answers })),
-  // );
   const answers: Record<string, any> = {};
   questions.forEach((q) => {
     // Match obs by concept UUID
@@ -398,19 +392,14 @@ function mapObsToAnswers(obsArray: any[], questions: any[]) {
       answers[q.id] = undefined;
       return;
     }
-    // Log concept being searched
-    // console.log('DEBUG: Searching for concept', concept, 'for question', q.id);
     const obsMatch = obsArray.find((obs) => obs.concept === concept || (obs.concept && obs.concept.uuid === concept));
-    // console.log('DEBUG: obsMatch for', q.id, obsMatch);
     if (obsMatch) {
       // Find the selected answer from questionOptions.answers
       const possibleAnswers = q.questionOptions.answers || [];
-      // console.log('DEBUG: possibleAnswers for', q.id, possibleAnswers);
       // Try to match by concept or value
       const selected = possibleAnswers.find(
         (a: any) => a.concept === obsMatch.valueCoded || a.value === obsMatch.value || a.concept === obsMatch.value,
       );
-      // console.log('DEBUG: selected answer for', q.id, selected);
       answers[q.id] = selected ? selected.value : obsMatch.value || obsMatch.valueCoded || 'Not answered';
     } else {
       answers[q.id] = undefined;
@@ -588,6 +577,14 @@ function normalizeStigmaType(raw?: string) {
   return 'Unknown';
 }
 
+function getOrdinalSuffix(n: number) {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  if (n % 10 === 1) return 'st';
+  if (n % 10 === 2) return 'nd';
+  if (n % 10 === 3) return 'rd';
+  return 'th';
+}
+
 function safeScore(value: any): number {
   if (value === null || value === undefined || value === '') return 0;
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -618,41 +615,76 @@ function getStigmaScore(record: any, targetType: string) {
   );
 }
 
-function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<typeof aggregateByDateGrouped> }) {
+function VisitStigmaBarChart({
+  groupedVisits,
+  selectedVisitIndex,
+  showAllVisits = false,
+}: {
+  groupedVisits: ReturnType<typeof aggregateByDateGrouped>;
+  selectedVisitIndex: number;
+  showAllVisits?: boolean;
+}) {
   if (!groupedVisits || !groupedVisits.length) return null;
 
   const stigmaTypes = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
-  const visitEntries = groupedVisits.slice(0, 3);
-  const visitLabels = visitEntries.map((entry, index) =>
-    index === 0 ? '1st visit' : index === 1 ? '2nd visit' : index === 2 ? '3rd visit' : `${index + 1}th visit`,
-  );
+  const totalDenominators: Record<string, number> = {
+    'आत्मलान्छना': 30,
+    'अपेक्षित लान्छना': 36,
+    'व्यावहारिक लान्छना': 13,
+  };
 
-  const visitColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(255, 159, 64, 0.85)'];
-  const visitBorderColors = ['#d32f2f', '#1565c0', '#ef6c00'];
+  const labels = stigmaTypes.map((type) => [type, `Total Score = ${totalDenominators[type]}`]);
 
-  const datasets = visitEntries.map((entry, visitIndex) => {
-    const data = stigmaTypes.map((type) => {
-      if (type === 'अपेक्षित लान्छना') return entry.as_score ?? 0;
-      if (type === 'व्यावहारिक लान्छना') return entry.es_score ?? 0;
-      if (type === 'आत्मलान्छना') return entry.is_score ?? 0;
-      return 0;
-    });
+  const datasets = showAllVisits
+    ? groupedVisits.map((visit, index) => ({
+        label: `${index + 1}${getOrdinalSuffix(index + 1)} visit`,
+        data: stigmaTypes.map((type) => {
+          if (type === 'अपेक्षित लान्छना') return visit.as_score ?? 0;
+          if (type === 'व्यावहारिक लान्छना') return visit.es_score ?? 0;
+          if (type === 'आत्मलान्छना') return visit.is_score ?? 0;
+          return 0;
+        }),
+        backgroundColor: ['rgba(54, 162, 235, 0.85)', 'rgba(75, 192, 192, 0.85)', 'rgba(255, 159, 64, 0.85)', 'rgba(153, 102, 255, 0.85)'][index % 4],
+        borderColor: '#1565c0',
+        borderWidth: 1,
+        borderRadius: 6,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8,
+      }))
+    : (() => {
+        const visitIndex = Math.min(Math.max(selectedVisitIndex, 0), groupedVisits.length - 1);
+        const selectedVisit = groupedVisits[visitIndex];
+        const visitLabel =
+          visitIndex === 0
+            ? '1st visit'
+            : visitIndex === 1
+            ? '2nd visit'
+            : visitIndex === 2
+            ? '3rd visit'
+            : `${visitIndex + 1}th visit`;
 
-    return {
-      label: visitLabels[visitIndex],
-      data,
-      backgroundColor: visitColors[visitIndex],
-      borderColor: visitBorderColors[visitIndex],
-      borderWidth: 1,
-      borderRadius: 6,
-      barPercentage: 0.7,
-      categoryPercentage: 0.8,
-    };
-  });
+        return [
+          {
+            label: visitLabel,
+            data: stigmaTypes.map((type) => {
+              if (type === 'अपेक्षित लान्छना') return selectedVisit.as_score ?? 0;
+              if (type === 'व्यावहारिक लान्छना') return selectedVisit.es_score ?? 0;
+              if (type === 'आत्मलान्छना') return selectedVisit.is_score ?? 0;
+              return 0;
+            }),
+            backgroundColor: 'rgba(54, 162, 235, 0.85)',
+            borderColor: '#1565c0',
+            borderWidth: 1,
+            borderRadius: 6,
+            barPercentage: 0.7,
+            categoryPercentage: 0.8,
+          },
+        ];
+      })();
 
   return (
     <Bar
-      data={{ labels: stigmaTypes, datasets }}
+      data={{ labels, datasets }}
       plugins={[
         {
           id: 'datalabels-stigma-types',
@@ -661,14 +693,14 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
             ctx.save();
             ctx.font = 'bold 12px sans-serif';
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
+            ctx.textBaseline = 'middle';
             chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
               const meta = chart.getDatasetMeta(datasetIndex);
               meta.data.forEach((bar: any, index: number) => {
                 const value = dataset.data[index];
                 if (value !== undefined && value !== null) {
                   const x = bar.x;
-                  const y = bar.y - 6;
+                  const y = bar.y;
                   ctx.fillStyle = '#333';
                   ctx.fillText(value.toFixed(1), x, y);
                 }
@@ -695,6 +727,58 @@ function VisitStigmaBarChart({ groupedVisits }: { groupedVisits: ReturnType<type
         },
         scales: {
           x: { title: { display: true, text: 'Stigma Type' } },
+          y: { beginAtZero: true, title: { display: true, text: 'Score' } },
+        },
+      }}
+    />
+  );
+}
+
+function VisitStigmaLineChart({ groupedVisits }: { groupedVisits: ReturnType<typeof aggregateByDateGrouped> }) {
+  if (!groupedVisits || !groupedVisits.length) return null;
+
+  const stigmaTypes = ['आत्मलान्छना', 'अपेक्षित लान्छना', 'व्यावहारिक लान्छना'];
+  const labels = groupedVisits.map((visit, index) =>
+    `${index + 1}${getOrdinalSuffix(index + 1)} visit`,
+  );
+
+  const lineColors = ['rgba(255, 99, 132, 0.85)', 'rgba(54, 162, 235, 0.85)', 'rgba(255, 206, 86, 0.85)'];
+
+  const datasets = stigmaTypes.map((type, index) => ({
+    label: type,
+    data: groupedVisits.map((visit) => getStigmaScore(visit, type)),
+    borderColor: lineColors[index],
+    backgroundColor: lineColors[index],
+    pointBackgroundColor: '#000',
+    pointBorderColor: '#000',
+    fill: false,
+    tension: 0.25,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    borderWidth: 2,
+    spanGaps: true,
+  }));
+
+  return (
+    <Line
+      data={{ labels, datasets }}
+      options={{
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'Visit-wise Stigma Scores by Type' },
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: (context: any) => {
+                const value = typeof context.raw === 'number' ? context.raw.toFixed(1) : context.raw;
+                return `${context.dataset.label}: ${value}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { title: { display: true, text: 'Visit' } },
           y: { beginAtZero: true, title: { display: true, text: 'Score' } },
         },
       }}
@@ -734,21 +818,27 @@ function StigmaLineChart({ data }: { data: ReturnType<typeof aggregateByDate> })
           id: 'datalabels-line',
           afterDatasetsDraw: (chart: any) => {
             const ctx = chart.ctx;
-            ctx.save();
-            ctx.font = 'bold 12px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
-              const meta = chart.getDatasetMeta(datasetIndex);
-              ctx.fillStyle = dataset.borderColor;
-              meta.data.forEach((point: any, index: number) => {
-                const value = dataset.data[index];
-                if (value !== null) {
-                  ctx.fillText(value, point.x, point.y - 8);
-                }
+              ctx.save();
+              const fontSize = window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 13 : 14;
+              ctx.font = `bold ${fontSize}px sans-serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              // Draw labels in black with a white stroke for contrast (matches intersectional visualization)
+              ctx.fillStyle = '#000';
+              ctx.strokeStyle = '#fff';
+              ctx.lineWidth = 3;
+              chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+                const meta = chart.getDatasetMeta(datasetIndex);
+                meta.data.forEach((point: any, index: number) => {
+                  const value = dataset.data[index];
+                  if (typeof value === 'number' && !isNaN(value)) {
+                    const text = value.toFixed(1);
+                    ctx.strokeText(text, point.x, point.y);
+                    ctx.fillText(text, point.x, point.y);
+                  }
+                });
               });
-            });
-            ctx.restore();
+              ctx.restore();
           },
         },
       ]}
@@ -777,10 +867,14 @@ export default function MultiChartSelector({
   patientUuid,
   filterByDate,
   chartType = 'line',
+  recentOnly = false,
+  showAllVisits = true,
 }: {
   patientUuid: string;
   filterByDate?: string;
   chartType?: 'line' | 'bar';
+  recentOnly?: boolean;
+  showAllVisits?: boolean;
 }) {
   // Fetch data for the patient
   const { data, isLoading, error } = useCovidStigmaData(patientUuid);
@@ -798,6 +892,29 @@ export default function MultiChartSelector({
   // Prepare chart data
   const dateDataLine = useMemo(() => (filteredData ? aggregateByDate(filteredData) : []), [filteredData]);
   const dateDataGrouped = useMemo(() => (filteredData ? aggregateByDateGrouped(filteredData) : []), [filteredData]);
+  const [selectedVisitIndex, setSelectedVisitIndex] = React.useState<number>(0);
+
+  const visitOptions = useMemo(
+    () =>
+      dateDataGrouped.map((entry, index) => ({
+        value: index,
+        label: `${index + 1}${getOrdinalSuffix(index + 1)} visit`,
+      })),
+    [dateDataGrouped],
+  );
+
+  React.useEffect(() => {
+    if (selectedVisitIndex >= dateDataGrouped.length) {
+      setSelectedVisitIndex(0);
+    }
+  }, [dateDataGrouped, selectedVisitIndex]);
+
+  React.useEffect(() => {
+    if (!recentOnly) return;
+    if (dateDataGrouped.length > 0) {
+      setSelectedVisitIndex(dateDataGrouped.length - 1);
+    }
+  }, [dateDataGrouped, recentOnly]);
 
   // Loading and error states
   if (isLoading) return <p>Loading stigma data...</p>;
@@ -822,12 +939,44 @@ export default function MultiChartSelector({
         alignItems: 'center',
       }}
     >
+      {dateDataGrouped.length > 0 && chartType === 'bar' && !recentOnly && !showAllVisits && (
+        <div
+          style={{
+            width: '100%',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '0.75rem',
+          }}
+        >
+          <label style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>Visit:</label>
+          <select
+            value={selectedVisitIndex}
+            onChange={(e) => setSelectedVisitIndex(Number(e.target.value))}
+            style={{
+              padding: '0.65rem 0.85rem',
+              borderRadius: 6,
+              border: '1px solid #ccc',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              minWidth: 200,
+            }}
+          >
+            {visitOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {/* Responsive chart area: fills card, not congested */}
       <div style={{ width: '100%', minHeight: 400, height: '50vw', maxHeight: 600 }}>
         {chartType === 'bar' ? (
-          <VisitStigmaBarChart groupedVisits={dateDataGrouped} />
+          <VisitStigmaBarChart groupedVisits={dateDataGrouped} selectedVisitIndex={selectedVisitIndex} showAllVisits={showAllVisits} />
         ) : (
-          <StigmaLineChart data={dateDataLine} />
+          <VisitStigmaLineChart groupedVisits={dateDataGrouped} />
         )}
       </div>
     </div>

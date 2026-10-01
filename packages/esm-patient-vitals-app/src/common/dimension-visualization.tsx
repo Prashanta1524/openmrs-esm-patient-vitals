@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Chart } from 'react-chartjs-2';
 import 'chart.js/auto';
 import { useSession } from '@openmrs/esm-framework';
+import { getMaxVisitCount } from './visit-utils';
 
 interface DimensionVisualizationProps {
   allPatientsData: any[];
@@ -42,21 +43,16 @@ const DOMAIN_UUIDS = {
   em_domain_is: '373eca5f-bc30-4b5e-a799-c50931731209',
 };
 
-// Helper function to extract dimension scores from raw observations
-// Matches observations by concept UUID (code.coding[0].code)
-function extractDimensionScores(
+// Helper function to extract dimension scores grouped by visit from raw observations
+// Matches observations by domain concept UUID and returns scores grouped by encounter order.
+function extractDimensionVisitScores(
   allPatientsData: any[],
   selectedType: 'as' | 'es' | 'is',
   currentLocationUuid?: string,
 ) {
-  const domainScores: Record<string, number[]> = {
-    hiv: [],
-    mh: [],
-    sgm: [],
-    em: [],
-  };
+  const visitScores: Array<Record<'hiv' | 'mh' | 'sgm' | 'em', number[]>> = [];
+  let maxVisitCount = 0;
 
-  // Get the 4 concept UUIDs for the selected stigma type
   const uuids = {
     hiv: DOMAIN_UUIDS[`hiv_domain_${selectedType}` as keyof typeof DOMAIN_UUIDS],
     mh: DOMAIN_UUIDS[`mh_domain_${selectedType}` as keyof typeof DOMAIN_UUIDS],
@@ -64,38 +60,37 @@ function extractDimensionScores(
     em: DOMAIN_UUIDS[`em_domain_${selectedType}` as keyof typeof DOMAIN_UUIDS],
   };
 
-  console.log('🔍 Dimension Extraction using concept UUIDs:', { selectedType, uuids });
-  console.log('📊 Total patients/observation arrays received:', allPatientsData.length);
+  allPatientsData.forEach((patientObservations) => {
+    const encounters = new Map<
+      string,
+      {
+        date: Date;
+        scores: Record<'hiv' | 'mh' | 'sgm' | 'em', number[]>;
+      }
+    >();
 
-  let totalObsCount = 0;
-  const sampleConceptUuids: string[] = [];
-  allPatientsData.forEach((p) => {
-    totalObsCount += p?.length || 0;
-    // Collect some sample concept UUIDs
-    if (sampleConceptUuids.length < 20) {
-      p?.forEach((obs: any) => {
-        const uuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || 'N/A';
-        if (sampleConceptUuids.length < 20) sampleConceptUuids.push(uuid);
-      });
-    }
-  });
-  console.log('📊 Total observations across all patients:', totalObsCount);
-  console.log('📊 Sample concept UUIDs in data:', sampleConceptUuids);
-
-  let foundCount = 0;
-
-  allPatientsData.forEach((patientObservations, patientIdx) => {
     patientObservations.forEach((obs: any) => {
-      // Skip location filtering since data is already filtered by conf_dashboard
-      // const obsLocationUuid = obs.locationUuid || obs.location?.uuid;
-      // if (currentLocationUuid && obsLocationUuid && obsLocationUuid !== currentLocationUuid) {
-      //   return;
-      // }
-
-      // Get concept UUID from observation (code.coding[0].code maps from obs.concept.uuid)
       const conceptUuid = obs.code?.coding?.[0]?.code || obs.concept?.uuid || '';
 
-      // Extract numeric value
+      const encounterKey =
+        obs.encounter?.uuid ||
+        obs.encounter?.reference ||
+        obs.encounterUuid ||
+        String(obs.effectiveDateTime || obs.date || 'unknown');
+      if (!encounterKey) return;
+
+      const dateValue = obs.effectiveDateTime || obs.date;
+      const date = dateValue ? new Date(dateValue) : new Date();
+      if (Number.isNaN(date.getTime())) return;
+
+      const group = encounters.get(encounterKey) || {
+        date,
+        scores: { hiv: [], mh: [], sgm: [], em: [] },
+      };
+      if (!encounters.has(encounterKey)) {
+        encounters.set(encounterKey, group);
+      }
+
       let score: number | null = null;
       if (typeof obs.valueQuantity?.value === 'number') {
         score = obs.valueQuantity.value;
@@ -108,64 +103,61 @@ function extractDimensionScores(
 
       if (score === null || isNaN(score) || score <= 0) return;
 
-      // Match by exact concept UUID
-      if (conceptUuid === uuids.hiv) {
-        domainScores.hiv.push(score);
-        foundCount++;
-        if (foundCount <= 8) console.log(`📊 HIV ${selectedType.toUpperCase()}: ${score}`);
-      } else if (conceptUuid === uuids.mh) {
-        domainScores.mh.push(score);
-        foundCount++;
-        if (foundCount <= 8) console.log(`📊 MH ${selectedType.toUpperCase()}: ${score}`);
-      } else if (conceptUuid === uuids.sgm) {
-        domainScores.sgm.push(score);
-        foundCount++;
-        if (foundCount <= 8) console.log(`📊 SGM ${selectedType.toUpperCase()}: ${score}`);
-      } else if (conceptUuid === uuids.em) {
-        domainScores.em.push(score);
-        foundCount++;
-        if (foundCount <= 8) console.log(`📊 EM ${selectedType.toUpperCase()}: ${score}`);
+      if (conceptUuid !== uuids.hiv && conceptUuid !== uuids.mh && conceptUuid !== uuids.sgm && conceptUuid !== uuids.em) {
+        return;
       }
+
+      if (conceptUuid === uuids.hiv) group.scores.hiv.push(score);
+      else if (conceptUuid === uuids.mh) group.scores.mh.push(score);
+      else if (conceptUuid === uuids.sgm) group.scores.sgm.push(score);
+      else if (conceptUuid === uuids.em) group.scores.em.push(score);
+    });
+
+    const sortedEncounters = Array.from(encounters.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+    maxVisitCount = Math.max(maxVisitCount, sortedEncounters.length);
+    sortedEncounters.forEach((encounterGroup, encounterIndex) => {
+      const current = visitScores[encounterIndex] || { hiv: [], mh: [], sgm: [], em: [] };
+      current.hiv.push(...encounterGroup.scores.hiv);
+      current.mh.push(...encounterGroup.scores.mh);
+      current.sgm.push(...encounterGroup.scores.sgm);
+      current.em.push(...encounterGroup.scores.em);
+      visitScores[encounterIndex] = current;
     });
   });
 
-  console.log('📈 Dimension Results for', selectedType.toUpperCase(), ':', {
-    counts: {
-      hiv: domainScores.hiv.length,
-      mh: domainScores.mh.length,
-      sgm: domainScores.sgm.length,
-      em: domainScores.em.length,
-    },
-    allValues: {
-      hiv: domainScores.hiv,
-      mh: domainScores.mh,
-      sgm: domainScores.sgm,
-      em: domainScores.em,
-    },
-  });
-
-  return domainScores;
+  const visitCount = Math.max(visitScores.length, maxVisitCount, getMaxVisitCount(allPatientsData));
+  return Array.from({ length: visitCount }, (_, index) =>
+    visitScores[index] || { hiv: [], mh: [], sgm: [], em: [] },
+  );
 }
 
-// Calculate min and max for each domain
-function calculateMinMax(domainScores: Record<string, number[]>) {
-  const result: Record<string, { min: number; max: number; count: number }> = {};
+function calculateVisitAverages(
+  visitScores: Array<Record<'hiv' | 'mh' | 'sgm' | 'em', number[]>>,
+) {
+  const average = (values: number[]) => {
+    if (!values.length) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  };
 
-  Object.entries(domainScores).forEach(([domain, scores]) => {
-    if (scores.length === 0) {
-      result[domain] = { min: 0, max: 0, count: 0 };
-    } else {
-      // Filter positive values for min calculation (ignore 0 scores)
-      const positiveScores = scores.filter((v) => v > 0);
-      result[domain] = {
-        min: positiveScores.length > 0 ? Math.min(...positiveScores) : 0,
-        max: Math.max(...scores),
-        count: scores.length,
-      };
-    }
-  });
+  return visitScores.map((scores, index) => ({
+    visit: index + 1,
+    hiv: average(scores.hiv),
+    mh: average(scores.mh),
+    sgm: average(scores.sgm),
+    em: average(scores.em),
+  }));
+}
 
-  return result;
+function getOrdinalSuffix(n: number) {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  if (n % 10 === 1) return 'st';
+  if (n % 10 === 2) return 'nd';
+  if (n % 10 === 3) return 'rd';
+  return 'th';
+}
+
+function formatVisitLabel(index: number) {
+  return `${index + 1}${getOrdinalSuffix(index + 1)} visit`;
 }
 
 export function DimensionVisualization({
@@ -173,46 +165,129 @@ export function DimensionVisualization({
   currentLocationUuid,
 }: DimensionVisualizationProps) {
   const session = useSession();
-  const [selectedType, setSelectedType] = useState<'as' | 'es' | 'is'>('as');
+  const [selectedType, setSelectedType] = useState<'as' | 'es' | 'is' | 'all'>('as');
+  const [selectedDomain, setSelectedDomain] = useState<'hiv' | 'mh' | 'sgm' | 'em'>('hiv');
 
   // Use passed location or session location
   const locationUuid = currentLocationUuid || session?.sessionLocation?.uuid;
   const locationName = session?.sessionLocation?.display || 'Current Site';
 
-  const dimensionData = useMemo(() => {
-    const domainScores = extractDimensionScores(allPatientsData, selectedType, locationUuid);
-    return calculateMinMax(domainScores);
+  const visitAverages = useMemo(() => {
+    if (selectedType === 'all') {
+      const asScores = extractDimensionVisitScores(allPatientsData, 'as', locationUuid);
+      const esScores = extractDimensionVisitScores(allPatientsData, 'es', locationUuid);
+      const isScores = extractDimensionVisitScores(allPatientsData, 'is', locationUuid);
+
+      const maxLen = Math.max(asScores.length, esScores.length, isScores.length);
+      const merged: Array<Record<'hiv' | 'mh' | 'sgm' | 'em', number[]>> = [];
+
+      for (let i = 0; i < maxLen; i++) {
+        merged[i] = { hiv: [], mh: [], sgm: [], em: [] };
+        const srcs = [asScores[i], esScores[i], isScores[i]];
+        srcs.forEach((s) => {
+          if (!s) return;
+          merged[i].hiv.push(...(s.hiv || []));
+          merged[i].mh.push(...(s.mh || []));
+          merged[i].sgm.push(...(s.sgm || []));
+          merged[i].em.push(...(s.em || []));
+        });
+      }
+
+      return calculateVisitAverages(merged);
+    }
+
+    const visitScores = extractDimensionVisitScores(allPatientsData, selectedType as 'as' | 'es' | 'is', locationUuid);
+    return calculateVisitAverages(visitScores);
   }, [allPatientsData, selectedType, locationUuid]);
 
-  // Prepare chart data with new colors - wrapped in useMemo
-  const chartData = useMemo(
-    () => ({
-      labels: Object.keys(DOMAIN_LABELS).map((key) => DOMAIN_LABELS[key as keyof typeof DOMAIN_LABELS]),
+  const domainOptions = useMemo(
+    () =>
+      (Object.keys(DOMAIN_LABELS) as Array<keyof typeof DOMAIN_LABELS>).map((key) => ({
+        value: key,
+        label: DOMAIN_LABELS[key],
+      })),
+    [],
+  );
+
+  const roundValue = (value: number) => Number(value.toFixed(1));
+
+  // Prepare chart data with visits on the x-axis and selected domain values
+  const chartData = useMemo(() => {
+    const colors = ['#9C27B0', '#FF9800', '#4CAF50'];
+    const borderColors = ['#7B1FA2', '#F57C00', '#388E3C'];
+
+    if (selectedType === 'all') {
+      const asScores = calculateVisitAverages(extractDimensionVisitScores(allPatientsData, 'as', locationUuid));
+      const esScores = calculateVisitAverages(extractDimensionVisitScores(allPatientsData, 'es', locationUuid));
+      const isScores = calculateVisitAverages(extractDimensionVisitScores(allPatientsData, 'is', locationUuid));
+
+      const maxLen = Math.max(asScores.length, esScores.length, isScores.length);
+      const visitLabels = Array.from({ length: maxLen }, (_, i) => formatVisitLabel(i));
+
+      const makeData = (arr: any[]) =>
+        Array.from({ length: maxLen }, (_, i) => roundValue((arr[i] && (arr[i] as any)[selectedDomain]) || 0));
+
+      return {
+        labels: visitLabels,
+        datasets: [
+          {
+            label: `${STIGMA_TYPE_LABELS.as} (${DOMAIN_LABELS[selectedDomain]})`,
+            data: makeData(asScores),
+            backgroundColor: colors[0],
+            borderColor: borderColors[0],
+            borderWidth: 3,
+            fill: false,
+            tension: 0.35,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            pointHitRadius: 10,
+          },
+          {
+            label: `${STIGMA_TYPE_LABELS.es} (${DOMAIN_LABELS[selectedDomain]})`,
+            data: makeData(esScores),
+            backgroundColor: colors[1],
+            borderColor: borderColors[1],
+            borderWidth: 3,
+            fill: false,
+            tension: 0.35,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            pointHitRadius: 10,
+          },
+          {
+            label: `${STIGMA_TYPE_LABELS.is} (${DOMAIN_LABELS[selectedDomain]})`,
+            data: makeData(isScores),
+            backgroundColor: colors[2],
+            borderColor: borderColors[2],
+            borderWidth: 3,
+            fill: false,
+            tension: 0.35,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            pointHitRadius: 10,
+          },
+        ],
+      };
+    }
+
+    return {
+      labels: visitAverages.map((_, index) => formatVisitLabel(index)),
       datasets: [
         {
-          label: 'Max Score',
-          data: Object.keys(DOMAIN_LABELS).map((key) => dimensionData[key]?.max || 0),
-          backgroundColor: ['#9C27B0', '#9C27B0', '#9C27B0', '#9C27B0'],
-          borderColor: ['#7B1FA2', '#7B1FA2', '#7B1FA2', '#7B1FA2'],
-          borderWidth: 2,
-          borderRadius: 6,
-          barPercentage: 0.8,
-          categoryPercentage: 0.7,
-        },
-        {
-          label: 'Min Score',
-          data: Object.keys(DOMAIN_LABELS).map((key) => dimensionData[key]?.min || 0),
-          backgroundColor: ['#FF9800', '#FF9800', '#FF9800', '#FF9800'],
-          borderColor: ['#F57C00', '#F57C00', '#F57C00', '#F57C00'],
-          borderWidth: 2,
-          borderRadius: 6,
-          barPercentage: 0.8,
-          categoryPercentage: 0.7,
+          label: `${DOMAIN_LABELS[selectedDomain]} (${selectedType === 'as' ? 'Anticipated' : selectedType === 'es' ? 'Enacted' : 'Internalized'})`,
+          data: visitAverages.map((visit) => roundValue(visit[selectedDomain])),
+          backgroundColor: colors[0],
+          borderColor: borderColors[0],
+          borderWidth: 3,
+          fill: false,
+          tension: 0.35,
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          pointHitRadius: 10,
         },
       ],
-    }),
-    [dimensionData],
-  );
+    };
+  }, [visitAverages, selectedDomain, selectedType, allPatientsData, locationUuid]);
 
   const options: any = {
     responsive: true,
@@ -223,8 +298,8 @@ export function DimensionVisualization({
       },
     },
     interaction: {
-      mode: 'index',
-      intersect: false,
+      mode: 'nearest',
+      intersect: true,
     },
     plugins: {
       legend: {
@@ -244,7 +319,7 @@ export function DimensionVisualization({
         display: false,
       },
       tooltip: {
-        enabled: false, // Disable hover tooltips
+        enabled: true,
       },
     },
     animation: {
@@ -255,7 +330,7 @@ export function DimensionVisualization({
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Score',
+          text: 'Average Score',
           font: {
             size: window.innerWidth <= 480 ? 11 : 13,
             weight: 'bold',
@@ -280,30 +355,6 @@ export function DimensionVisualization({
     },
   };
 
-  // Custom plugin to display values on bars (like stigma type)
-  const datalabelsPlugin = {
-    id: 'datalabels-dimension',
-    afterDatasetsDraw: function (chart: any) {
-      const ctx = chart.ctx;
-      ctx.save();
-      const fontSize = window.innerWidth <= 480 ? 11 : window.innerWidth <= 768 ? 14 : 16;
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillStyle = '#333';
-      chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
-        const meta = chart.getDatasetMeta(datasetIndex);
-        meta.data.forEach((bar: any, index: number) => {
-          const value = dataset.data[index];
-          if (value > 0) {
-            ctx.fillText(value, bar.x, bar.y - 8);
-          }
-        });
-      });
-      ctx.restore();
-    },
-  };
-
   return (
     <div
       style={{
@@ -316,13 +367,13 @@ export function DimensionVisualization({
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
         <label style={{ marginRight: 8, fontWeight: 'bold', fontSize: 'clamp(0.85rem, 2vw, 1rem)' }}>
           Stigma Type:
         </label>
         <select
           value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value as 'as' | 'es' | 'is')}
+          onChange={(e) => setSelectedType(e.target.value as 'as' | 'es' | 'is' | 'all')}
           style={{
             padding: 'clamp(6px, 1.5vw, 8px)',
             borderRadius: 4,
@@ -331,9 +382,31 @@ export function DimensionVisualization({
             cursor: 'pointer',
           }}
         >
-          <option value="as">{STIGMA_TYPE_LABELS.as}</option>
-          <option value="es">{STIGMA_TYPE_LABELS.es}</option>
-          <option value="is">{STIGMA_TYPE_LABELS.is}</option>
+            <option value="all">All stigma types</option>
+            <option value="as">{STIGMA_TYPE_LABELS.as}</option>
+            <option value="es">{STIGMA_TYPE_LABELS.es}</option>
+            <option value="is">{STIGMA_TYPE_LABELS.is}</option>
+        </select>
+
+        <label style={{ marginRight: 8, fontWeight: 'bold', fontSize: 'clamp(0.85rem, 2vw, 1rem)' }}>
+          Dimension:
+        </label>
+        <select
+          value={selectedDomain}
+          onChange={(e) => setSelectedDomain(e.target.value as 'hiv' | 'mh' | 'sgm' | 'em')}
+          style={{
+            padding: 'clamp(6px, 1.5vw, 8px)',
+            borderRadius: 4,
+            border: '1px solid #ccc',
+            fontSize: 'clamp(0.8rem, 2vw, 0.95rem)',
+            cursor: 'pointer',
+          }}
+        >
+          {domainOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -346,10 +419,9 @@ export function DimensionVisualization({
       >
         <Chart
           key={`dimension-chart-${selectedType}`}
-          type="bar"
+          type="line"
           data={chartData}
           options={options}
-          plugins={[datalabelsPlugin]}
         />
       </div>
     </div>

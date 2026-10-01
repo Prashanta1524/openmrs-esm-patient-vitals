@@ -16,9 +16,10 @@ export function useInfiniteVisits(
   patientUuid: string,
   params: Record<string, number | string> = {},
   rep: string = customRepresentation,
+  pageSize: number = 10,
 ) {
   const url = new URL(
-    `${window.openmrsBase}/${restBaseUrl}/visit?patient=${patientUuid}&v=${rep}`,
+    `${window.openmrsBase}/${restBaseUrl}/visit?patient=${patientUuid}&v=${rep}&limit=${pageSize}`,
     window.location.toString(),
   );
   for (const key in params) {
