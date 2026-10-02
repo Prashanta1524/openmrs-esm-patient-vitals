@@ -101,7 +101,7 @@ function extractDimensionVisitScores(
         if (match) score = parseFloat(match[0]);
       }
 
-      if (score === null || isNaN(score) || score <= 0) return;
+      if (score === null || isNaN(score) || score < 0) return;
 
       if (conceptUuid !== uuids.hiv && conceptUuid !== uuids.mh && conceptUuid !== uuids.sgm && conceptUuid !== uuids.em) {
         return;

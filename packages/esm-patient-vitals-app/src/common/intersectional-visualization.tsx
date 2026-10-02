@@ -43,7 +43,7 @@ function extractIntersectionalScores(allPatientsData: any[]) {
         if (match) score = parseFloat(match[0]);
       }
 
-      if (score === null || isNaN(score) || score <= 0) return;
+      if (score === null || isNaN(score) || score < 0) return;
 
       if (
         conceptUuid === INTERSECTIONAL_UUIDS.as ||
@@ -71,7 +71,8 @@ function calculateVisitAverages(scoresByVisit: Array<Record<'as' | 'es' | 'is', 
   return scoresByVisit.map((visitScores, index) => {
     const average = (values: number[]) => {
       if (!values.length) return 0;
-      return values.reduce((sum, value) => sum + value, 0) / values.length;
+      // Round to 1 decimal place, same as the Dimensions chart
+      return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1));
     };
 
     return {
@@ -136,7 +137,7 @@ function calculateVisitScores(allPatientsData: any[]) {
         const match = obs.value.match(/-?\d+(?:\.\d+)?/);
         if (match) score = parseFloat(match[0]);
       }
-      if (score === null || isNaN(score) || score <= 0) return;
+      if (score === null || isNaN(score) || score < 0) return;
 
       if (isAs) group.scores.as.push(score);
       if (isEs) group.scores.es.push(score);

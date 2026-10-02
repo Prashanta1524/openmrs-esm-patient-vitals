@@ -36,13 +36,22 @@ const ALL_STIGMA_UUIDS = new Set([
 function normalizeStigmaType(raw: string | undefined, conceptUuid?: string): string {
   // First check by concept UUID (most reliable)
   if (conceptUuid && ALL_STIGMA_UUIDS.has(conceptUuid)) {
-    if (conceptUuid === STIGMA_CONCEPT_UUIDS.internalized || conceptUuid === STIGMA_CONCEPT_UUIDS.internalized_inter) {
+    // Intersectional scores are on a different scale (/100, /120, /130) and have
+    // their own chart; never average them with the total stigma scores here.
+    if (
+      conceptUuid === STIGMA_CONCEPT_UUIDS.internalized_inter ||
+      conceptUuid === STIGMA_CONCEPT_UUIDS.anticipated_inter ||
+      conceptUuid === STIGMA_CONCEPT_UUIDS.enacted_inter
+    ) {
+      return '';
+    }
+    if (conceptUuid === STIGMA_CONCEPT_UUIDS.internalized) {
       return 'आत्मलान्छना';
     }
-    if (conceptUuid === STIGMA_CONCEPT_UUIDS.anticipated || conceptUuid === STIGMA_CONCEPT_UUIDS.anticipated_inter) {
+    if (conceptUuid === STIGMA_CONCEPT_UUIDS.anticipated) {
       return 'अपेक्षित लान्छना';
     }
-    if (conceptUuid === STIGMA_CONCEPT_UUIDS.enacted || conceptUuid === STIGMA_CONCEPT_UUIDS.enacted_inter) {
+    if (conceptUuid === STIGMA_CONCEPT_UUIDS.enacted) {
       return 'व्यावहारिक लान्छना';
     }
   }
@@ -51,11 +60,8 @@ function normalizeStigmaType(raw: string | undefined, conceptUuid?: string): str
   const s = (raw || '').toLowerCase();
   if (!s) return '';
 
-  // INCLUDE intersectional stigma scores - these are the aggregated scores we want
-  if (s.includes('intersectional stigma score')) {
-    if (s.includes('internalized')) return 'आत्मलान्छना';
-    if (s.includes('anticipated')) return 'अपेक्षित लान्छना';
-    if (s.includes('enacted')) return 'व्यावहारिक लान्छना';
+  // EXCLUDE intersectional stigma scores - they have their own chart and scale
+  if (s.includes('intersectional')) {
     return '';
   }
 
@@ -276,7 +282,7 @@ function calculateVisitScores(
       if (score === null || Number.isNaN(score)) return;
 
       const maxScore = norm === 'आत्मलान्छना' ? 30 : norm === 'अपेक्षित लान्छना' ? 36 : norm === 'व्यावहारिक लान्छना' ? 13 : 0;
-      if (maxScore <= 0 || score <= 0 || score > maxScore) return;
+      if (maxScore <= 0 || score < 0 || score > maxScore) return;
 
       const encounter = encounters.get(encounterKey);
       if (encounter) {
@@ -305,7 +311,8 @@ function calculateVisitScores(
 
   const average = (values: number[]) => {
     if (!values.length) return 0;
-    return values.reduce((sum, value) => sum + value, 0) / values.length;
+    // Round to 1 decimal place, same as the Dimensions chart
+    return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1));
   };
 
   const visitCount = Math.max(visitScores.length, maxVisitCount, getMaxVisitCount(allPatientsData));
