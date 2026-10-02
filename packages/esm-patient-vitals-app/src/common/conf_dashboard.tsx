@@ -281,8 +281,21 @@ async function fetchPatientStigmaDataWithLocation(patientId: string): Promise<an
 
     const observations: any[] = [];
 
+    // Only सहभागी फारम / (पुनः भेट) फाराम are visits: they are the only forms that
+    // carry a stigma total score. Skip काउन्सिलर फारम and any other encounter,
+    // otherwise they are numbered as visits and shift every later visit.
+    const STIGMA_TOTAL_SCORE_UUIDS = new Set([
+      'b5be0487-ef8e-4c39-ad86-39dd341cf0a7', // Anticipated stigma score
+      '367a6a1f-b951-4eac-8068-a5f0801d6aff', // Enacted stigma score
+      '3f318839-599e-47d7-96f5-4c81ca64dfc3', // Internalized stigma score
+    ]);
+
     // Extract observations from encounters with location info
     for (const encounter of data.results) {
+      const isStigmaVisit =
+        Array.isArray(encounter.obs) && encounter.obs.some((o: any) => STIGMA_TOTAL_SCORE_UUIDS.has(o?.concept?.uuid));
+      if (!isStigmaVisit) continue;
+
       const encounterLocationUuid = encounter.location?.uuid;
       const encounterDate = encounter.encounterDatetime;
 
